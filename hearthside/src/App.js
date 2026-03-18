@@ -1243,6 +1243,7 @@ function SellerApp({ user, onSignOut }) {
         emoji: editForm.emoji||"🍞",
         desc: editForm.desc,
         stock: parseInt(editForm.stock)||0,
+        availability: editForm.availability||"available",
         image_url: uploadedUrls[0]||editProduct.image_url||null,
         images: uploadedUrls.length>0 ? JSON.stringify(uploadedUrls) : editProduct.images||null,
       };
@@ -1311,7 +1312,7 @@ function SellerApp({ user, onSignOut }) {
             <p style={{ fontSize:14, color:C.textMuted, margin:0 }}>No products yet — click Add Product to get started!</p>
           </div>
         )}
-        <div style={{ display:"grid", gridTemplateColumns:"repeat(3,minmax(0,1fr))", gap:12 }}>
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(4,minmax(0,1fr))", gap:10 }}>
           {products.map(p=>(
             <div key={p.id} onClick={()=>{ setEditProduct({...p}); setEditForm(null); setEditSlide(0); }} style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:10, overflow:"hidden", cursor:"pointer", transition:"border-color 0.15s" }}
               onMouseEnter={e=>e.currentTarget.style.borderColor=C.borderMid}
@@ -1322,7 +1323,15 @@ function SellerApp({ user, onSignOut }) {
                   ? <img src={p.image_url} alt={p.name} style={{ position:"absolute", inset:0, width:"100%", height:"100%", objectFit:"cover" }}/>
                   : <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", fontSize:44 }}>{p.emoji}</div>
                 }
-                {p.stock<5 && (
+                {p.availability==="out_of_stock" && (
+                  <div style={{ position:"absolute", inset:0, background:"rgba(0,0,0,0.45)", display:"flex", alignItems:"center", justifyContent:"center", borderRadius:"10px 10px 0 0" }}>
+                    <span style={{ background:"rgba(181,32,32,0.9)", color:"#FFF", fontSize:11, fontWeight:700, padding:"4px 10px", borderRadius:4 }}>Out of Stock</span>
+                  </div>
+                )}
+                {p.availability==="out_till_eod" && (
+                  <span style={{ position:"absolute", top:8, left:8, background:"rgba(160,112,16,0.92)", color:"#FFF", fontSize:10, fontWeight:700, padding:"3px 8px", borderRadius:4 }}>⏱ Back Tomorrow</span>
+                )}
+                {(!p.availability||p.availability==="available") && p.stock<5 && (
                   <span style={{ position:"absolute", top:8, right:8, background:C.danger, color:"#FFF", fontSize:10, fontWeight:700, padding:"2px 7px", borderRadius:4 }}>⚠ Low stock</span>
                 )}
               </div>
@@ -1372,7 +1381,12 @@ function SellerApp({ user, onSignOut }) {
                     <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:10 }}>
                       <div>
                         <p style={{ fontSize:26, fontWeight:700, color:C.text, margin:"0 0 5px", letterSpacing:"-0.02em" }}>{editProduct.name}</p>
-                        <p style={{ fontSize:11, color:C.textMuted, margin:0 }}>{editProduct.emoji} · {editProduct.stock} in stock</p>
+                        <div style={{ display:"flex", alignItems:"center", gap:8, marginTop:3 }}>
+                          <span style={{ fontSize:11, color:C.textMuted }}>{editProduct.emoji} · {editProduct.stock} in stock</span>
+                          {editProduct.availability==="out_of_stock" && <span style={{ background:C.dangerBg, color:C.danger, fontSize:10, fontWeight:700, padding:"2px 8px", borderRadius:4 }}>Out of Stock</span>}
+                          {editProduct.availability==="out_till_eod" && <span style={{ background:C.warningBg, color:C.warning, fontSize:10, fontWeight:700, padding:"2px 8px", borderRadius:4 }}>⏱ Out Till EOD</span>}
+                          {(!editProduct.availability||editProduct.availability==="available") && <span style={{ background:C.successBg, color:C.success, fontSize:10, fontWeight:700, padding:"2px 8px", borderRadius:4 }}>✓ Available</span>}
+                        </div>
                       </div>
                       <p style={{ fontSize:30, fontWeight:700, color:C.accent, margin:0, letterSpacing:"-0.02em" }}>${editProduct.price?.toFixed(2)||"0.00"}</p>
                     </div>
@@ -1388,7 +1402,7 @@ function SellerApp({ user, onSignOut }) {
                     <div style={{ display:"flex", gap:8 }}>
                       <button onClick={()=>{ setEditProduct(null); }} style={{ flex:1, padding:"11px", border:`1px solid ${C.border}`, borderRadius:6, background:"transparent", color:C.textMuted, cursor:"pointer", fontSize:13 }}>Close</button>
                       <button onClick={()=>{
-                        setEditForm({ name:editProduct.name, price:String(editProduct.price||""), emoji:editProduct.emoji||"🍞", desc:editProduct.desc||"", stock:String(editProduct.stock||"10") });
+                        setEditForm({ name:editProduct.name, price:String(editProduct.price||""), emoji:editProduct.emoji||"🍞", desc:editProduct.desc||"", stock:String(editProduct.stock||"10"), availability:editProduct.availability||"available" });
                         // Initialize editImages from existing product images
                         const existingUrls = (() => {
                           try { return JSON.parse(editProduct.images||"[]"); } catch(e) { return editProduct.image_url?[editProduct.image_url]:[]; }
@@ -1491,6 +1505,26 @@ function SellerApp({ user, onSignOut }) {
                     <Inp label="Stock"        value={editForm.stock} onChange={v=>setEditForm({...editForm,stock:v})} ph="10"/>
                     <Inp label="Emoji"        value={editForm.emoji} onChange={v=>setEditForm({...editForm,emoji:v})} ph="🍞"/>
                   </div>
+                  {/* Availability toggle */}
+                  <div style={{ marginBottom:14 }}>
+                    <label style={{ fontSize:10, fontWeight:600, color:C.textMuted, display:"block", marginBottom:8, textTransform:"uppercase", letterSpacing:"0.08em" }}>Availability</label>
+                    <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:7 }}>
+                      {[
+                        { v:"available",       label:"✓ Available",          bg:C.successBg, color:C.success, border:C.success },
+                        { v:"out_of_stock",     label:"✕ Out of Stock",       bg:C.dangerBg,  color:C.danger,  border:C.danger  },
+                        { v:"out_till_eod",     label:"⏱ Out Till End of Day",bg:C.warningBg, color:C.warning, border:C.warning },
+                      ].map(opt=>(
+                        <button key={opt.v} onClick={()=>setEditForm({...editForm,availability:opt.v})} style={{
+                          padding:"9px 6px", border:`1px solid ${editForm.availability===opt.v?opt.border:C.border}`,
+                          borderRadius:6, background:editForm.availability===opt.v?opt.bg:"transparent",
+                          color:editForm.availability===opt.v?opt.color:C.textMuted,
+                          fontSize:11, fontWeight:editForm.availability===opt.v?700:400, cursor:"pointer",
+                          textAlign:"center", lineHeight:1.3
+                        }}>{opt.label}</button>
+                      ))}
+                    </div>
+                  </div>
+
                   <div style={{ marginBottom:16 }}>
                     <label style={{ fontSize:10, fontWeight:600, color:C.textMuted, display:"block", marginBottom:5, textTransform:"uppercase", letterSpacing:"0.08em" }}>Description</label>
                     <textarea value={editForm.desc} onChange={e=>setEditForm({...editForm,desc:e.target.value})} rows={3}
@@ -1614,60 +1648,166 @@ function SellerApp({ user, onSignOut }) {
 
   // ── SELLER FINANCES ──
   const Finances = () => {
-    const totalRev    = REV_DATA.reduce((s,d)=>s+d.revenue,0);
-    const totalExp    = REV_DATA.reduce((s,d)=>s+d.expenses,0);
-    const totalProfit = totalRev-totalExp;
-    const margin      = ((totalProfit/totalRev)*100).toFixed(1);
-    const expenses    = [
-      { label:"Ingredients", pct:45, amount:186.75, color:C.accent   },
-      { label:"Packaging",   pct:20, amount:83.00,  color:C.warning  },
-      { label:"Delivery",    pct:25, amount:103.75, color:C.info     },
-      { label:"Equipment",   pct:10, amount:41.50,  color:C.success  },
+    const COST_CATS = [
+      { value:"ingredients", label:"Ingredients", color:C.accent  },
+      { value:"packaging",   label:"Packaging",   color:C.warning },
+      { value:"delivery",    label:"Delivery",    color:C.info    },
+      { value:"equipment",   label:"Equipment",   color:C.success },
+      { value:"other",       label:"Other",       color:C.textMuted },
     ];
+    const [costs,     setCosts]     = useState([]);
+    const [revenue,   setRevenue]   = useState("");
+    const [newCat,    setNewCat]    = useState("ingredients");
+    const [newLabel,  setNewLabel]  = useState("");
+    const [newAmt,    setNewAmt]    = useState("");
+    const [saved,     setSaved]     = useState(false);
+
+    const addCost = () => {
+      if (!newAmt||parseFloat(newAmt)<=0) return;
+      const cat = COST_CATS.find(c=>c.value===newCat);
+      setCosts(p=>[...p,{ id:Date.now(), cat:newCat, label:newLabel||cat.label, amount:parseFloat(newAmt), color:cat.color }]);
+      setNewLabel(""); setNewAmt("");
+    };
+    const removeCost = (id) => setCosts(p=>p.filter(c=>c.id!==id));
+
+    const totalCosts  = costs.reduce((s,c)=>s+c.amount, 0);
+    const rev         = parseFloat(revenue)||0;
+    const profit      = rev - totalCosts;
+    const margin      = rev>0 ? ((profit/rev)*100).toFixed(1) : "—";
+
+    // Group costs by category for the bar chart
+    const costByCategory = COST_CATS.map(cat => ({
+      name: cat.label,
+      amount: costs.filter(c=>c.cat===cat.value).reduce((s,c)=>s+c.amount,0),
+      color: cat.color,
+    })).filter(c=>c.amount>0);
+
+    const totalPct = totalCosts > 0;
+    const highestCat = costByCategory.sort((a,b)=>b.amount-a.amount)[0];
+    const insightText = rev>0 && totalCosts>0
+      ? highestCat
+        ? `${highestCat.name} is your largest expense at $${highestCat.amount.toFixed(2)} (${((highestCat.amount/totalCosts)*100).toFixed(0)}% of total costs). ${parseFloat(margin)<62?"Your margin of "+margin+"% is below the 62% industry average — consider adjusting prices or reducing costs.":"Your margin of "+margin+"% is healthy. Keep tracking costs monthly to stay on track."}`
+        : "Add your costs below to see insights."
+      : "Enter your revenue and costs to unlock financial insights.";
+
     return (
-      <div style={{ padding:"2rem" }}>
+      <div style={{ padding:"2rem", maxWidth:900 }}>
         <h1 style={{ fontSize:24, fontWeight:700, color:C.text, margin:"0 0 1.5rem", letterSpacing:"-0.02em" }}>Finances</h1>
-        <div style={{ display:"grid", gridTemplateColumns:"repeat(4,minmax(0,1fr))", gap:10, marginBottom:"1.5rem" }}>
-          <KPI label="Total Revenue"  value={`$${totalRev.toLocaleString()}`}    sub="6 months" color={C.accent}/>
-          <KPI label="Total Expenses" value={`$${totalExp.toLocaleString()}`}    sub="6 months" color={C.warning}/>
-          <KPI label="Net Profit"     value={`$${totalProfit.toLocaleString()}`} sub="6 months" color={C.success}/>
-          <KPI label="Profit Margin"  value={`${margin}%`}                       sub="Avg: 62%" color={parseFloat(margin)>=62?C.success:C.warning}/>
+
+        {/* KPIs */}
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(4,minmax(0,1fr))", gap:10, marginBottom:"1.75rem" }}>
+          <KPI label="Revenue This Month" value={rev>0?`$${rev.toLocaleString()}`:"—"} sub="Enter below" color={C.accent}/>
+          <KPI label="Total Costs"        value={totalCosts>0?`$${totalCosts.toFixed(2)}`:"—"} sub={`${costs.length} entries`} color={C.warning}/>
+          <KPI label="Net Profit"         value={rev>0&&totalCosts>0?`$${profit.toFixed(2)}`:"—"} sub="Revenue minus costs" color={profit>=0?C.success:C.danger}/>
+          <KPI label="Profit Margin"      value={rev>0&&totalCosts>0?`${margin}%`:"—"} sub="Industry avg: 62%" color={parseFloat(margin)>=62?C.success:C.warning}/>
         </div>
-        <div style={{ display:"grid", gridTemplateColumns:"2fr 1fr", gap:12, marginBottom:"1.5rem" }}>
+
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14, marginBottom:"1.75rem" }}>
+          {/* Revenue input */}
           <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:8, padding:"1.25rem" }}>
-            <p style={{ fontWeight:600, fontSize:13, color:C.text, margin:"0 0 1rem" }}>Monthly Profit</p>
-            <ResponsiveContainer width="100%" height={210}>
-              <BarChart data={REV_DATA}>
-                <CartesianGrid strokeDasharray="3 3" stroke={C.border}/>
-                <XAxis dataKey="month" tick={{ fontSize:11, fill:C.textMuted }} axisLine={false} tickLine={false}/>
-                <YAxis tick={{ fontSize:11, fill:C.textMuted }} axisLine={false} tickLine={false}/>
-                <Tooltip contentStyle={{ background:C.surfaceTop, border:`1px solid ${C.border}`, borderRadius:5, fontSize:12, color:C.text }}/>
-                <Bar dataKey="profit" fill={C.accent} radius={[3,3,0,0]} name="Profit ($)"/>
-              </BarChart>
-            </ResponsiveContainer>
+            <p style={{ fontWeight:600, fontSize:13, color:C.text, margin:"0 0 12px" }}>Monthly Revenue</p>
+            <div style={{ display:"flex", gap:8 }}>
+              <div style={{ position:"relative", flex:1 }}>
+                <span style={{ position:"absolute", left:11, top:"50%", transform:"translateY(-50%)", fontSize:13, color:C.textMuted }}>$</span>
+                <input value={revenue} onChange={e=>setRevenue(e.target.value)} placeholder="0.00" type="number" min="0"
+                  style={{ width:"100%", padding:"10px 11px 10px 22px", border:`1px solid ${C.border}`, borderRadius:6, fontSize:14, fontWeight:600, color:C.text, background:C.surfaceHigh, outline:"none", boxSizing:"border-box" }}/>
+              </div>
+            </div>
+            <p style={{ fontSize:11, color:C.textMuted, margin:"8px 0 0" }}>Total sales collected this month</p>
           </div>
+
+          {/* Add cost entry */}
           <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:8, padding:"1.25rem" }}>
-            <p style={{ fontWeight:600, fontSize:13, color:C.text, margin:"0 0 1rem" }}>This Month's Costs</p>
-            {expenses.map(e=>(
-              <div key={e.label} style={{ marginBottom:12 }}>
+            <p style={{ fontWeight:600, fontSize:13, color:C.text, margin:"0 0 12px" }}>Add a Cost</p>
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:8 }}>
+              <div>
+                <label style={{ fontSize:10, fontWeight:600, color:C.textMuted, display:"block", marginBottom:4, textTransform:"uppercase", letterSpacing:"0.07em" }}>Category</label>
+                <select value={newCat} onChange={e=>setNewCat(e.target.value)}
+                  style={{ width:"100%", padding:"9px 10px", border:`1px solid ${C.border}`, borderRadius:5, fontSize:13, color:C.text, background:C.surfaceHigh, outline:"none" }}>
+                  {COST_CATS.map(c=><option key={c.value} value={c.value}>{c.label}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={{ fontSize:10, fontWeight:600, color:C.textMuted, display:"block", marginBottom:4, textTransform:"uppercase", letterSpacing:"0.07em" }}>Amount ($)</label>
+                <input value={newAmt} onChange={e=>setNewAmt(e.target.value)} placeholder="0.00" type="number" min="0"
+                  style={{ width:"100%", padding:"9px 10px", border:`1px solid ${C.border}`, borderRadius:5, fontSize:13, color:C.text, background:C.surfaceHigh, outline:"none", boxSizing:"border-box" }}/>
+              </div>
+            </div>
+            <div style={{ marginBottom:8 }}>
+              <label style={{ fontSize:10, fontWeight:600, color:C.textMuted, display:"block", marginBottom:4, textTransform:"uppercase", letterSpacing:"0.07em" }}>Description (optional)</label>
+              <input value={newLabel} onChange={e=>setNewLabel(e.target.value)} placeholder={`e.g. Flour from wholesale`}
+                style={{ width:"100%", padding:"9px 10px", border:`1px solid ${C.border}`, borderRadius:5, fontSize:13, color:C.text, background:C.surfaceHigh, outline:"none", boxSizing:"border-box" }}/>
+            </div>
+            <button onClick={addCost} disabled={!newAmt||parseFloat(newAmt)<=0} style={{ width:"100%", padding:"9px", background:newAmt&&parseFloat(newAmt)>0?C.accent:"rgba(196,98,45,0.3)", color:"#FFF", border:"none", borderRadius:5, fontSize:13, fontWeight:700, cursor:"pointer" }}>
+              + Add Cost
+            </button>
+          </div>
+        </div>
+
+        <div style={{ display:"grid", gridTemplateColumns:"2fr 1fr", gap:14, marginBottom:"1.5rem" }}>
+          {/* Cost entries list */}
+          <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:8, padding:"1.25rem" }}>
+            <p style={{ fontWeight:600, fontSize:13, color:C.text, margin:"0 0 12px" }}>Cost Entries</p>
+            {costs.length===0 ? (
+              <div style={{ textAlign:"center", padding:"2rem", color:C.textMuted }}>
+                <p style={{ fontSize:28, margin:"0 0 8px" }}>💰</p>
+                <p style={{ fontSize:13, margin:0 }}>No costs added yet — use the form above to track your expenses.</p>
+              </div>
+            ) : (
+              <>
+                {costs.map(c=>(
+                  <div key={c.id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"9px 0", borderBottom:`1px solid ${C.border}` }}>
+                    <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                      <div style={{ width:8, height:8, borderRadius:"50%", background:c.color, flexShrink:0 }}/>
+                      <div>
+                        <p style={{ fontSize:13, color:C.text, fontWeight:500, margin:0 }}>{c.label}</p>
+                        <p style={{ fontSize:10, color:C.textMuted, margin:0, textTransform:"capitalize" }}>{c.cat}</p>
+                      </div>
+                    </div>
+                    <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                      <span style={{ fontSize:14, fontWeight:700, color:C.text }}>${c.amount.toFixed(2)}</span>
+                      <button onClick={()=>removeCost(c.id)} style={{ background:C.dangerBg, border:`1px solid ${C.danger}`, borderRadius:4, padding:"2px 8px", fontSize:11, color:C.danger, cursor:"pointer" }}>✕</button>
+                    </div>
+                  </div>
+                ))}
+                <div style={{ display:"flex", justifyContent:"space-between", marginTop:12, paddingTop:10, borderTop:`1px solid ${C.border}` }}>
+                  <span style={{ fontSize:13, fontWeight:700, color:C.text }}>Total Costs</span>
+                  <span style={{ fontSize:15, fontWeight:700, color:C.warning }}>${totalCosts.toFixed(2)}</span>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* This Month's Costs breakdown */}
+          <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:8, padding:"1.25rem" }}>
+            <p style={{ fontWeight:600, fontSize:13, color:C.text, margin:"0 0 12px" }}>This Month's Costs</p>
+            {costByCategory.length===0 ? (
+              <p style={{ fontSize:12, color:C.textMuted, margin:0, lineHeight:1.6 }}>Add costs to see the breakdown here.</p>
+            ) : costByCategory.map(e=>(
+              <div key={e.name} style={{ marginBottom:12 }}>
                 <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
-                  <span style={{ fontSize:12, color:C.textSub, fontWeight:500 }}>{e.label}</span>
-                  <span style={{ fontSize:11, color:C.textMuted }}>{e.pct}%</span>
+                  <span style={{ fontSize:12, color:C.textSub, fontWeight:500 }}>{e.name}</span>
+                  <span style={{ fontSize:11, color:C.textMuted }}>{totalPct?((e.amount/totalCosts)*100).toFixed(0):0}%</span>
                 </div>
                 <div style={{ height:4, background:C.surfaceHigh, borderRadius:2 }}>
-                  <div style={{ height:4, width:`${e.pct}%`, background:e.color, borderRadius:2 }}/>
+                  <div style={{ height:4, width:totalPct?`${(e.amount/totalCosts)*100}%`:"0%", background:e.color, borderRadius:2 }}/>
                 </div>
+                <p style={{ fontSize:10, color:C.textMuted, margin:"2px 0 0", textAlign:"right" }}>${e.amount.toFixed(2)}</p>
               </div>
             ))}
-            <div style={{ marginTop:12, paddingTop:12, borderTop:`1px solid ${C.border}`, display:"flex", justifyContent:"space-between" }}>
-              <span style={{ fontSize:12, fontWeight:600, color:C.text }}>Total</span>
-              <span style={{ fontSize:12, fontWeight:700, color:C.accent }}>$415.00</span>
-            </div>
+            {totalCosts>0 && (
+              <div style={{ marginTop:10, paddingTop:10, borderTop:`1px solid ${C.border}`, display:"flex", justifyContent:"space-between" }}>
+                <span style={{ fontSize:12, fontWeight:600, color:C.text }}>Total</span>
+                <span style={{ fontSize:12, fontWeight:700, color:C.accent }}>${totalCosts.toFixed(2)}</span>
+              </div>
+            )}
           </div>
         </div>
+
+        {/* Insight */}
         <div style={{ background:"rgba(245,158,11,0.06)", border:`1px solid rgba(245,158,11,0.2)`, borderRadius:7, padding:"1rem 1.25rem" }}>
           <p style={{ fontWeight:700, fontSize:12, color:C.warning, margin:"0 0 5px", textTransform:"uppercase", letterSpacing:"0.06em" }}>Insight</p>
-          <p style={{ fontSize:13, color:C.textSub, margin:0, lineHeight:1.7 }}>Ingredient costs at 45% are above the 35–40% optimal range. Buying wholesale could save ~$40/month. A $1–2 price increase on bread would bring your margin above 70%.</p>
+          <p style={{ fontSize:13, color:C.textSub, margin:0, lineHeight:1.7 }}>{insightText}</p>
         </div>
       </div>
     );
