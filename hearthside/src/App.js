@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
+import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(
@@ -92,14 +92,6 @@ const CHAT_INIT = [
   { id:3, seller:"Biji's Spice Kitchen", hood:"Brampton",     emoji:"🫙", time:"9:10am",  msg:"New batch of mango chutney and mixed pickle ready 🥭 Also fresh roti every morning this week." },
   { id:4, seller:"Aisha's Sweet Corner", hood:"Kensington",   emoji:"🧁", time:"10:30am", msg:"Taking custom cake orders for Easter weekend. DM me your design! Minimum 3 days notice needed 🎂" },
   { id:5, seller:"Sunshine Sourdough",   hood:"Roncesvalles", emoji:"☀️", time:"11:00am", msg:"Focaccia is back on the menu. Rosemary & sea salt, ready by 2pm today." },
-];
-const REV_DATA = [
-  { month:"Oct", revenue:420,  expenses:180, profit:240 },
-  { month:"Nov", revenue:680,  expenses:215, profit:465 },
-  { month:"Dec", revenue:1240, expenses:385, profit:855 },
-  { month:"Jan", revenue:890,  expenses:295, profit:595 },
-  { month:"Feb", revenue:1050, expenses:325, profit:725 },
-  { month:"Mar", revenue:1380, expenses:415, profit:965 },
 ];
 const ORDERS_DATA = [];
 const STATUS_MAP = {
@@ -866,10 +858,21 @@ function CustomerApp({ user, onSignOut }) {
 }
 
 // ─── SELLER APP ───────────────────────────────────────────────────────────────
+const COST_CATS_DEF = [
+  { value:"ingredients", label:"Ingredients", color:"#C4622D" },
+  { value:"packaging",   label:"Packaging",   color:"#A07010" },
+  { value:"delivery",    label:"Delivery",    color:"#1A6B9C" },
+  { value:"equipment",   label:"Equipment",   color:"#1E7A48" },
+  { value:"other",       label:"Other",       color:"#9C7A66" },
+];
+
 function SellerApp({ user, onSignOut }) {
   const [view,            setView]            = useState("dashboard");
   const [products,        setProducts]        = useState([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
+  // Shared finances state — read by Dashboard, written by Finances
+  const [finRevenue,  setFinRevenue]  = useState("");
+  const [finCosts,    setFinCosts]    = useState([]);
 
   useEffect(()=>{
     if (!user?.id) { setProducts([]); setLoadingProducts(false); return; }
@@ -1150,56 +1153,111 @@ function SellerApp({ user, onSignOut }) {
 
   // ── SELLER DASHBOARD ──
   const Dashboard = () => {
-    const top = [...products].sort((a,b)=>(b.sold||0)-(a.sold||0))[0]||products[0];
-    const thisM  = REV_DATA[REV_DATA.length-1];
-    const prevM  = REV_DATA[REV_DATA.length-2];
-    const growth = (((thisM.revenue-prevM.revenue)/prevM.revenue)*100).toFixed(1);
-    const totalRev = REV_DATA.reduce((s,d)=>s+d.revenue,0);
+    const top         = [...products].sort((a,b)=>(b.sold||0)-(a.sold||0))[0]||products[0];
+    const rev         = parseFloat(finRevenue)||0;
+    const totalCosts  = finCosts.reduce((s,c)=>s+c.amount,0);
+    const profit      = rev - totalCosts;
+    const margin      = rev>0 ? ((profit/rev)*100).toFixed(1) : null;
+
+    // Build cost-by-category data for bar chart
+    const costBarData = COST_CATS_DEF.map(cat=>({
+      name: cat.label,
+      costs: finCosts.filter(c=>c.cat===cat.value).reduce((s,c)=>s+c.amount,0),
+      color: cat.color,
+    })).filter(c=>c.costs>0);
+
+    const hasData = rev>0 || finCosts.length>0;
+
     return (
       <div style={{ padding:"2rem" }}>
         <div style={{ marginBottom:"1.5rem" }}>
           <h1 style={{ fontSize:24, fontWeight:700, color:C.text, margin:"0 0 4px", letterSpacing:"-0.02em" }}>Good morning, {user.name.split(" ")[0]} 👋</h1>
           <p style={{ color:C.textMuted, fontSize:13, margin:0 }}>Here's how your bakery is performing.</p>
         </div>
+
         <div style={{ display:"grid", gridTemplateColumns:"repeat(4,minmax(0,1fr))", gap:10, marginBottom:"1.5rem" }}>
-          <KPI label="Total Revenue" value={`$${(totalRev/1000).toFixed(1)}k`} sub="Last 6 months" color={C.accent}/>
-          <KPI label="This Month"    value={`$${thisM.revenue.toLocaleString()}`} sub={`↑ ${growth}% vs last month`} color={C.success}/>
-          <KPI label="Active Orders" value={ORDERS_DATA.filter(o=>o.status==="preparing"||o.status==="ready").length} sub="Need attention"/>
-          <KPI label="Top Seller"    value={top?.emoji||"🍞"} sub={`${top?.name||"–"}`}/>
+          <KPI label="Revenue This Month" value={rev>0?`$${rev.toLocaleString()}`:"—"} sub={rev>0?"From Finances tab":"Add in Finances"} color={C.accent}/>
+          <KPI label="Total Costs"        value={totalCosts>0?`$${totalCosts.toFixed(2)}`:"—"} sub={`${finCosts.length} cost entr${finCosts.length===1?"y":"ies"}`} color={C.warning}/>
+          <KPI label="Net Profit"         value={rev>0&&totalCosts>0?`$${profit.toFixed(2)}`:"—"} sub={margin?`${margin}% margin`:""} color={profit>=0?C.success:C.danger}/>
+          <KPI label="Products Listed"    value={products.length} sub={`${products.filter(p=>!p.availability||p.availability==="available").length} available`}/>
         </div>
-        <div style={{ display:"grid", gridTemplateColumns:"2fr 1fr", gap:12, marginBottom:"1.5rem" }}>
-          <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:8, padding:"1.25rem" }}>
-            <p style={{ fontWeight:600, fontSize:13, color:C.text, margin:"0 0 1rem" }}>Revenue vs Expenses</p>
-            <ResponsiveContainer width="100%" height={195}>
-              <AreaChart data={REV_DATA}>
-                <defs>
-                  <linearGradient id="rg" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%"  stopColor={C.accent} stopOpacity={0.15}/>
-                    <stop offset="95%" stopColor={C.accent} stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke={C.border}/>
-                <XAxis dataKey="month" tick={{ fontSize:11, fill:C.textMuted }} axisLine={false} tickLine={false}/>
-                <YAxis tick={{ fontSize:11, fill:C.textMuted }} axisLine={false} tickLine={false}/>
-                <Tooltip contentStyle={{ background:C.surfaceTop, border:`1px solid ${C.border}`, borderRadius:5, fontSize:12, color:C.text }}/>
-                <Area type="monotone" dataKey="revenue"  stroke={C.accent}   strokeWidth={2} fill="url(#rg)" name="Revenue ($)"/>
-                <Area type="monotone" dataKey="expenses" stroke={C.warning}  strokeWidth={2} fill="none"     name="Expenses ($)"/>
-              </AreaChart>
-            </ResponsiveContainer>
+
+        {!hasData && (
+          <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:8, padding:"2.5rem", textAlign:"center", marginBottom:"1.5rem" }}>
+            <p style={{ fontSize:32, margin:"0 0 10px" }}>📊</p>
+            <p style={{ fontSize:16, fontWeight:600, color:C.text, margin:"0 0 6px" }}>No financial data yet</p>
+            <p style={{ fontSize:13, color:C.textMuted, margin:"0 0 1.25rem" }}>Head to the Finances tab to enter your revenue and costs. Your dashboard will populate automatically.</p>
+            <button onClick={()=>setView("finances")} style={{ background:C.accent, color:"#FFF", border:"none", borderRadius:6, padding:"10px 20px", fontSize:13, fontWeight:700, cursor:"pointer" }}>
+              Go to Finances →
+            </button>
           </div>
-          <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:8, padding:"1.25rem" }}>
-            <p style={{ fontWeight:600, fontSize:13, color:C.text, margin:"0 0 1rem" }}>Recent Orders</p>
-            {ORDERS_DATA.slice(0,4).map(o=>(
-              <div key={o.id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"7px 0", borderBottom:`1px solid ${C.border}` }}>
-                <div>
-                  <p style={{ fontSize:12, color:C.text, fontWeight:500, margin:0 }}>{o.customer}</p>
-                  <p style={{ fontSize:11, color:C.textMuted, margin:0 }}>{o.id}</p>
+        )}
+
+        {hasData && (
+          <div style={{ display:"grid", gridTemplateColumns:"2fr 1fr", gap:12, marginBottom:"1.5rem" }}>
+            <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:8, padding:"1.25rem" }}>
+              <p style={{ fontWeight:600, fontSize:13, color:C.text, margin:"0 0 1rem" }}>Costs by Category</p>
+              {costBarData.length>0 ? (
+                <ResponsiveContainer width="100%" height={210}>
+                  <BarChart data={costBarData} barSize={36}>
+                    <CartesianGrid strokeDasharray="3 3" stroke={C.border}/>
+                    <XAxis dataKey="name" tick={{ fontSize:11, fill:C.textMuted }} axisLine={false} tickLine={false}/>
+                    <YAxis tick={{ fontSize:11, fill:C.textMuted }} axisLine={false} tickLine={false}/>
+                    <Tooltip contentStyle={{ background:C.surfaceTop, border:`1px solid ${C.border}`, borderRadius:5, fontSize:12, color:C.text }} formatter={(v)=>[`$${v.toFixed(2)}`,"Amount"]}/>
+                    <Bar dataKey="costs" radius={[4,4,0,0]} fill={C.accent} name="Cost ($)"/>
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div style={{ height:210, display:"flex", alignItems:"center", justifyContent:"center" }}>
+                  <p style={{ fontSize:13, color:C.textMuted }}>Add costs in the Finances tab to see the chart.</p>
                 </div>
-                <Badge status={o.status}/>
-              </div>
-            ))}
+              )}
+            </div>
+            <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:8, padding:"1.25rem" }}>
+              <p style={{ fontWeight:600, fontSize:13, color:C.text, margin:"0 0 1rem" }}>Cost Breakdown</p>
+              {finCosts.length===0 ? (
+                <p style={{ fontSize:12, color:C.textMuted, lineHeight:1.6 }}>No costs entered yet. Go to Finances to start tracking.</p>
+              ) : COST_CATS_DEF.map(cat=>{
+                const amt = finCosts.filter(c=>c.cat===cat.value).reduce((s,c)=>s+c.amount,0);
+                if (amt===0) return null;
+                return (
+                  <div key={cat.value} style={{ marginBottom:11 }}>
+                    <div style={{ display:"flex", justifyContent:"space-between", marginBottom:3 }}>
+                      <span style={{ fontSize:12, color:C.textSub, fontWeight:500 }}>{cat.label}</span>
+                      <span style={{ fontSize:11, color:C.textMuted }}>${amt.toFixed(2)}</span>
+                    </div>
+                    <div style={{ height:4, background:C.surfaceHigh, borderRadius:2 }}>
+                      <div style={{ height:4, width:totalCosts>0?`${(amt/totalCosts)*100}%`:"0%", background:cat.color, borderRadius:2 }}/>
+                    </div>
+                  </div>
+                );
+              })}
+              {totalCosts>0 && (
+                <div style={{ marginTop:10, paddingTop:10, borderTop:`1px solid ${C.border}`, display:"flex", justifyContent:"space-between" }}>
+                  <span style={{ fontSize:12, fontWeight:600, color:C.text }}>Total</span>
+                  <span style={{ fontSize:12, fontWeight:700, color:C.warning }}>${totalCosts.toFixed(2)}</span>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        )}
+
+        {products.length>0 && (
+          <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:8, padding:"1.25rem" }}>
+            <p style={{ fontWeight:600, fontSize:13, color:C.text, margin:"0 0 1rem" }}>Your Products</p>
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(5,minmax(0,1fr))", gap:8 }}>
+              {products.slice(0,5).map(p=>(
+                <div key={p.id} style={{ textAlign:"center" }}>
+                  <div style={{ width:"100%", aspectRatio:"1", background:C.surfaceHigh, borderRadius:7, overflow:"hidden", marginBottom:5, display:"flex", alignItems:"center", justifyContent:"center", fontSize:24 }}>
+                    {p.image_url?<img src={p.image_url} alt={p.name} style={{ width:"100%", height:"100%", objectFit:"cover" }}/>:p.emoji}
+                  </div>
+                  <p style={{ fontSize:11, color:C.text, fontWeight:600, margin:"0 0 1px", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{p.name}</p>
+                  <p style={{ fontSize:11, color:C.accent, fontWeight:700, margin:0 }}>${p.price?.toFixed(2)||"0.00"}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     );
   };
@@ -1648,15 +1706,11 @@ function SellerApp({ user, onSignOut }) {
 
   // ── SELLER FINANCES ──
   const Finances = () => {
-    const COST_CATS = [
-      { value:"ingredients", label:"Ingredients", color:C.accent  },
-      { value:"packaging",   label:"Packaging",   color:C.warning },
-      { value:"delivery",    label:"Delivery",    color:C.info    },
-      { value:"equipment",   label:"Equipment",   color:C.success },
-      { value:"other",       label:"Other",       color:C.textMuted },
-    ];
-    const [costs,     setCosts]     = useState([]);
-    const [revenue,   setRevenue]   = useState("");
+    const COST_CATS = COST_CATS_DEF;
+    const costs   = finCosts;
+    const revenue = finRevenue;
+    const setCosts   = setFinCosts;
+    const setRevenue = setFinRevenue;
     const [newCat,    setNewCat]    = useState("ingredients");
     const [newLabel,  setNewLabel]  = useState("");
     const [newAmt,    setNewAmt]    = useState("");
@@ -1674,7 +1728,7 @@ function SellerApp({ user, onSignOut }) {
     const profit      = rev - totalCosts;
     const margin      = rev>0 ? ((profit/rev)*100).toFixed(1) : "—";
 
-    // Group costs by category for the bar chart
+    // Group costs by category
     const costByCategory = COST_CATS.map(cat => ({
       name: cat.label,
       amount: costs.filter(c=>c.cat===cat.value).reduce((s,c)=>s+c.amount,0),
@@ -1682,15 +1736,21 @@ function SellerApp({ user, onSignOut }) {
     })).filter(c=>c.amount>0);
 
     const totalPct = totalCosts > 0;
-    const highestCat = costByCategory.sort((a,b)=>b.amount-a.amount)[0];
+    const highestCat = [...costByCategory].sort((a,b)=>b.amount-a.amount)[0];
     const insightText = rev>0 && totalCosts>0
       ? highestCat
         ? `${highestCat.name} is your largest expense at $${highestCat.amount.toFixed(2)} (${((highestCat.amount/totalCosts)*100).toFixed(0)}% of total costs). ${parseFloat(margin)<62?"Your margin of "+margin+"% is below the 62% industry average — consider adjusting prices or reducing costs.":"Your margin of "+margin+"% is healthy. Keep tracking costs monthly to stay on track."}`
         : "Add your costs below to see insights."
       : "Enter your revenue and costs to unlock financial insights.";
 
+    // Bar chart data for costs over category
+    const barData = COST_CATS.map(cat=>({
+      name: cat.label,
+      costs: costs.filter(c=>c.cat===cat.value).reduce((s,c)=>s+c.amount,0),
+    }));
+
     return (
-      <div style={{ padding:"2rem", maxWidth:900 }}>
+      <div style={{ padding:"2rem" }}>
         <h1 style={{ fontSize:24, fontWeight:700, color:C.text, margin:"0 0 1.5rem", letterSpacing:"-0.02em" }}>Finances</h1>
 
         {/* KPIs */}
@@ -1701,21 +1761,17 @@ function SellerApp({ user, onSignOut }) {
           <KPI label="Profit Margin"      value={rev>0&&totalCosts>0?`${margin}%`:"—"} sub="Industry avg: 62%" color={parseFloat(margin)>=62?C.success:C.warning}/>
         </div>
 
-        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14, marginBottom:"1.75rem" }}>
-          {/* Revenue input */}
+        {/* Row 1: Revenue input + Add cost form */}
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14, marginBottom:"1.25rem" }}>
           <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:8, padding:"1.25rem" }}>
             <p style={{ fontWeight:600, fontSize:13, color:C.text, margin:"0 0 12px" }}>Monthly Revenue</p>
-            <div style={{ display:"flex", gap:8 }}>
-              <div style={{ position:"relative", flex:1 }}>
-                <span style={{ position:"absolute", left:11, top:"50%", transform:"translateY(-50%)", fontSize:13, color:C.textMuted }}>$</span>
-                <input value={revenue} onChange={e=>setRevenue(e.target.value)} placeholder="0.00" type="number" min="0"
-                  style={{ width:"100%", padding:"10px 11px 10px 22px", border:`1px solid ${C.border}`, borderRadius:6, fontSize:14, fontWeight:600, color:C.text, background:C.surfaceHigh, outline:"none", boxSizing:"border-box" }}/>
-              </div>
+            <div style={{ position:"relative" }}>
+              <span style={{ position:"absolute", left:12, top:"50%", transform:"translateY(-50%)", fontSize:14, color:C.textMuted, fontWeight:600 }}>$</span>
+              <input value={revenue} onChange={e=>setRevenue(e.target.value)} placeholder="0.00" type="number" min="0"
+                style={{ width:"100%", padding:"12px 12px 12px 26px", border:`1px solid ${C.border}`, borderRadius:6, fontSize:16, fontWeight:700, color:C.text, background:C.surfaceHigh, outline:"none", boxSizing:"border-box" }}/>
             </div>
             <p style={{ fontSize:11, color:C.textMuted, margin:"8px 0 0" }}>Total sales collected this month</p>
           </div>
-
-          {/* Add cost entry */}
           <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:8, padding:"1.25rem" }}>
             <p style={{ fontWeight:600, fontSize:13, color:C.text, margin:"0 0 12px" }}>Add a Cost</p>
             <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:8 }}>
@@ -1728,68 +1784,54 @@ function SellerApp({ user, onSignOut }) {
               </div>
               <div>
                 <label style={{ fontSize:10, fontWeight:600, color:C.textMuted, display:"block", marginBottom:4, textTransform:"uppercase", letterSpacing:"0.07em" }}>Amount ($)</label>
-                <input value={newAmt} onChange={e=>setNewAmt(e.target.value)} placeholder="0.00" type="number" min="0"
+                <input value={newAmt} onChange={e=>setNewAmt(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addCost()} placeholder="0.00" type="number" min="0"
                   style={{ width:"100%", padding:"9px 10px", border:`1px solid ${C.border}`, borderRadius:5, fontSize:13, color:C.text, background:C.surfaceHigh, outline:"none", boxSizing:"border-box" }}/>
               </div>
             </div>
             <div style={{ marginBottom:8 }}>
               <label style={{ fontSize:10, fontWeight:600, color:C.textMuted, display:"block", marginBottom:4, textTransform:"uppercase", letterSpacing:"0.07em" }}>Description (optional)</label>
-              <input value={newLabel} onChange={e=>setNewLabel(e.target.value)} placeholder={`e.g. Flour from wholesale`}
+              <input value={newLabel} onChange={e=>setNewLabel(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addCost()} placeholder="e.g. Flour from wholesale"
                 style={{ width:"100%", padding:"9px 10px", border:`1px solid ${C.border}`, borderRadius:5, fontSize:13, color:C.text, background:C.surfaceHigh, outline:"none", boxSizing:"border-box" }}/>
             </div>
-            <button onClick={addCost} disabled={!newAmt||parseFloat(newAmt)<=0} style={{ width:"100%", padding:"9px", background:newAmt&&parseFloat(newAmt)>0?C.accent:"rgba(196,98,45,0.3)", color:"#FFF", border:"none", borderRadius:5, fontSize:13, fontWeight:700, cursor:"pointer" }}>
+            <button onClick={addCost} disabled={!newAmt||parseFloat(newAmt)<=0} style={{ width:"100%", padding:"10px", background:newAmt&&parseFloat(newAmt)>0?C.accent:"rgba(196,98,45,0.3)", color:"#FFF", border:"none", borderRadius:5, fontSize:13, fontWeight:700, cursor:"pointer" }}>
               + Add Cost
             </button>
           </div>
         </div>
 
-        <div style={{ display:"grid", gridTemplateColumns:"2fr 1fr", gap:14, marginBottom:"1.5rem" }}>
-          {/* Cost entries list */}
+        {/* Row 2: Bar chart + Cost breakdown */}
+        <div style={{ display:"grid", gridTemplateColumns:"2fr 1fr", gap:14, marginBottom:"1.25rem" }}>
           <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:8, padding:"1.25rem" }}>
-            <p style={{ fontWeight:600, fontSize:13, color:C.text, margin:"0 0 12px" }}>Cost Entries</p>
-            {costs.length===0 ? (
-              <div style={{ textAlign:"center", padding:"2rem", color:C.textMuted }}>
-                <p style={{ fontSize:28, margin:"0 0 8px" }}>💰</p>
-                <p style={{ fontSize:13, margin:0 }}>No costs added yet — use the form above to track your expenses.</p>
-              </div>
+            <p style={{ fontWeight:600, fontSize:13, color:C.text, margin:"0 0 1rem" }}>Costs by Category</p>
+            {totalCosts>0 ? (
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={barData} barSize={40}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={C.border}/>
+                  <XAxis dataKey="name" tick={{ fontSize:11, fill:C.textMuted }} axisLine={false} tickLine={false}/>
+                  <YAxis tick={{ fontSize:11, fill:C.textMuted }} axisLine={false} tickLine={false}/>
+                  <Tooltip contentStyle={{ background:C.surfaceTop, border:`1px solid ${C.border}`, borderRadius:5, fontSize:12, color:C.text }} formatter={(v)=>[`$${v.toFixed(2)}`,"Amount"]}/>
+                  <Bar dataKey="costs" fill={C.accent} radius={[4,4,0,0]} name="Cost ($)"/>
+                </BarChart>
+              </ResponsiveContainer>
             ) : (
-              <>
-                {costs.map(c=>(
-                  <div key={c.id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"9px 0", borderBottom:`1px solid ${C.border}` }}>
-                    <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-                      <div style={{ width:8, height:8, borderRadius:"50%", background:c.color, flexShrink:0 }}/>
-                      <div>
-                        <p style={{ fontSize:13, color:C.text, fontWeight:500, margin:0 }}>{c.label}</p>
-                        <p style={{ fontSize:10, color:C.textMuted, margin:0, textTransform:"capitalize" }}>{c.cat}</p>
-                      </div>
-                    </div>
-                    <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-                      <span style={{ fontSize:14, fontWeight:700, color:C.text }}>${c.amount.toFixed(2)}</span>
-                      <button onClick={()=>removeCost(c.id)} style={{ background:C.dangerBg, border:`1px solid ${C.danger}`, borderRadius:4, padding:"2px 8px", fontSize:11, color:C.danger, cursor:"pointer" }}>✕</button>
-                    </div>
-                  </div>
-                ))}
-                <div style={{ display:"flex", justifyContent:"space-between", marginTop:12, paddingTop:10, borderTop:`1px solid ${C.border}` }}>
-                  <span style={{ fontSize:13, fontWeight:700, color:C.text }}>Total Costs</span>
-                  <span style={{ fontSize:15, fontWeight:700, color:C.warning }}>${totalCosts.toFixed(2)}</span>
-                </div>
-              </>
+              <div style={{ height:220, display:"flex", alignItems:"center", justifyContent:"center", flexDirection:"column", gap:8 }}>
+                <p style={{ fontSize:28, margin:0 }}>📊</p>
+                <p style={{ fontSize:13, color:C.textMuted, margin:0 }}>Add costs above to see the chart.</p>
+              </div>
             )}
           </div>
-
-          {/* This Month's Costs breakdown */}
           <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:8, padding:"1.25rem" }}>
             <p style={{ fontWeight:600, fontSize:13, color:C.text, margin:"0 0 12px" }}>This Month's Costs</p>
             {costByCategory.length===0 ? (
-              <p style={{ fontSize:12, color:C.textMuted, margin:0, lineHeight:1.6 }}>Add costs to see the breakdown here.</p>
+              <p style={{ fontSize:12, color:C.textMuted, margin:0, lineHeight:1.6 }}>Add costs to see the breakdown.</p>
             ) : costByCategory.map(e=>(
               <div key={e.name} style={{ marginBottom:12 }}>
                 <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
                   <span style={{ fontSize:12, color:C.textSub, fontWeight:500 }}>{e.name}</span>
                   <span style={{ fontSize:11, color:C.textMuted }}>{totalPct?((e.amount/totalCosts)*100).toFixed(0):0}%</span>
                 </div>
-                <div style={{ height:4, background:C.surfaceHigh, borderRadius:2 }}>
-                  <div style={{ height:4, width:totalPct?`${(e.amount/totalCosts)*100}%`:"0%", background:e.color, borderRadius:2 }}/>
+                <div style={{ height:5, background:C.surfaceHigh, borderRadius:2 }}>
+                  <div style={{ height:5, width:totalPct?`${(e.amount/totalCosts)*100}%`:"0%", background:e.color, borderRadius:2 }}/>
                 </div>
                 <p style={{ fontSize:10, color:C.textMuted, margin:"2px 0 0", textAlign:"right" }}>${e.amount.toFixed(2)}</p>
               </div>
@@ -1801,6 +1843,41 @@ function SellerApp({ user, onSignOut }) {
               </div>
             )}
           </div>
+        </div>
+
+        {/* Row 3: Cost entries list — full width */}
+        <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:8, padding:"1.25rem", marginBottom:"1.25rem" }}>
+          <p style={{ fontWeight:600, fontSize:13, color:C.text, margin:"0 0 12px" }}>Cost Entries</p>
+          {costs.length===0 ? (
+            <div style={{ textAlign:"center", padding:"1.5rem", color:C.textMuted }}>
+              <p style={{ fontSize:24, margin:"0 0 6px" }}>💰</p>
+              <p style={{ fontSize:13, margin:0 }}>No costs added yet — use the form above to start tracking.</p>
+            </div>
+          ) : (
+            <>
+              <div style={{ display:"grid", gridTemplateColumns:"repeat(3,minmax(0,1fr))", gap:8 }}>
+                {costs.map(c=>(
+                  <div key={c.id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", background:C.surfaceHigh, borderRadius:6, padding:"10px 12px" }}>
+                    <div style={{ display:"flex", alignItems:"center", gap:9 }}>
+                      <div style={{ width:9, height:9, borderRadius:"50%", background:c.color, flexShrink:0 }}/>
+                      <div>
+                        <p style={{ fontSize:13, color:C.text, fontWeight:500, margin:0 }}>{c.label}</p>
+                        <p style={{ fontSize:10, color:C.textMuted, margin:0, textTransform:"capitalize" }}>{c.cat}</p>
+                      </div>
+                    </div>
+                    <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                      <span style={{ fontSize:13, fontWeight:700, color:C.text }}>${c.amount.toFixed(2)}</span>
+                      <button onClick={()=>removeCost(c.id)} style={{ background:C.dangerBg, border:`1px solid ${C.danger}`, borderRadius:4, padding:"2px 7px", fontSize:11, color:C.danger, cursor:"pointer" }}>✕</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div style={{ display:"flex", justifyContent:"space-between", marginTop:12, paddingTop:10, borderTop:`1px solid ${C.border}` }}>
+                <span style={{ fontSize:13, fontWeight:700, color:C.text }}>Total Costs</span>
+                <span style={{ fontSize:15, fontWeight:700, color:C.warning }}>${totalCosts.toFixed(2)}</span>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Insight */}
