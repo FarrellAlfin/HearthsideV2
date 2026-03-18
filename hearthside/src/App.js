@@ -232,7 +232,6 @@ function CustomerApp({ user, onSignOut }) {
   const [cartStore,   setCartStore]   = useState(null);
   const [hoodFilter,  setHoodFilter]  = useState("All");
   const [showCart,         setShowCart]         = useState(false);
-  const [checkoutStep,     setCheckoutStep]     = useState(null);
   const [isCharity,        setIsCharity]        = useState(false);
   const [selectedCharity,  setSelectedCharity]  = useState(null);
 
