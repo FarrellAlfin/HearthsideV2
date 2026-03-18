@@ -940,6 +940,11 @@ function SellerApp({ user, onSignOut }) {
   const [logoPreview, setLogoPreview] = useState(null);
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileSaved,  setProfileSaved]  = useState(false);
+  // Uncontrolled refs for profile fields — prevents focus loss on re-render
+  const profileBusinessRef  = useRef(null);
+  const profileDescRef      = useRef(null);
+  const profileInstagramRef = useRef(null);
+  const profileWhatsappRef  = useRef(null);
 
   const handleLogoFile = (e) => {
     const file = e.target.files[0];
@@ -961,11 +966,11 @@ function SellerApp({ user, onSignOut }) {
       }
     }
     const updates = {
-      business:   profileData.business,
-      desc:       profileData.desc,
+      business:   profileBusinessRef.current?.value  || profileData.business,
+      desc:       profileDescRef.current?.value      || profileData.desc,
       hood:       profileData.hood,
-      whatsapp:   profileData.whatsapp,
-      instagram:  profileData.instagram,
+      whatsapp:   profileWhatsappRef.current?.value  || profileData.whatsapp,
+      instagram:  profileInstagramRef.current?.value || profileData.instagram,
     };
     if (logoUrl) updates.logo_url = logoUrl;
     await supabase.from("profiles").update(updates).eq("id", user.id);
@@ -1009,19 +1014,19 @@ function SellerApp({ user, onSignOut }) {
               </div>
             </div>
 
-            {/* Fields */}
+            {/* Fields — uncontrolled to prevent focus loss */}
             {[
-              { label:"Bakery Name",       key:"business",  ph:"Maria's Home Bakery"  },
-              { label:"Store Description", key:"desc",      ph:"What makes you special...", multi:true },
-              { label:"Instagram",         key:"instagram", ph:"@mybakery"             },
-              { label:"WhatsApp Number",   key:"whatsapp",  ph:"+1 (416) 555-0100"    },
+              { label:"Bakery Name",       ref:profileBusinessRef,  ph:"Maria's Home Bakery",      defaultValue:profileData.business  },
+              { label:"Store Description", ref:profileDescRef,      ph:"What makes you special...", defaultValue:profileData.desc, multi:true },
+              { label:"Instagram",         ref:profileInstagramRef, ph:"@mybakery",                defaultValue:profileData.instagram },
+              { label:"WhatsApp Number",   ref:profileWhatsappRef,  ph:"+1 (416) 555-0100",        defaultValue:profileData.whatsapp  },
             ].map(f=>(
-              <div key={f.key} style={{ marginBottom:14 }}>
+              <div key={f.label} style={{ marginBottom:14 }}>
                 <label style={{ fontSize:10, fontWeight:700, color:C.textMuted, display:"block", marginBottom:5, textTransform:"uppercase", letterSpacing:"0.08em" }}>{f.label}</label>
                 {f.multi
-                  ? <textarea value={profileData[f.key]} onChange={e=>setProfileData(p=>({...p,[f.key]:e.target.value}))} rows={3} placeholder={f.ph}
+                  ? <textarea ref={f.ref} defaultValue={f.defaultValue} rows={3} placeholder={f.ph}
                       style={{ width:"100%", padding:"9px 12px", border:`1px solid ${C.border}`, borderRadius:5, fontSize:13, color:C.text, background:C.surfaceHigh, outline:"none", resize:"none", boxSizing:"border-box" }}/>
-                  : <input value={profileData[f.key]} onChange={e=>setProfileData(p=>({...p,[f.key]:e.target.value}))} placeholder={f.ph}
+                  : <input ref={f.ref} defaultValue={f.defaultValue} placeholder={f.ph}
                       style={{ width:"100%", padding:"9px 12px", border:`1px solid ${C.border}`, borderRadius:5, fontSize:13, color:C.text, background:C.surfaceHigh, outline:"none", boxSizing:"border-box" }}/>
                 }
               </div>
@@ -1349,7 +1354,7 @@ function SellerApp({ user, onSignOut }) {
         category: editForm.category||"Other",
         emoji: editForm.category||"Other",
         desc: editForm.desc,
-        stock: parseInt(editForm.stock)||0,
+        stock: editForm.stock ? (parseInt(editForm.stock)||0) : (editProduct.stock||0),
         availability: editForm.availability||"available",
         image_url: uploadedUrls[0]||editProduct.image_url||null,
         images: uploadedUrls.length>0 ? JSON.stringify(uploadedUrls) : editProduct.images||null,
@@ -1478,8 +1483,8 @@ function SellerApp({ user, onSignOut }) {
 
               {/* ── SHARED IMAGE PANEL (left side) ── */}
               {(() => {
-                const imgs = (() => { try { return JSON.parse(editProduct.images||"[]"); } catch(e) { return editProduct.image_url?[editProduct.image_url]:[]; } })();
-                const showImgs = editForm ? editImages.map(i=>i.url) : imgs;
+                const storedImgs = (() => { try { const p=JSON.parse(editProduct.images||"[]"); return p.length>0?p:(editProduct.image_url?[editProduct.image_url]:[]); } catch(e) { return editProduct.image_url?[editProduct.image_url]:[]; } })();
+                const showImgs = editForm ? (editImages.length>0 ? editImages.map(i=>i.url) : storedImgs) : storedImgs;
                 const slide = editSlide < showImgs.length ? editSlide : 0;
                 return (
                   <div style={{ width:340, flexShrink:0, background:C.surfaceHigh, position:"relative", display:"flex", flexDirection:"column" }}>
@@ -1657,33 +1662,34 @@ function SellerApp({ user, onSignOut }) {
 
         {showModal && (
           <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.75)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:200 }}>
-            <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:12, width:780, maxWidth:"96vw", maxHeight:"92vh", display:"flex", overflow:"hidden", boxShadow:"0 24px 60px rgba(0,0,0,0.35)" }}>
-
-              {/* LEFT — image preview */}
-              <div style={{ width:300, flexShrink:0, background:C.surfaceHigh, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", position:"relative" }}>
-                {imagePreview ? (
-                  <>
-                    <img src={imagePreview} alt="preview" style={{ width:"100%", height:"100%", objectFit:"cover", display:"block" }}/>
-                    <label style={{ position:"absolute", bottom:12, left:"50%", transform:"translateX(-50%)", background:"rgba(0,0,0,0.65)", color:"#FFF", borderRadius:5, padding:"7px 14px", fontSize:12, fontWeight:600, cursor:"pointer", whiteSpace:"nowrap" }}>
-                      <input type="file" accept="image/*" onChange={handleImage} style={{ display:"none" }}/>
-                      Change Photo
-                    </label>
-                  </>
-                ) : (
-                  <label style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", cursor:"pointer", width:"100%", height:"100%", gap:10 }}>
-                    <input type="file" accept="image/*" onChange={handleImage} style={{ display:"none" }}/>
-                    <div style={{ fontSize:40 }}>📷</div>
-                    <p style={{ fontSize:13, fontWeight:600, color:C.textMuted, margin:0 }}>Upload a photo</p>
-                    <p style={{ fontSize:11, color:C.textMuted, margin:0, opacity:0.7 }}>JPG, PNG or WEBP</p>
-                  </label>
-                )}
+            <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:12, width:500, maxWidth:"95vw", maxHeight:"92vh", overflowY:"auto", boxShadow:"0 24px 60px rgba(0,0,0,0.35)" }}>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"1.25rem 1.5rem", borderBottom:`1px solid ${C.border}` }}>
+                <h2 style={{ fontSize:18, fontWeight:700, color:C.text, margin:0, letterSpacing:"-0.02em" }}>Add Product</h2>
+                <button onClick={()=>{ setShowModal(false); setImageFile(null); setImagePreview(null); }} style={{ background:C.surfaceHigh, border:"none", width:28, height:28, borderRadius:4, fontSize:14, cursor:"pointer", color:C.textMuted }}>✕</button>
               </div>
-
-              {/* RIGHT — form */}
-              <div style={{ flex:1, padding:"1.5rem", overflowY:"auto" }}>
-                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"1.25rem" }}>
-                  <h2 style={{ fontSize:18, fontWeight:700, color:C.text, margin:0, letterSpacing:"-0.02em" }}>Add Product</h2>
-                  <button onClick={()=>{ setShowModal(false); setImageFile(null); setImagePreview(null); }} style={{ background:C.surfaceHigh, border:"none", width:28, height:28, borderRadius:4, fontSize:14, cursor:"pointer", color:C.textMuted }}>✕</button>
+              <div style={{ padding:"1.25rem 1.5rem" }}>
+                {/* Image upload — full width with lightbox preview */}
+                <div style={{ marginBottom:14 }}>
+                  <label style={{ fontSize:10, fontWeight:600, color:C.textMuted, display:"block", marginBottom:6, textTransform:"uppercase", letterSpacing:"0.08em" }}>Product Photo</label>
+                  {imagePreview ? (
+                    <div style={{ position:"relative", borderRadius:8, overflow:"hidden", marginBottom:6 }}>
+                      <img src={imagePreview} alt="preview" style={{ width:"100%", height:220, objectFit:"cover", display:"block" }}/>
+                      <div style={{ position:"absolute", bottom:8, right:8, display:"flex", gap:6 }}>
+                        <label style={{ background:"rgba(0,0,0,0.65)", color:"#FFF", borderRadius:5, padding:"6px 12px", fontSize:11, fontWeight:600, cursor:"pointer" }}>
+                          <input type="file" accept="image/*" onChange={handleImage} style={{ display:"none" }}/>
+                          Change
+                        </label>
+                        <button onClick={()=>{ setImageFile(null); setImagePreview(null); }} style={{ background:"rgba(181,32,32,0.8)", color:"#FFF", border:"none", borderRadius:5, padding:"6px 12px", fontSize:11, fontWeight:600, cursor:"pointer" }}>Remove</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <label style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:8, border:`2px dashed ${C.border}`, borderRadius:8, padding:"2rem", cursor:"pointer", background:C.surfaceHigh }}>
+                      <input type="file" accept="image/*" onChange={handleImage} style={{ display:"none" }}/>
+                      <span style={{ fontSize:32 }}>📷</span>
+                      <p style={{ fontSize:13, fontWeight:600, color:C.textMuted, margin:0 }}>Click to upload a photo</p>
+                      <p style={{ fontSize:11, color:C.textMuted, margin:0, opacity:0.7 }}>JPG, PNG or WEBP · Max 5MB</p>
+                    </label>
+                  )}
                 </div>
                 <Inp label="Product Name" value={form.name} onChange={v=>setForm({...form,name:v})} ph="e.g. Blueberry Scones"/>
                 <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
@@ -1691,25 +1697,25 @@ function SellerApp({ user, onSignOut }) {
                   <Inp label="Stock Available" value={form.stock} onChange={v=>setForm({...form,stock:v})} ph="10"/>
                 </div>
                 <div style={{ marginBottom:12 }}>
-                  <label style={{ fontSize:10, fontWeight:600, color:C.textMuted, display:"block", marginBottom:5, textTransform:"uppercase", letterSpacing:"0.08em" }}>Category</label>
+                  <label style={{ fontSize:10, fontWeight:600, color:C.textMuted, display:"block", marginBottom:6, textTransform:"uppercase", letterSpacing:"0.08em" }}>Category</label>
                   <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
                     {PRODUCT_CATS.map(cat=>(
-                      <button key={cat} onClick={()=>setForm({...form,category:cat})} style={{
-                        padding:"5px 12px", borderRadius:4, border:`1px solid ${form.category===cat?C.accent:C.border}`,
+                      <button key={cat} onClick={()=>setForm(f=>({...f,category:cat}))} style={{
+                        padding:"6px 13px", borderRadius:4, border:`1px solid ${form.category===cat?C.accent:C.border}`,
                         background:form.category===cat?C.accentBg:"transparent", color:form.category===cat?C.accent:C.textMuted,
                         fontSize:12, fontWeight:form.category===cat?700:400, cursor:"pointer"
                       }}>{cat}</button>
                     ))}
                   </div>
                 </div>
-                <div style={{ marginBottom:12 }}>
+                <div style={{ marginBottom:16 }}>
                   <label style={{ fontSize:10, fontWeight:600, color:C.textMuted, display:"block", marginBottom:5, textTransform:"uppercase", letterSpacing:"0.08em" }}>Description</label>
-                  <textarea value={form.desc} onChange={e=>setForm({...form,desc:e.target.value})} rows={3} placeholder="Describe your product — ingredients, texture, what makes it special..."
+                  <textarea value={form.desc} onChange={e=>setForm(f=>({...f,desc:e.target.value}))} rows={3} placeholder="Describe your product — ingredients, texture, what makes it special..."
                     style={{ width:"100%", padding:"9px 12px", border:`1px solid ${C.border}`, borderRadius:5, fontSize:13, color:C.text, background:C.surfaceHigh, outline:"none", resize:"none", boxSizing:"border-box" }}/>
                 </div>
-                <div style={{ display:"flex", gap:8, marginTop:"0.5rem" }}>
-                  <button onClick={()=>{ setShowModal(false); setImageFile(null); setImagePreview(null); }} style={{ flex:1, padding:"10px", border:`1px solid ${C.border}`, borderRadius:5, background:"transparent", color:C.textMuted, cursor:"pointer", fontSize:13 }}>Cancel</button>
-                  <button onClick={add} disabled={uploading} style={{ flex:2, padding:"10px", background:uploading?"rgba(196,98,45,0.4)":C.accent, color:"#FFF", border:"none", borderRadius:5, cursor:uploading?"default":"pointer", fontSize:13, fontWeight:700 }}>
+                <div style={{ display:"flex", gap:8 }}>
+                  <button onClick={()=>{ setShowModal(false); setImageFile(null); setImagePreview(null); }} style={{ flex:1, padding:"11px", border:`1px solid ${C.border}`, borderRadius:5, background:"transparent", color:C.textMuted, cursor:"pointer", fontSize:13 }}>Cancel</button>
+                  <button onClick={add} disabled={uploading} style={{ flex:2, padding:"11px", background:uploading?"rgba(196,98,45,0.4)":C.accent, color:"#FFF", border:"none", borderRadius:5, cursor:uploading?"default":"pointer", fontSize:13, fontWeight:700 }}>
                     {uploading?"Uploading...":"Add Product"}
                   </button>
                 </div>
