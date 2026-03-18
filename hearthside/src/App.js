@@ -84,7 +84,6 @@ const CHARITIES = [
   { id:4, name:"The Stop Community Food", emoji:"🌱", desc:"Community food programs in Davenport.", hood:"Davenport" },
 ];
 const HOODS = ["All","Leslieville","Kensington","Chinatown","Little Portugal","Brampton","Roncesvalles"];
-// eslint-disable-next-line no-unused-vars
 const CHAT_INIT = [
   { id:1, seller:"Maria's Home Bakery",  hood:"Leslieville",  emoji:"🍞", time:"8:02am",  msg:"Fresh sourdough just out of the oven! 8 loaves available today 🔥 Order by noon for afternoon pickup." },
   { id:2, seller:"The Dumpling Den",     hood:"Chinatown",    emoji:"🥟", time:"8:45am",  msg:"Making an extra batch of pork dumplings today — 5 orders left at the special price of $12/dozen." },
@@ -115,7 +114,6 @@ const SELLER_NAV = [
   { id:"delivery",   icon:"⌖", label:"Delivery"     },
   { id:"marketing",  icon:"✦", label:"AI Marketing" },
   { id:"community",  icon:"◎", label:"Community"    },
-  { id:"profile",    icon:"⊙", label:"Store Profile" },
 ];
 const TIME_SLOTS = [
   { value:"next-day-am", label:"Tomorrow, 9am–12pm"  },
@@ -879,15 +877,147 @@ function SellerApp({ user, onSignOut }) {
   }, [user?.id]);
 
   // ── SIDEBAR ──
-  const Sidebar = () => (
-    <div style={{ width:220, background:C.sidebar, display:"flex", flexDirection:"column", flexShrink:0, borderRight:`1px solid rgba(255,255,255,0.06)` }}>
-      <div style={{ padding:"1.25rem 1rem", borderBottom:`1px solid ${C.border}`, display:"flex", alignItems:"center", gap:10 }}>
-        <div style={{ width:28, height:28, background:C.accent, borderRadius:5, display:"flex", alignItems:"center", justifyContent:"center", fontSize:14 }}>🍞</div>
-        <div style={{ minWidth:0 }}>
-          <p style={{ color:C.sidebarText, fontSize:13, fontWeight:700, margin:0, letterSpacing:"-0.01em", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{user.business}</p>
-          <p style={{ color:C.sidebarMuted, fontSize:10, margin:0 }}>Seller Dashboard</p>
+  const [showProfilePanel, setShowProfilePanel] = useState(false);
+  const [profileData, setProfileData] = useState({
+    business: user.business||"",
+    desc: "",
+    hood: user.hood||"Lessieville",
+    whatsapp: "",
+    instagram: "",
+  });
+  const [logoFile,    setLogoFile]    = useState(null);
+  const [logoPreview, setLogoPreview] = useState(null);
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileSaved,  setProfileSaved]  = useState(false);
+
+  const handleLogoFile = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setLogoFile(file);
+    setLogoPreview(URL.createObjectURL(file));
+  };
+
+  const saveProfile = async () => {
+    setProfileSaving(true);
+    let logoUrl = null;
+    if (logoFile) {
+      const ext = logoFile.name.split(".").pop();
+      const path = `logos/${user.id}.${ext}`;
+      const { error:upErr } = await supabase.storage.from("product-images").upload(path, logoFile, { upsert:true });
+      if (!upErr) {
+        const { data:urlData } = supabase.storage.from("product-images").getPublicUrl(path);
+        logoUrl = urlData.publicUrl;
+      }
+    }
+    const updates = {
+      business:   profileData.business,
+      desc:       profileData.desc,
+      hood:       profileData.hood,
+      whatsapp:   profileData.whatsapp,
+      instagram:  profileData.instagram,
+    };
+    if (logoUrl) updates.logo_url = logoUrl;
+    await supabase.from("profiles").update(updates).eq("id", user.id);
+    setProfileSaving(false); setProfileSaved(true);
+    setTimeout(()=>setProfileSaved(false), 2500);
+  };
+
+  const ProfilePanel = () => (
+    showProfilePanel ? (
+      <div style={{ position:"fixed", inset:0, zIndex:300, display:"flex" }}>
+        <div onClick={()=>setShowProfilePanel(false)} style={{ flex:1, background:"rgba(0,0,0,0.5)" }}/>
+        <div style={{ width:380, background:C.surface, borderLeft:`1px solid ${C.border}`, overflowY:"auto", fontFamily:"'DM Sans', system-ui, sans-serif" }}>
+          <div style={{ padding:"1.25rem 1.5rem", borderBottom:`1px solid ${C.border}`, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+            <div>
+              <p style={{ fontSize:16, fontWeight:700, color:C.text, margin:"0 0 1px", letterSpacing:"-0.01em" }}>Store Profile</p>
+              <p style={{ fontSize:12, color:C.textMuted, margin:0 }}>How customers see your store</p>
+            </div>
+            <button onClick={()=>setShowProfilePanel(false)} style={{ background:C.surfaceHigh, border:"none", width:30, height:30, borderRadius:5, fontSize:16, cursor:"pointer", color:C.textMuted }}>✕</button>
+          </div>
+          <div style={{ padding:"1.25rem 1.5rem" }}>
+            {/* Logo */}
+            <div style={{ marginBottom:18 }}>
+              <label style={{ fontSize:10, fontWeight:700, color:C.textMuted, display:"block", marginBottom:10, textTransform:"uppercase", letterSpacing:"0.08em" }}>Store Logo</label>
+              <div style={{ display:"flex", alignItems:"center", gap:14 }}>
+                <div style={{ width:72, height:72, borderRadius:12, background:C.surfaceHigh, border:`2px dashed ${logoPreview?C.accent:C.border}`, overflow:"hidden", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                  {logoPreview
+                    ? <img src={logoPreview} alt="logo" style={{ width:"100%", height:"100%", objectFit:"cover" }}/>
+                    : <span style={{ fontSize:11, color:C.textMuted, textAlign:"center", padding:"0 6px", lineHeight:1.4 }}>No logo</span>
+                  }
+                </div>
+                <div>
+                  <label style={{ display:"inline-block", background:C.accent, color:"#FFF", borderRadius:5, padding:"8px 14px", fontSize:12, fontWeight:700, cursor:"pointer", marginBottom:5 }}>
+                    <input type="file" accept="image/*" onChange={handleLogoFile} style={{ display:"none" }}/>
+                    {logoPreview?"Change":"Upload Logo"}
+                  </label>
+                  {logoPreview && (
+                    <button onClick={()=>{ setLogoFile(null); setLogoPreview(null); }} style={{ display:"block", background:"transparent", border:"none", fontSize:11, color:C.textMuted, cursor:"pointer", padding:0 }}>Remove</button>
+                  )}
+                  <p style={{ fontSize:10, color:C.textMuted, margin:"4px 0 0", opacity:0.7 }}>400×400px · JPG or PNG</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Fields */}
+            {[
+              { label:"Bakery Name",       key:"business",  ph:"Maria's Home Bakery"  },
+              { label:"Store Description", key:"desc",      ph:"What makes you special...", multi:true },
+              { label:"Instagram",         key:"instagram", ph:"@mybakery"             },
+              { label:"WhatsApp Number",   key:"whatsapp",  ph:"+1 (416) 555-0100"    },
+            ].map(f=>(
+              <div key={f.key} style={{ marginBottom:14 }}>
+                <label style={{ fontSize:10, fontWeight:700, color:C.textMuted, display:"block", marginBottom:5, textTransform:"uppercase", letterSpacing:"0.08em" }}>{f.label}</label>
+                {f.multi
+                  ? <textarea value={profileData[f.key]} onChange={e=>setProfileData(p=>({...p,[f.key]:e.target.value}))} rows={3} placeholder={f.ph}
+                      style={{ width:"100%", padding:"9px 12px", border:`1px solid ${C.border}`, borderRadius:5, fontSize:13, color:C.text, background:C.surfaceHigh, outline:"none", resize:"none", boxSizing:"border-box" }}/>
+                  : <input value={profileData[f.key]} onChange={e=>setProfileData(p=>({...p,[f.key]:e.target.value}))} placeholder={f.ph}
+                      style={{ width:"100%", padding:"9px 12px", border:`1px solid ${C.border}`, borderRadius:5, fontSize:13, color:C.text, background:C.surfaceHigh, outline:"none", boxSizing:"border-box" }}/>
+                }
+              </div>
+            ))}
+
+            <div style={{ marginBottom:18 }}>
+              <label style={{ fontSize:10, fontWeight:700, color:C.textMuted, display:"block", marginBottom:5, textTransform:"uppercase", letterSpacing:"0.08em" }}>Neighbourhood</label>
+              <select value={profileData.hood} onChange={e=>setProfileData(p=>({...p,hood:e.target.value}))}
+                style={{ width:"100%", padding:"9px 12px", border:`1px solid ${C.border}`, borderRadius:5, fontSize:13, color:C.text, background:C.surfaceHigh, outline:"none" }}>
+                {HOODS.filter(h=>h!=="All").map(h=><option key={h} value={h}>{h}</option>)}
+              </select>
+            </div>
+
+            <div style={{ background:C.accentBg, border:`1px solid ${C.accentBorder}`, borderRadius:6, padding:"10px 12px", marginBottom:18 }}>
+              <p style={{ fontSize:10, fontWeight:700, color:C.accent, margin:"0 0 3px" }}>Your store link</p>
+              <p style={{ fontSize:12, color:C.textSub, fontFamily:"monospace", margin:0 }}>hearthside.app/store/{user.id?.slice(0,8)||"your-id"}</p>
+            </div>
+
+            <button onClick={saveProfile} disabled={profileSaving} style={{ width:"100%", padding:"12px", background:profileSaved?C.success:C.accent, color:"#FFF", border:"none", borderRadius:5, fontSize:13, fontWeight:700, cursor:"pointer", transition:"background 0.2s" }}>
+              {profileSaving?"Saving...":profileSaved?"✓ Profile Saved!":"Save Profile"}
+            </button>
+          </div>
         </div>
       </div>
+    ) : null
+  );
+
+  const Sidebar = () => (
+    <div style={{ width:220, background:C.sidebar, display:"flex", flexDirection:"column", flexShrink:0, borderRight:`1px solid rgba(255,255,255,0.06)` }}>
+      <button onClick={()=>setShowProfilePanel(true)} style={{
+        padding:"1.25rem 1rem", borderBottom:`1px solid rgba(255,255,255,0.06)`,
+        display:"flex", alignItems:"center", gap:10, background:"transparent", border:"none",
+        cursor:"pointer", textAlign:"left", width:"100%",
+      }}
+        onMouseEnter={e=>e.currentTarget.style.background="rgba(255,255,255,0.04)"}
+        onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+        <div style={{ width:34, height:34, borderRadius:7, background:logoPreview?"transparent":C.accent, overflow:"hidden", display:"flex", alignItems:"center", justifyContent:"center", fontSize:16, flexShrink:0 }}>
+          {logoPreview
+            ? <img src={logoPreview} alt="logo" style={{ width:"100%", height:"100%", objectFit:"cover" }}/>
+            : <span>🍞</span>
+          }
+        </div>
+        <div style={{ minWidth:0, flex:1 }}>
+          <p style={{ color:C.sidebarText, fontSize:13, fontWeight:700, margin:0, letterSpacing:"-0.01em", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{profileData.business||user.business}</p>
+          <p style={{ color:C.sidebarMuted, fontSize:10, margin:0 }}>Edit store profile →</p>
+        </div>
+      </button>
       <nav style={{ flex:1, padding:"0.5rem" }}>
         {SELLER_NAV.map(item=>{
           const active = view===item.id;
@@ -898,7 +1028,7 @@ function SellerApp({ user, onSignOut }) {
               borderRadius:5, cursor:"pointer", marginBottom:1, textAlign:"left"
             }}>
               <span style={{ fontSize:13, color:active?C.accent:C.sidebarMuted, width:16, textAlign:"center" }}>{item.icon}</span>
-              <span style={{ fontSize:13, color:active?C.accent:C.textMuted, fontWeight:active?600:400 }}>{item.label}</span>
+              <span style={{ fontSize:13, color:active?C.accent:C.sidebarText, fontWeight:active?600:400 }}>{item.label}</span>
             </button>
           );
         })}
@@ -908,11 +1038,11 @@ function SellerApp({ user, onSignOut }) {
           <span style={{ fontSize:12, color:C.sidebarMuted }}>Sign out</span>
         </button>
       </div>
-      <div style={{ padding:"0.75rem", borderTop:`1px solid ${C.border}` }}>
+      <div style={{ padding:"0.75rem", borderTop:`1px solid rgba(255,255,255,0.06)` }}>
         <div style={{ background:"rgba(196,98,45,0.15)", border:"1px solid rgba(196,98,45,0.35)", borderRadius:6, padding:"10px 12px" }}>
           <p style={{ color:"#F4A261", fontSize:10, fontWeight:700, margin:"0 0 2px", textTransform:"uppercase", letterSpacing:"0.08em" }}>Free Trial</p>
           <p style={{ color:C.sidebarText, fontSize:11, margin:"0 0 8px" }}>14 days remaining</p>
-          <button style={{ background:C.accent, color:"#000", border:"none", borderRadius:4, padding:"6px 10px", fontSize:11, fontWeight:700, cursor:"pointer", width:"100%" }}>Upgrade →</button>
+          <button style={{ background:C.accent, color:"#FFF", border:"none", borderRadius:4, padding:"6px 10px", fontSize:11, fontWeight:700, cursor:"pointer", width:"100%" }}>Upgrade →</button>
         </div>
       </div>
     </div>
@@ -1090,8 +1220,7 @@ function SellerApp({ user, onSignOut }) {
     const [imagePreview, setImagePreview] = useState(null);
     const [uploading,    setUploading]    = useState(false);
     const [saving,       setSaving]       = useState(false);
-    
-// eslint-disable-next-line no-unused-vars
+
     const openEdit = (p) => { setEditProduct(p); setEditForm({ name:p.name, price:String(p.price||""), emoji:p.emoji||"🍞", desc:p.desc||"", stock:String(p.stock||"10") }); };
 
     const saveEdit = async () => {
@@ -1165,18 +1294,15 @@ function SellerApp({ user, onSignOut }) {
         )}
         <div style={{ display:"grid", gridTemplateColumns:"repeat(3,minmax(0,1fr))", gap:10 }}>
           {products.map(p=>(
-            <div key={p.id} onClick={()=>setEditProduct({...p})} style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:8, overflow:"hidden", cursor:"pointer", transition:"border-color 0.15s" }}
+            <div key={p.id} onClick={()=>{ setEditProduct({...p}); setEditForm(null); }} style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:8, overflow:"hidden", cursor:"pointer", transition:"border-color 0.15s" }}
               onMouseEnter={e=>e.currentTarget.style.borderColor=C.borderMid}
               onMouseLeave={e=>e.currentTarget.style.borderColor=C.border}>
               {p.image_url
-                ? <img src={p.image_url} alt={p.name} style={{ width:"100%", height:120, objectFit:"cover", display:"block" }}/>
+                ? <img src={p.image_url} alt={p.name} style={{ width:"100%", height:130, objectFit:"cover", display:"block" }}/>
                 : <div style={{ width:"100%", height:80, background:C.surfaceHigh, display:"flex", alignItems:"center", justifyContent:"center", fontSize:28 }}>{p.emoji}</div>
               }
               <div style={{ padding:"0.875rem" }}>
-                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:3 }}>
-                  <p style={{ fontSize:14, fontWeight:600, color:C.text, margin:0, letterSpacing:"-0.01em" }}>{p.name}</p>
-                  <span style={{ fontSize:10, color:C.accent, fontWeight:600, background:C.accentBg, padding:"2px 7px", borderRadius:3, flexShrink:0, marginLeft:4 }}>Edit</span>
-                </div>
+                <p style={{ fontSize:14, fontWeight:600, color:C.text, margin:"0 0 3px", letterSpacing:"-0.01em" }}>{p.name}</p>
                 <p style={{ fontSize:11, color:C.textMuted, margin:"0 0 10px", lineHeight:1.5 }}>{p.desc}</p>
                 <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", borderTop:`1px solid ${C.border}`, paddingTop:9 }}>
                   <span style={{ fontSize:16, fontWeight:700, color:C.accent, letterSpacing:"-0.01em" }}>${p.price?.toFixed(2)||"0.00"}</span>
@@ -1188,35 +1314,79 @@ function SellerApp({ user, onSignOut }) {
             </div>
           ))}
         </div>
-        {/* ── EDIT PRODUCT MODAL ── */}
-        {editProduct && editForm && (
+
+        {/* ── PRODUCT PREVIEW + EDIT MODAL ── */}
+        {editProduct && (
           <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.6)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:200 }}>
-            <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:10, padding:"1.75rem", width:440, maxWidth:"95vw", maxHeight:"90vh", overflowY:"auto" }}>
-              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"1rem" }}>
-                <h2 style={{ fontSize:18, fontWeight:700, color:C.text, margin:0, letterSpacing:"-0.02em" }}>Edit Product</h2>
-                <button onClick={()=>{ setEditProduct(null); setEditForm(null); }} style={{ background:C.surfaceHigh, border:"none", width:28, height:28, borderRadius:4, fontSize:14, cursor:"pointer", color:C.textMuted }}>✕</button>
-              </div>
-              {editProduct.image_url && (
-                <img src={editProduct.image_url} alt={editProduct.name} style={{ width:"100%", height:120, objectFit:"cover", borderRadius:6, marginBottom:14 }}/>
+            <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:12, width:460, maxWidth:"95vw", maxHeight:"90vh", overflowY:"auto" }}>
+
+              {/* ── PREVIEW MODE ── */}
+              {!editForm && (
+                <>
+                  {editProduct.image_url
+                    ? <img src={editProduct.image_url} alt={editProduct.name} style={{ width:"100%", height:200, objectFit:"cover", borderRadius:"12px 12px 0 0", display:"block" }}/>
+                    : <div style={{ width:"100%", height:120, background:C.surfaceHigh, borderRadius:"12px 12px 0 0", display:"flex", alignItems:"center", justifyContent:"center", fontSize:48 }}>{editProduct.emoji}</div>
+                  }
+                  <div style={{ padding:"1.5rem" }}>
+                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:8 }}>
+                      <div>
+                        <p style={{ fontSize:20, fontWeight:700, color:C.text, margin:"0 0 4px", letterSpacing:"-0.02em" }}>{editProduct.name}</p>
+                        <p style={{ fontSize:11, color:C.textMuted, margin:0 }}>{editProduct.emoji} · {editProduct.stock} in stock</p>
+                      </div>
+                      <p style={{ fontSize:24, fontWeight:700, color:C.accent, margin:0, letterSpacing:"-0.02em" }}>${editProduct.price?.toFixed(2)||"0.00"}</p>
+                    </div>
+                    <p style={{ fontSize:14, color:C.textSub, margin:"0 0 1.5rem", lineHeight:1.7 }}>{editProduct.desc||"No description added yet."}</p>
+                    <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, marginBottom:"1.5rem" }}>
+                      {[["Price",`$${editProduct.price?.toFixed(2)||"0.00"}`],["Stock",`${editProduct.stock||0} units`],["Category",editProduct.emoji||"–"]].map(([k,v])=>(
+                        <div key={k} style={{ background:C.surfaceHigh, borderRadius:6, padding:"10px 12px" }}>
+                          <p style={{ fontSize:10, color:C.textMuted, margin:"0 0 3px", textTransform:"uppercase", letterSpacing:"0.07em" }}>{k}</p>
+                          <p style={{ fontSize:14, fontWeight:600, color:C.text, margin:0 }}>{v}</p>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ display:"flex", gap:8 }}>
+                      <button onClick={()=>{ setEditProduct(null); }} style={{ flex:1, padding:"11px", border:`1px solid ${C.border}`, borderRadius:6, background:"transparent", color:C.textMuted, cursor:"pointer", fontSize:13 }}>Close</button>
+                      <button onClick={()=>setEditForm({ name:editProduct.name, price:String(editProduct.price||""), emoji:editProduct.emoji||"🍞", desc:editProduct.desc||"", stock:String(editProduct.stock||"10") })} style={{ flex:2, padding:"11px", background:C.accent, color:"#FFF", border:"none", borderRadius:6, cursor:"pointer", fontSize:13, fontWeight:700 }}>
+                        ✏ Edit Product
+                      </button>
+                    </div>
+                  </div>
+                </>
               )}
-              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
-                <Inp label="Product Name" value={editForm.name}  onChange={v=>setEditForm({...editForm,name:v})}  ph="e.g. Blueberry Scones"/>
-                <Inp label="Price ($)"    value={editForm.price} onChange={v=>setEditForm({...editForm,price:v})} ph="16.00"/>
-                <Inp label="Stock"        value={editForm.stock} onChange={v=>setEditForm({...editForm,stock:v})} ph="10"/>
-                <Inp label="Emoji"        value={editForm.emoji} onChange={v=>setEditForm({...editForm,emoji:v})} ph="🍞"/>
-              </div>
-              <div style={{ marginBottom:16 }}>
-                <label style={{ fontSize:10, fontWeight:600, color:C.textMuted, display:"block", marginBottom:5, textTransform:"uppercase", letterSpacing:"0.08em" }}>Description</label>
-                <textarea value={editForm.desc} onChange={e=>setEditForm({...editForm,desc:e.target.value})} rows={3}
-                  style={{ width:"100%", padding:"9px 12px", border:`1px solid ${C.border}`, borderRadius:5, fontSize:13, color:C.text, background:C.surfaceHigh, outline:"none", resize:"none", boxSizing:"border-box" }}/>
-              </div>
-              <div style={{ display:"flex", gap:8 }}>
-                <button onClick={deleteProduct} style={{ padding:"10px 14px", border:`1px solid ${C.danger}`, borderRadius:5, background:C.dangerBg, color:C.danger, cursor:"pointer", fontSize:13, fontWeight:600 }}>Delete</button>
-                <button onClick={()=>{ setEditProduct(null); setEditForm(null); }} style={{ flex:1, padding:"10px", border:`1px solid ${C.border}`, borderRadius:5, background:"transparent", color:C.textMuted, cursor:"pointer", fontSize:13 }}>Cancel</button>
-                <button onClick={saveEdit} disabled={saving} style={{ flex:2, padding:"10px", background:saving?"rgba(196,98,45,0.4)":C.accent, color:"#FFF", border:"none", borderRadius:5, cursor:saving?"default":"pointer", fontSize:13, fontWeight:700 }}>
-                  {saving?"Saving...":"Save Changes"}
-                </button>
-              </div>
+
+              {/* ── EDIT MODE ── */}
+              {editForm && (
+                <div style={{ padding:"1.5rem" }}>
+                  <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"1.25rem" }}>
+                    <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                      <button onClick={()=>setEditForm(null)} style={{ background:"transparent", border:"none", fontSize:16, cursor:"pointer", color:C.textMuted, padding:0 }}>←</button>
+                      <h2 style={{ fontSize:17, fontWeight:700, color:C.text, margin:0, letterSpacing:"-0.01em" }}>Edit Product</h2>
+                    </div>
+                    <button onClick={()=>{ setEditProduct(null); setEditForm(null); }} style={{ background:C.surfaceHigh, border:"none", width:28, height:28, borderRadius:4, fontSize:14, cursor:"pointer", color:C.textMuted }}>✕</button>
+                  </div>
+                  {editProduct.image_url && (
+                    <img src={editProduct.image_url} alt={editProduct.name} style={{ width:"100%", height:110, objectFit:"cover", borderRadius:6, marginBottom:14 }}/>
+                  )}
+                  <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:4 }}>
+                    <Inp label="Product Name" value={editForm.name}  onChange={v=>setEditForm({...editForm,name:v})}  ph="e.g. Blueberry Scones"/>
+                    <Inp label="Price ($)"    value={editForm.price} onChange={v=>setEditForm({...editForm,price:v})} ph="16.00"/>
+                    <Inp label="Stock"        value={editForm.stock} onChange={v=>setEditForm({...editForm,stock:v})} ph="10"/>
+                    <Inp label="Emoji"        value={editForm.emoji} onChange={v=>setEditForm({...editForm,emoji:v})} ph="🍞"/>
+                  </div>
+                  <div style={{ marginBottom:16 }}>
+                    <label style={{ fontSize:10, fontWeight:600, color:C.textMuted, display:"block", marginBottom:5, textTransform:"uppercase", letterSpacing:"0.08em" }}>Description</label>
+                    <textarea value={editForm.desc} onChange={e=>setEditForm({...editForm,desc:e.target.value})} rows={3}
+                      style={{ width:"100%", padding:"9px 12px", border:`1px solid ${C.border}`, borderRadius:5, fontSize:13, color:C.text, background:C.surfaceHigh, outline:"none", resize:"none", boxSizing:"border-box" }}/>
+                  </div>
+                  <div style={{ display:"flex", gap:8 }}>
+                    <button onClick={deleteProduct} style={{ padding:"10px 14px", border:`1px solid ${C.danger}`, borderRadius:5, background:C.dangerBg, color:C.danger, cursor:"pointer", fontSize:13, fontWeight:600 }}>Delete</button>
+                    <button onClick={()=>setEditForm(null)} style={{ flex:1, padding:"10px", border:`1px solid ${C.border}`, borderRadius:5, background:"transparent", color:C.textMuted, cursor:"pointer", fontSize:13 }}>← Back</button>
+                    <button onClick={saveEdit} disabled={saving} style={{ flex:2, padding:"10px", background:saving?"rgba(196,98,45,0.4)":C.accent, color:"#FFF", border:"none", borderRadius:5, cursor:saving?"default":"pointer", fontSize:13, fontWeight:700 }}>
+                      {saving?"Saving...":"Save Changes"}
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -1554,142 +1724,11 @@ Return ONLY a valid JSON object with no markdown fences, no extra text, no expla
     );
   };
 
-  // ── STORE PROFILE ──
-  const StoreProfile = () => {
-    const [profile, setProfile] = useState({
-      business: user.business||"",
-      desc: user.storeDesc||"",
-      hood: user.hood||"Lessieville",
-      whatsapp: user.whatsapp||"",
-      instagram: user.instagram||"",
-    });
-    const [logoFile,    setLogoFile]    = useState(null);
-    const [logoPreview, setLogoPreview] = useState(user.logoUrl||null);
-    const [saving,      setSaving]      = useState(false);
-    const [saved,       setSaved]       = useState(false);
 
-    const handleLogo = (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-      setLogoFile(file);
-      setLogoPreview(URL.createObjectURL(file));
-    };
-
-    const save = async () => {
-      setSaving(true);
-      let logoUrl = logoPreview;
-      if (logoFile) {
-        const ext = logoFile.name.split(".").pop();
-        const path = `logos/${user.id}.${ext}`;
-        const { error:upErr } = await supabase.storage.from("product-images").upload(path, logoFile, { upsert:true });
-        if (!upErr) {
-          const { data:urlData } = supabase.storage.from("product-images").getPublicUrl(path);
-          logoUrl = urlData.publicUrl;
-        }
-      }
-      await supabase.from("profiles").update({
-        business: profile.business,
-        desc: profile.desc,
-        hood: profile.hood,
-        logo_url: logoUrl,
-        whatsapp: profile.whatsapp,
-        instagram: profile.instagram,
-      }).eq("id", user.id);
-      setSaving(false); setSaved(true); setTimeout(()=>setSaved(false),2500);
-    };
-
-    const F = ({ label, value, onChange, ph }) => (
-      <div style={{ marginBottom:14 }}>
-        <label style={{ fontSize:10, fontWeight:600, color:C.textMuted, display:"block", marginBottom:5, textTransform:"uppercase", letterSpacing:"0.08em" }}>{label}</label>
-        <input value={value} onChange={e=>onChange(e.target.value)} placeholder={ph}
-          style={{ width:"100%", padding:"10px 12px", border:`1px solid ${C.border}`, borderRadius:5, fontSize:13, color:C.text, background:C.surfaceHigh, outline:"none", boxSizing:"border-box" }}
-          onFocus={e=>e.target.style.borderColor=C.accent} onBlur={e=>e.target.style.borderColor=C.border}/>
-      </div>
-    );
-
-    return (
-      <div style={{ padding:"2rem", maxWidth:600 }}>
-        <div style={{ marginBottom:"1.5rem" }}>
-          <h1 style={{ fontSize:24, fontWeight:700, color:C.text, margin:"0 0 4px", letterSpacing:"-0.02em" }}>Store Profile</h1>
-          <p style={{ color:C.textMuted, fontSize:13, margin:0 }}>Customize how your store appears to customers</p>
-        </div>
-
-        {/* Logo upload */}
-        <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:8, padding:"1.25rem", marginBottom:14 }}>
-          <p style={{ fontSize:11, fontWeight:700, color:C.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", margin:"0 0 12px" }}>Store Logo</p>
-          <div style={{ display:"flex", alignItems:"center", gap:16 }}>
-            <div style={{ width:80, height:80, borderRadius:14, background:C.surfaceHigh, border:`2px dashed ${logoPreview?C.accent:C.border}`, overflow:"hidden", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
-              {logoPreview
-                ? <img src={logoPreview} alt="logo" style={{ width:"100%", height:"100%", objectFit:"cover" }}/>
-                : <span style={{ fontSize:11, color:C.textMuted, textAlign:"center", padding:"0 6px" }}>No logo yet</span>
-              }
-            </div>
-            <div style={{ flex:1 }}>
-              <p style={{ fontSize:13, fontWeight:600, color:C.text, margin:"0 0 4px" }}>
-                {logoPreview?"Logo uploaded ✓":"No logo uploaded yet"}
-              </p>
-              <p style={{ fontSize:12, color:C.textMuted, margin:"0 0 10px" }}>
-                Your logo appears on your store page and in the marketplace. Square images work best.
-              </p>
-              <div style={{ display:"flex", gap:8 }}>
-                <label style={{ display:"inline-block", background:C.accent, color:"#FFF", borderRadius:5, padding:"9px 16px", fontSize:12, fontWeight:700, cursor:"pointer" }}>
-                  <input type="file" accept="image/*" onChange={handleLogo} style={{ display:"none" }}/>
-                  {logoPreview?"Change Logo":"Upload Logo"}
-                </label>
-                {logoPreview && (
-                  <button onClick={()=>setLogoPreview(null)} style={{ background:"transparent", border:`1px solid ${C.border}`, borderRadius:5, padding:"9px 14px", fontSize:12, color:C.textMuted, cursor:"pointer" }}>
-                    Remove
-                  </button>
-                )}
-              </div>
-              <p style={{ fontSize:11, color:C.textMuted, margin:"6px 0 0", opacity:0.7 }}>JPG, PNG or WEBP · Recommended 400×400px · Max 5MB</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Store details */}
-        <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:8, padding:"1.25rem", marginBottom:14 }}>
-          <p style={{ fontSize:11, fontWeight:700, color:C.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", margin:"0 0 12px" }}>Store Details</p>
-          <F label="Bakery Name" value={profile.business} onChange={v=>setProfile({...profile,business:v})} ph="Maria's Home Bakery"/>
-          <div style={{ marginBottom:14 }}>
-            <label style={{ fontSize:10, fontWeight:600, color:C.textMuted, display:"block", marginBottom:5, textTransform:"uppercase", letterSpacing:"0.08em" }}>Store Description</label>
-            <textarea value={profile.desc} onChange={e=>setProfile({...profile,desc:e.target.value})} rows={3} placeholder="Tell customers what makes your bakery special..."
-              style={{ width:"100%", padding:"10px 12px", border:`1px solid ${C.border}`, borderRadius:5, fontSize:13, color:C.text, background:C.surfaceHigh, outline:"none", resize:"none", boxSizing:"border-box" }}/>
-          </div>
-          <div style={{ marginBottom:0 }}>
-            <label style={{ fontSize:10, fontWeight:600, color:C.textMuted, display:"block", marginBottom:5, textTransform:"uppercase", letterSpacing:"0.08em" }}>Neighbourhood</label>
-            <select value={profile.hood} onChange={e=>setProfile({...profile,hood:e.target.value})}
-              style={{ width:"100%", padding:"10px 12px", border:`1px solid ${C.border}`, borderRadius:5, fontSize:13, color:C.text, background:C.surfaceHigh, outline:"none" }}>
-              {HOODS.filter(h=>h!=="All").map(h=><option key={h} value={h}>{h}</option>)}
-            </select>
-          </div>
-        </div>
-
-        {/* Social links */}
-        <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:8, padding:"1.25rem", marginBottom:14 }}>
-          <p style={{ fontSize:11, fontWeight:700, color:C.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", margin:"0 0 12px" }}>Social & Contact</p>
-          <F label="Instagram Handle" value={profile.instagram} onChange={v=>setProfile({...profile,instagram:v})} ph="@mariashomebakery"/>
-          <F label="WhatsApp Number"  value={profile.whatsapp}  onChange={v=>setProfile({...profile,whatsapp:v})}  ph="+1 (416) 555-0100"/>
-        </div>
-
-        {/* Store link preview */}
-        <div style={{ background:C.accentBg, border:`1px solid ${C.accentBorder}`, borderRadius:8, padding:"1rem 1.25rem", marginBottom:"1.5rem" }}>
-          <p style={{ fontSize:11, fontWeight:700, color:C.accent, margin:"0 0 4px" }}>Your store link</p>
-          <p style={{ fontSize:13, color:C.textSub, margin:"0 0 8px" }}>Share this with customers so they can find your store directly:</p>
-          <div style={{ background:C.surface, borderRadius:5, padding:"8px 12px", fontSize:12, color:C.text, fontFamily:"monospace" }}>
-            hearthside.app/store/{user.id?.slice(0,8)||"your-id"}
-          </div>
-        </div>
-
-        <button onClick={save} disabled={saving} style={{ background:saved?C.success:C.accent, color:"#FFF", border:"none", borderRadius:5, padding:"11px 24px", fontSize:13, fontWeight:700, cursor:"pointer", transition:"background 0.2s" }}>
-          {saving?"Saving...":saved?"✓ Profile Saved!":"Save Profile"}
-        </button>
-      </div>
-    );
-  };
 
   return (
     <div style={{ display:"flex", height:"100vh", fontFamily:"'DM Sans', system-ui, sans-serif", background:C.bg, overflow:"hidden" }}>
+      <ProfilePanel/>
       <Sidebar/>
       <main style={{ flex:1, overflowY:"auto" }}>
         {view==="dashboard"  && <Dashboard/>}
@@ -1699,7 +1738,6 @@ Return ONLY a valid JSON object with no markdown fences, no extra text, no expla
         {view==="delivery"   && <Delivery/>}
         {view==="marketing"  && <Marketing/>}
         {view==="community"  && <SellerCommunity/>}
-        {view==="profile"    && <StoreProfile/>}
       </main>
     </div>
   );
