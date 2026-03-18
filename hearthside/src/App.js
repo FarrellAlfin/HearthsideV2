@@ -3,7 +3,6 @@ import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContai
 
 import { createClient } from '@supabase/supabase-js';
 
-// eslint-disable-next-line no-unused-vars
 const supabase = createClient(
   'https://kxajjlrjgrabtmyksqrq.supabase.co',
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt4YWpqbHJqZ3JhYnRteWtzcXJxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3NjIyMzMsImV4cCI6MjA4OTMzODIzM30.UCUOnwpyP4oBJyHhaCEM4kym_UlDY32a2SWP3x8atQU'
@@ -156,12 +155,35 @@ function AuthScreen({ onAuth }) {
   const [form, setForm]   = useState({ email:"", password:"", name:"", business:"", hood:"Leslieville" });
   const [err,  setErr]    = useState("");
 
-  const submit = async () => {
-    if (!form.email||!form.password) { setErr("Please fill in all required fields."); return; }
-    if (mode==="signup"&&!form.name)  { setErr("Please enter your name."); return; }
-    setErr("");
-    onAuth({ name:form.name||"Guest", email:form.email, business:form.business||"My Bakery", hood:form.hood, role });
-  };
+const submit = async () => {
+  if (!form.email || !form.password) { setErr("Please fill in all required fields."); return; }
+  if (mode === "signup" && !form.name) { setErr("Please enter your name."); return; }
+  setErr("");
+
+  if (mode === "signup") {
+    const { data, error } = await supabase.auth.signUp({
+      email: form.email,
+      password: form.password,
+    });
+    if (error) { setErr(error.message); return; }
+    if (!data.user) { setErr("Signup failed. Please try again."); return; }
+  } else {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: form.email,
+      password: form.password,
+    });
+    if (error) { setErr(error.message); return; }
+    if (!data.user) { setErr("Login failed. Please try again."); return; }
+  }
+
+  onAuth({
+    name: form.name || "Guest",
+    email: form.email,
+    business: form.business || "My Bakery",
+    hood: form.hood,
+    role
+  });
+};
 
   return (
     <div style={{ minHeight:"100vh", background:C.sidebar, display:"flex", alignItems:"center", justifyContent:"center", padding:"2rem", fontFamily:"'Outfit', sans-serif" }}>
