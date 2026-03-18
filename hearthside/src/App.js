@@ -1312,9 +1312,11 @@ function SellerApp({ user, onSignOut }) {
 
   // ── SELLER STOREFRONT ──
   const Storefront = () => {
+    const PRODUCT_CATS = ["Bread","Pastry","Cake","Cookie","Savoury","Dumpling","Condiment","Drink","Other"];
     const [showModal,    setShowModal]    = useState(false);
     const [editProduct,  setEditProduct]  = useState(null);
-    const [form,         setForm]         = useState({ name:"", price:"", emoji:"🍞", desc:"", stock:"10" });
+    const [catFilter,    setCatFilter]    = useState("All");
+    const [form,         setForm]         = useState({ name:"", price:"", category:"Bread", desc:"", stock:"10" });
     const [editForm,     setEditForm]     = useState(null);
     const [imageFile,    setImageFile]    = useState(null);
     const [imagePreview, setImagePreview] = useState(null);
@@ -1322,8 +1324,6 @@ function SellerApp({ user, onSignOut }) {
     const [saving,       setSaving]       = useState(false);
     const [editImages,   setEditImages]   = useState([]);
     const [editSlide,    setEditSlide]    = useState(0);
-    // eslint-disable-next-line no-unused-vars
-    const [editUploading,setEditUploading]= useState(false);
 
     const saveEdit = async () => {
       if (!editForm.name||!editForm.price||!editProduct) return;
@@ -1346,7 +1346,8 @@ function SellerApp({ user, onSignOut }) {
       const updates = {
         name: editForm.name,
         price: parseFloat(editForm.price)||0,
-        emoji: editForm.emoji||"🍞",
+        category: editForm.category||"Other",
+        emoji: editForm.category||"Other",
         desc: editForm.desc,
         stock: parseInt(editForm.stock)||0,
         availability: editForm.availability||"available",
@@ -1389,7 +1390,8 @@ function SellerApp({ user, onSignOut }) {
         seller_id: user.id,
         name: form.name,
         price: parseFloat(form.price)||0,
-        emoji: form.emoji||"🍞",
+        category: form.category||"Other",
+        emoji: form.category||"Other",
         stock: parseInt(form.stock)||10,
         desc: form.desc,
         image_url: imageUrl,
@@ -1399,7 +1401,7 @@ function SellerApp({ user, onSignOut }) {
       else setProducts(p=>[...p,{ id:Date.now(), ...newProduct }]);
       setUploading(false);
       setShowModal(false);
-      setForm({ name:"", price:"", emoji:"🍞", desc:"", stock:"10" });
+      setForm({ name:"", price:"", category:"Bread", desc:"", stock:"10" });
       setImageFile(null); setImagePreview(null);
     };
     if (loadingProducts) return <div style={{ padding:"2rem", textAlign:"center", color:C.textMuted, fontSize:13 }}>Loading products...</div>;
@@ -1418,8 +1420,19 @@ function SellerApp({ user, onSignOut }) {
             <p style={{ fontSize:14, color:C.textMuted, margin:0 }}>No products yet — click Add Product to get started!</p>
           </div>
         )}
+        {products.length>0 && (
+          <div style={{ display:"flex", gap:7, marginBottom:"1rem", overflowX:"auto", paddingBottom:4 }}>
+            {["All",...PRODUCT_CATS].map(cat=>(
+              <button key={cat} onClick={()=>setCatFilter(cat)} style={{
+                padding:"5px 13px", borderRadius:4, border:`1px solid ${catFilter===cat?C.accent:C.border}`,
+                background:catFilter===cat?C.accentBg:"transparent", color:catFilter===cat?C.accent:C.textMuted,
+                fontSize:11, fontWeight:catFilter===cat?700:400, cursor:"pointer", whiteSpace:"nowrap", flexShrink:0
+              }}>{cat}</button>
+            ))}
+          </div>
+        )}
         <div style={{ display:"grid", gridTemplateColumns:"repeat(4,minmax(0,1fr))", gap:10 }}>
-          {products.map(p=>(
+          {products.filter(p=>catFilter==="All"||(p.category||p.emoji||"Other")===catFilter).map(p=>(
             <div key={p.id} onClick={()=>{ setEditProduct({...p}); setEditForm(null); setEditSlide(0); }} style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:10, overflow:"hidden", cursor:"pointer", transition:"border-color 0.15s" }}
               onMouseEnter={e=>e.currentTarget.style.borderColor=C.borderMid}
               onMouseLeave={e=>e.currentTarget.style.borderColor=C.border}>
@@ -1442,10 +1455,16 @@ function SellerApp({ user, onSignOut }) {
                 )}
               </div>
               <div style={{ padding:"0.75rem 0.875rem 0.875rem" }}>
-                <p style={{ fontSize:14, fontWeight:700, color:C.text, margin:"0 0 2px", letterSpacing:"-0.01em", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{p.name}</p>
-                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-                  <span style={{ fontSize:15, fontWeight:700, color:C.accent }}>${p.price?.toFixed(2)||"0.00"}</span>
-                  <span style={{ fontSize:10, color:C.textMuted }}>{p.stock} in stock</span>
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:3 }}>
+                  <p style={{ fontSize:13, fontWeight:700, color:C.text, margin:0, letterSpacing:"-0.01em", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", flex:1 }}>{p.name}</p>
+                  {p.availability==="out_of_stock" && <span style={{ fontSize:9, fontWeight:700, color:C.danger, background:C.dangerBg, padding:"1px 5px", borderRadius:3, marginLeft:4, flexShrink:0 }}>OOS</span>}
+                  {p.availability==="out_till_eod" && <span style={{ fontSize:9, fontWeight:700, color:C.warning, background:C.warningBg, padding:"1px 5px", borderRadius:3, marginLeft:4, flexShrink:0 }}>EOD</span>}
+                  {(!p.availability||p.availability==="available") && <span style={{ fontSize:9, fontWeight:700, color:C.success, background:C.successBg, padding:"1px 5px", borderRadius:3, marginLeft:4, flexShrink:0 }}>●</span>}
+                </div>
+                {p.desc && <p style={{ fontSize:10, color:C.textMuted, margin:"0 0 5px", lineHeight:1.4, display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical", overflow:"hidden" }}>{p.desc}</p>}
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginTop:p.desc?"2px":0 }}>
+                  <span style={{ fontSize:14, fontWeight:700, color:C.accent }}>${p.price?.toFixed(2)||"0.00"}</span>
+                  <span style={{ fontSize:10, color:C.textMuted, background:C.surfaceHigh, padding:"1px 6px", borderRadius:3 }}>{p.category||p.emoji||"—"}</span>
                 </div>
               </div>
             </div>
@@ -1455,60 +1474,79 @@ function SellerApp({ user, onSignOut }) {
         {/* ── PRODUCT PREVIEW + EDIT MODAL ── */}
         {editProduct && (
           <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.7)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:200 }}>
-            <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:16, width:680, maxWidth:"96vw", maxHeight:"92vh", overflowY:"auto", boxShadow:"0 24px 60px rgba(0,0,0,0.4)" }}>
+            <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:16, width:860, maxWidth:"96vw", maxHeight:"92vh", display:"flex", overflow:"hidden", boxShadow:"0 24px 60px rgba(0,0,0,0.4)" }}>
 
-              {/* ── PREVIEW MODE ── */}
-              {!editForm && (
-                <>
-                  {(() => {
-                    const imgs = (() => { try { return JSON.parse(editProduct.images||"[]"); } catch(e) { return editProduct.image_url?[editProduct.image_url]:[]; } })();
-                    if (imgs.length===0) return <div style={{ width:"100%", height:280, background:C.surfaceHigh, borderRadius:"16px 16px 0 0", display:"flex", alignItems:"center", justifyContent:"center", fontSize:72 }}>{editProduct.emoji}</div>;
-                    return (
-                      <div style={{ position:"relative" }}>
-                        <img src={imgs[editSlide]||imgs[0]} alt={editProduct.name} style={{ width:"100%", height:320, objectFit:"cover", borderRadius:"16px 16px 0 0", display:"block" }}/>
-                        {imgs.length>1 && (
+              {/* ── SHARED IMAGE PANEL (left side) ── */}
+              {(() => {
+                const imgs = (() => { try { return JSON.parse(editProduct.images||"[]"); } catch(e) { return editProduct.image_url?[editProduct.image_url]:[]; } })();
+                const showImgs = editForm ? editImages.map(i=>i.url) : imgs;
+                const slide = editSlide < showImgs.length ? editSlide : 0;
+                return (
+                  <div style={{ width:340, flexShrink:0, background:C.surfaceHigh, position:"relative", display:"flex", flexDirection:"column" }}>
+                    {showImgs.length>0 ? (
+                      <>
+                        <img src={showImgs[slide]} alt={editProduct.name} style={{ width:"100%", flex:1, objectFit:"cover", minHeight:0, display:"block" }}/>
+                        {showImgs.length>1 && (
                           <>
-                            <button onClick={e=>{ e.stopPropagation(); setEditSlide(s=>Math.max(0,s-1)); }} disabled={editSlide===0}
-                              style={{ position:"absolute", left:8, top:"50%", transform:"translateY(-50%)", background:"rgba(0,0,0,0.45)", color:"#FFF", border:"none", borderRadius:"50%", width:28, height:28, cursor:"pointer", fontSize:14 }}>‹</button>
-                            <button onClick={e=>{ e.stopPropagation(); setEditSlide(s=>Math.min(imgs.length-1,s+1)); }} disabled={editSlide===imgs.length-1}
-                              style={{ position:"absolute", right:8, top:"50%", transform:"translateY(-50%)", background:"rgba(0,0,0,0.45)", color:"#FFF", border:"none", borderRadius:"50%", width:28, height:28, cursor:"pointer", fontSize:14 }}>›</button>
-                            <div style={{ position:"absolute", bottom:8, left:"50%", transform:"translateX(-50%)", display:"flex", gap:5 }}>
-                              {imgs.map((_,i)=>(
-                                <div key={i} style={{ width:6, height:6, borderRadius:"50%", background:i===editSlide?"#FFF":"rgba(255,255,255,0.5)", cursor:"pointer" }} onClick={e=>{ e.stopPropagation(); setEditSlide(i); }}/>
-                              ))}
-                            </div>
-                            <span style={{ position:"absolute", top:10, right:10, background:"rgba(0,0,0,0.55)", color:"#FFF", fontSize:11, fontWeight:600, padding:"2px 8px", borderRadius:10 }}>{editSlide+1}/{imgs.length}</span>
+                            <button onClick={e=>{ e.stopPropagation(); setEditSlide(s=>Math.max(0,s-1)); }} disabled={slide===0}
+                              style={{ position:"absolute", left:8, top:"50%", transform:"translateY(-50%)", background:"rgba(0,0,0,0.5)", color:"#FFF", border:"none", borderRadius:"50%", width:30, height:30, cursor:"pointer", fontSize:16 }}>‹</button>
+                            <button onClick={e=>{ e.stopPropagation(); setEditSlide(s=>Math.min(showImgs.length-1,s+1)); }} disabled={slide===showImgs.length-1}
+                              style={{ position:"absolute", right:8, top:"50%", transform:"translateY(-50%)", background:"rgba(0,0,0,0.5)", color:"#FFF", border:"none", borderRadius:"50%", width:30, height:30, cursor:"pointer", fontSize:16 }}>›</button>
+                            <span style={{ position:"absolute", top:10, right:10, background:"rgba(0,0,0,0.6)", color:"#FFF", fontSize:11, fontWeight:600, padding:"2px 9px", borderRadius:10 }}>{slide+1}/{showImgs.length}</span>
                           </>
                         )}
+                        {/* Thumbnail strip */}
+                        {showImgs.length>1 && (
+                          <div style={{ display:"flex", gap:5, padding:"8px", background:"rgba(0,0,0,0.4)", overflowX:"auto" }}>
+                            {showImgs.map((url,i)=>(
+                              <div key={i} onClick={()=>setEditSlide(i)} style={{ width:44, height:44, borderRadius:4, overflow:"hidden", flexShrink:0, cursor:"pointer", border:`2px solid ${i===slide?"#FFF":"transparent"}`, opacity:i===slide?1:0.65 }}>
+                                <img src={url} alt="" style={{ width:"100%", height:"100%", objectFit:"cover" }}/>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <div style={{ flex:1, display:"flex", alignItems:"center", justifyContent:"center", flexDirection:"column", gap:10 }}>
+                        <span style={{ fontSize:56 }}>{editProduct.category||"🍞"}</span>
+                        <p style={{ fontSize:12, color:C.textMuted, margin:0 }}>No photos yet</p>
                       </div>
-                    );
-                  })()}
-                  <div style={{ padding:"2rem" }}>
-                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:10 }}>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {/* ── PREVIEW MODE (right side) ── */}
+              {!editForm && (
+                <div style={{ flex:1, overflowY:"auto", display:"flex", flexDirection:"column" }}>
+                  <div style={{ padding:"1.5rem 1.75rem", flex:1 }}>
+                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:8 }}>
                       <div>
-                        <p style={{ fontSize:26, fontWeight:700, color:C.text, margin:"0 0 5px", letterSpacing:"-0.02em" }}>{editProduct.name}</p>
-                        <div style={{ display:"flex", alignItems:"center", gap:8, marginTop:3 }}>
-                          <span style={{ fontSize:11, color:C.textMuted }}>{editProduct.emoji} · {editProduct.stock} in stock</span>
+                        <p style={{ fontSize:24, fontWeight:700, color:C.text, margin:"0 0 5px", letterSpacing:"-0.02em" }}>{editProduct.name}</p>
+                        <div style={{ display:"flex", alignItems:"center", gap:7, flexWrap:"wrap" }}>
+                          <span style={{ fontSize:11, color:C.textMuted, background:C.surfaceHigh, padding:"2px 8px", borderRadius:3 }}>{editProduct.category||editProduct.emoji||"—"}</span>
+                          <span style={{ fontSize:11, color:C.textMuted }}>{editProduct.stock} in stock</span>
                           {editProduct.availability==="out_of_stock" && <span style={{ background:C.dangerBg, color:C.danger, fontSize:10, fontWeight:700, padding:"2px 8px", borderRadius:4 }}>Out of Stock</span>}
                           {editProduct.availability==="out_till_eod" && <span style={{ background:C.warningBg, color:C.warning, fontSize:10, fontWeight:700, padding:"2px 8px", borderRadius:4 }}>⏱ Out Till EOD</span>}
                           {(!editProduct.availability||editProduct.availability==="available") && <span style={{ background:C.successBg, color:C.success, fontSize:10, fontWeight:700, padding:"2px 8px", borderRadius:4 }}>✓ Available</span>}
                         </div>
                       </div>
-                      <p style={{ fontSize:30, fontWeight:700, color:C.accent, margin:0, letterSpacing:"-0.02em" }}>${editProduct.price?.toFixed(2)||"0.00"}</p>
+                      <p style={{ fontSize:28, fontWeight:700, color:C.accent, margin:0, letterSpacing:"-0.02em", flexShrink:0, marginLeft:12 }}>${editProduct.price?.toFixed(2)||"0.00"}</p>
                     </div>
-                    <p style={{ fontSize:15, color:C.textSub, margin:"0 0 1.75rem", lineHeight:1.75 }}>{editProduct.desc||"No description added yet."}</p>
+                    <p style={{ fontSize:14, color:C.textSub, margin:"12px 0 1.5rem", lineHeight:1.75 }}>{editProduct.desc||"No description added yet."}</p>
                     <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, marginBottom:"1.5rem" }}>
-                      {[["Price",`$${editProduct.price?.toFixed(2)||"0.00"}`],["Stock",`${editProduct.stock||0} units`],["Category",editProduct.emoji||"–"]].map(([k,v])=>(
+                      {[["Price",`$${editProduct.price?.toFixed(2)||"0.00"}`],["Stock",`${editProduct.stock||0} units`],["Category",editProduct.category||editProduct.emoji||"–"]].map(([k,v])=>(
                         <div key={k} style={{ background:C.surfaceHigh, borderRadius:6, padding:"10px 12px" }}>
                           <p style={{ fontSize:10, color:C.textMuted, margin:"0 0 3px", textTransform:"uppercase", letterSpacing:"0.07em" }}>{k}</p>
-                          <p style={{ fontSize:14, fontWeight:600, color:C.text, margin:0 }}>{v}</p>
+                          <p style={{ fontSize:13, fontWeight:600, color:C.text, margin:0 }}>{v}</p>
                         </div>
                       ))}
                     </div>
-                    <div style={{ display:"flex", gap:8 }}>
-                      <button onClick={()=>{ setEditProduct(null); }} style={{ flex:1, padding:"11px", border:`1px solid ${C.border}`, borderRadius:6, background:"transparent", color:C.textMuted, cursor:"pointer", fontSize:13 }}>Close</button>
-                      <button onClick={()=>{
-                        setEditForm({ name:editProduct.name, price:String(editProduct.price||""), emoji:editProduct.emoji||"🍞", desc:editProduct.desc||"", stock:String(editProduct.stock||"10"), availability:editProduct.availability||"available" });
+                  </div>
+                  <div style={{ padding:"1rem 1.75rem", borderTop:`1px solid ${C.border}`, display:"flex", gap:8 }}>
+                    <button onClick={()=>{ setEditProduct(null); }} style={{ flex:1, padding:"11px", border:`1px solid ${C.border}`, borderRadius:6, background:"transparent", color:C.textMuted, cursor:"pointer", fontSize:13 }}>Close</button>
+                    <button onClick={()=>{
+                        setEditForm({ name:editProduct.name, price:String(editProduct.price||""), category:editProduct.category||editProduct.emoji||"Bread", emoji:editProduct.category||editProduct.emoji||"Bread", desc:editProduct.desc||"", stock:String(editProduct.stock||"10"), availability:editProduct.availability||"available" });
                         // Initialize editImages from existing product images
                         const existingUrls = (() => {
                           try { return JSON.parse(editProduct.images||"[]"); } catch(e) { return editProduct.image_url?[editProduct.image_url]:[]; }
@@ -1518,14 +1556,13 @@ function SellerApp({ user, onSignOut }) {
                       }} style={{ flex:2, padding:"11px", background:C.accent, color:"#FFF", border:"none", borderRadius:6, cursor:"pointer", fontSize:13, fontWeight:700 }}>
                         ✏ Edit Product
                       </button>
-                    </div>
                   </div>
                 </>
               )}
 
-              {/* ── EDIT MODE ── */}
+              {/* ── EDIT MODE (right side) ── */}
               {editForm && (
-                <div style={{ padding:"1.5rem" }}>
+                <div style={{ flex:1, overflowY:"auto", padding:"1.5rem", display:"flex", flexDirection:"column" }}>
                   <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"1.25rem" }}>
                     <div style={{ display:"flex", alignItems:"center", gap:8 }}>
                       <button onClick={()=>setEditForm(null)} style={{ background:"transparent", border:"none", fontSize:16, cursor:"pointer", color:C.textMuted, padding:0 }}>←</button>
@@ -1533,83 +1570,25 @@ function SellerApp({ user, onSignOut }) {
                     </div>
                     <button onClick={()=>{ setEditProduct(null); setEditForm(null); }} style={{ background:C.surfaceHigh, border:"none", width:28, height:28, borderRadius:4, fontSize:14, cursor:"pointer", color:C.textMuted }}>✕</button>
                   </div>
-                  {/* ── IMAGE SLIDESHOW MANAGER ── */}
-                  <div style={{ marginBottom:14 }}>
-                    <label style={{ fontSize:10, fontWeight:700, color:C.textMuted, display:"block", marginBottom:8, textTransform:"uppercase", letterSpacing:"0.08em" }}>
-                      Photos ({editImages.length}/5) — First photo is the main image
-                    </label>
-                    {/* Slideshow preview */}
-                    {editImages.length>0 && (
-                      <div style={{ position:"relative", marginBottom:8 }}>
-                        <img
-                          src={editImages[editSlide]?.url}
-                          alt="product"
-                          style={{ width:"100%", height:160, objectFit:"cover", borderRadius:6, display:"block" }}
-                        />
-                        {editImages.length>1 && (
-                          <>
-                            <button onClick={()=>setEditSlide(s=>Math.max(0,s-1))} disabled={editSlide===0}
-                              style={{ position:"absolute", left:8, top:"50%", transform:"translateY(-50%)", background:"rgba(0,0,0,0.5)", color:"#FFF", border:"none", borderRadius:"50%", width:28, height:28, cursor:"pointer", fontSize:14, display:"flex", alignItems:"center", justifyContent:"center" }}>‹</button>
-                            <button onClick={()=>setEditSlide(s=>Math.min(editImages.length-1,s+1))} disabled={editSlide===editImages.length-1}
-                              style={{ position:"absolute", right:8, top:"50%", transform:"translateY(-50%)", background:"rgba(0,0,0,0.5)", color:"#FFF", border:"none", borderRadius:"50%", width:28, height:28, cursor:"pointer", fontSize:14, display:"flex", alignItems:"center", justifyContent:"center" }}>›</button>
-                            <div style={{ position:"absolute", bottom:8, left:"50%", transform:"translateX(-50%)", display:"flex", gap:5 }}>
-                              {editImages.map((_,i)=>(
-                                <div key={i} onClick={()=>setEditSlide(i)} style={{ width:6, height:6, borderRadius:"50%", background:i===editSlide?"#FFF":"rgba(255,255,255,0.5)", cursor:"pointer" }}/>
-                              ))}
-                            </div>
-                          </>
-                        )}
-                        <button onClick={()=>{
-                          setEditImages(imgs=>imgs.filter((_,i)=>i!==editSlide));
-                          setEditSlide(s=>Math.max(0,s-1));
-                        }} style={{ position:"absolute", top:8, right:8, background:"rgba(181,32,32,0.85)", color:"#FFF", border:"none", borderRadius:4, padding:"3px 8px", fontSize:11, cursor:"pointer", fontWeight:600 }}>
-                          Remove
-                        </button>
-                        {editSlide>0 && (
-                          <button onClick={()=>{
-                            setEditImages(imgs=>{ const a=[...imgs]; [a[editSlide-1],a[editSlide]]=[a[editSlide],a[editSlide-1]]; return a; });
-                            setEditSlide(s=>s-1);
-                          }} style={{ position:"absolute", top:8, left:8, background:"rgba(0,0,0,0.6)", color:"#FFF", border:"none", borderRadius:4, padding:"3px 8px", fontSize:11, cursor:"pointer" }}>
-                            ← Make main
-                          </button>
-                        )}
-                      </div>
-                    )}
-                    {/* Thumbnail strip */}
-                    {editImages.length>1 && (
-                      <div style={{ display:"flex", gap:6, marginBottom:8, overflowX:"auto", paddingBottom:4 }}>
-                        {editImages.map((img,i)=>(
-                          <div key={i} onClick={()=>setEditSlide(i)} style={{ width:52, height:52, borderRadius:5, overflow:"hidden", flexShrink:0, cursor:"pointer", border:`2px solid ${i===editSlide?C.accent:C.border}` }}>
-                            <img src={img.url} alt="" style={{ width:"100%", height:"100%", objectFit:"cover" }}/>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    {/* Upload new photos */}
-                    {editImages.length<5 && (
-                      <label style={{ display:"flex", alignItems:"center", gap:8, border:`1.5px dashed ${C.border}`, borderRadius:6, padding:"10px 14px", cursor:"pointer", background:C.surfaceHigh }}>
-                        <input type="file" accept="image/*" multiple onChange={async (e)=>{
-                          const files = Array.from(e.target.files||[]).slice(0, 5-editImages.length);
-                          const newImgs = files.map(file=>({ file, url:URL.createObjectURL(file) }));
-                          setEditImages(imgs=>[...imgs,...newImgs]);
-                          e.target.value="";
-                        }} style={{ display:"none" }}/>
-                        <span style={{ fontSize:18 }}>📷</span>
-                        <div>
-                          <p style={{ fontSize:12, fontWeight:600, color:C.text, margin:0 }}>
-                            {editImages.length===0?"Add photos":"Add more photos"}
-                          </p>
-                          <p style={{ fontSize:10, color:C.textMuted, margin:0 }}>{5-editImages.length} slot{5-editImages.length!==1?"s":""} remaining · JPG, PNG, WEBP</p>
-                        </div>
-                      </label>
-                    )}
                   </div>
 
-                  <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:4 }}>
+                  <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:10 }}>
                     <Inp label="Product Name" value={editForm.name}  onChange={v=>setEditForm({...editForm,name:v})}  ph="e.g. Blueberry Scones"/>
                     <Inp label="Price ($)"    value={editForm.price} onChange={v=>setEditForm({...editForm,price:v})} ph="16.00"/>
                     <Inp label="Stock"        value={editForm.stock} onChange={v=>setEditForm({...editForm,stock:v})} ph="10"/>
-                    <Inp label="Emoji"        value={editForm.emoji} onChange={v=>setEditForm({...editForm,emoji:v})} ph="🍞"/>
+                  </div>
+                  <div style={{ marginBottom:10 }}>
+                    <label style={{ fontSize:10, fontWeight:600, color:C.textMuted, display:"block", marginBottom:6, textTransform:"uppercase", letterSpacing:"0.08em" }}>Category</label>
+                    <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
+                      {PRODUCT_CATS.map(cat=>(
+                        <button key={cat} onClick={()=>setEditForm({...editForm,category:cat,emoji:cat})} style={{
+                          padding:"5px 11px", borderRadius:4, border:`1px solid ${(editForm.category||editForm.emoji)===cat?C.accent:C.border}`,
+                          background:(editForm.category||editForm.emoji)===cat?C.accentBg:"transparent",
+                          color:(editForm.category||editForm.emoji)===cat?C.accent:C.textMuted,
+                          fontSize:11, fontWeight:(editForm.category||editForm.emoji)===cat?700:400, cursor:"pointer"
+                        }}>{cat}</button>
+                      ))}
+                    </div>
                   </div>
                   {/* Availability toggle */}
                   <div style={{ marginBottom:14 }}>
@@ -1629,6 +1608,34 @@ function SellerApp({ user, onSignOut }) {
                         }}>{opt.label}</button>
                       ))}
                     </div>
+                  </div>
+
+                  {/* Upload more photos */}
+                  <div style={{ marginBottom:12 }}>
+                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:6 }}>
+                      <label style={{ fontSize:10, fontWeight:600, color:C.textMuted, textTransform:"uppercase", letterSpacing:"0.08em" }}>Photos ({editImages.length}/5)</label>
+                      {editImages.length<5 && (
+                        <label style={{ background:C.accentBg, border:`1px solid ${C.accentBorder}`, color:C.accent, borderRadius:4, padding:"4px 10px", fontSize:11, fontWeight:600, cursor:"pointer" }}>
+                          <input type="file" accept="image/*" multiple onChange={async e=>{
+                            const files = Array.from(e.target.files||[]).slice(0,5-editImages.length);
+                            setEditImages(imgs=>[...imgs,...files.map(f=>({ file:f, url:URL.createObjectURL(f) }))]);
+                            e.target.value="";
+                          }} style={{ display:"none" }}/>
+                          + Add Photos
+                        </label>
+                      )}
+                    </div>
+                    {editImages.length>0 && (
+                      <div style={{ display:"flex", gap:5, overflowX:"auto" }}>
+                        {editImages.map((img,i)=>(
+                          <div key={i} style={{ position:"relative", width:52, height:52, borderRadius:5, overflow:"hidden", flexShrink:0, border:`2px solid ${i===editSlide?C.accent:C.border}`, cursor:"pointer" }} onClick={()=>setEditSlide(i)}>
+                            <img src={img.url} alt="" style={{ width:"100%", height:"100%", objectFit:"cover" }}/>
+                            <button onClick={e=>{ e.stopPropagation(); setEditImages(imgs=>imgs.filter((_,ii)=>ii!==i)); setEditSlide(s=>Math.max(0,s-1)); }}
+                              style={{ position:"absolute", top:1, right:1, background:"rgba(181,32,32,0.85)", color:"#FFF", border:"none", borderRadius:2, padding:"0 3px", fontSize:10, cursor:"pointer", lineHeight:"14px" }}>✕</button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
                   <div style={{ marginBottom:16 }}>
@@ -1651,43 +1658,62 @@ function SellerApp({ user, onSignOut }) {
 
         {showModal && (
           <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.75)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:200 }}>
-            <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:10, padding:"1.75rem", width:440, maxWidth:"95vw" }}>
-              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"1.25rem" }}>
-                <h2 style={{ fontSize:18, fontWeight:700, color:C.text, margin:0, letterSpacing:"-0.02em" }}>Add Product</h2>
-                <button onClick={()=>setShowModal(false)} style={{ background:C.surfaceHigh, border:"none", width:28, height:28, borderRadius:4, fontSize:14, cursor:"pointer", color:C.textMuted }}>✕</button>
+            <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:12, width:780, maxWidth:"96vw", maxHeight:"92vh", display:"flex", overflow:"hidden", boxShadow:"0 24px 60px rgba(0,0,0,0.35)" }}>
+
+              {/* LEFT — image preview */}
+              <div style={{ width:300, flexShrink:0, background:C.surfaceHigh, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", position:"relative" }}>
+                {imagePreview ? (
+                  <>
+                    <img src={imagePreview} alt="preview" style={{ width:"100%", height:"100%", objectFit:"cover", display:"block" }}/>
+                    <label style={{ position:"absolute", bottom:12, left:"50%", transform:"translateX(-50%)", background:"rgba(0,0,0,0.65)", color:"#FFF", borderRadius:5, padding:"7px 14px", fontSize:12, fontWeight:600, cursor:"pointer", whiteSpace:"nowrap" }}>
+                      <input type="file" accept="image/*" onChange={handleImage} style={{ display:"none" }}/>
+                      Change Photo
+                    </label>
+                  </>
+                ) : (
+                  <label style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", cursor:"pointer", width:"100%", height:"100%", gap:10 }}>
+                    <input type="file" accept="image/*" onChange={handleImage} style={{ display:"none" }}/>
+                    <div style={{ fontSize:40 }}>📷</div>
+                    <p style={{ fontSize:13, fontWeight:600, color:C.textMuted, margin:0 }}>Upload a photo</p>
+                    <p style={{ fontSize:11, color:C.textMuted, margin:0, opacity:0.7 }}>JPG, PNG or WEBP</p>
+                  </label>
+                )}
               </div>
-              {[{ k:"name",label:"Product Name",ph:"e.g. Blueberry Scones"},{k:"price",label:"Price ($)",ph:"16.00"},{k:"emoji",label:"Emoji",ph:"🍞"}].map(f=>(
-                <Inp key={f.k} label={f.label} value={form[f.k]} onChange={v=>setForm({...form,[f.k]:v})} ph={f.ph}/>
-              ))}
-              <Inp label="Stock Available" value={form.stock} onChange={v=>setForm({...form,stock:v})} ph="e.g. 10"/>
-              <div style={{ marginBottom:12 }}>
-                <label style={{ fontSize:10, fontWeight:600, color:C.textMuted, display:"block", marginBottom:5, textTransform:"uppercase", letterSpacing:"0.08em" }}>Description</label>
-                <textarea value={form.desc} onChange={e=>setForm({...form,desc:e.target.value})} rows={2} placeholder="Brief description..."
-                  style={{ width:"100%", padding:"9px 12px", border:`1px solid ${C.border}`, borderRadius:5, fontSize:13, color:C.text, background:C.surfaceHigh, outline:"none", resize:"none", boxSizing:"border-box" }}/>
-              </div>
-              <div style={{ marginBottom:16 }}>
-                <label style={{ fontSize:10, fontWeight:600, color:C.textMuted, display:"block", marginBottom:5, textTransform:"uppercase", letterSpacing:"0.08em" }}>Product Photo (optional)</label>
-                <label style={{ display:"block", border:`2px dashed ${imagePreview?C.accent:C.border}`, borderRadius:6, padding:"1rem", textAlign:"center", cursor:"pointer", background:imagePreview?C.accentBg:C.surfaceHigh, transition:"all 0.2s" }}>
-                  <input type="file" accept="image/*" onChange={handleImage} style={{ display:"none" }}/>
-                  {imagePreview ? (
-                    <div>
-                      <img src={imagePreview} alt="preview" style={{ width:"100%", height:120, objectFit:"cover", borderRadius:4, marginBottom:6 }}/>
-                      <p style={{ fontSize:11, color:C.accent, margin:0, fontWeight:600 }}>✓ Photo selected — tap to change</p>
-                    </div>
-                  ) : (
-                    <div>
-                      <p style={{ fontSize:22, margin:"0 0 4px" }}>📷</p>
-                      <p style={{ fontSize:12, color:C.textMuted, margin:0 }}>Tap to upload a photo</p>
-                      <p style={{ fontSize:10, color:C.textMuted, margin:"3px 0 0", opacity:0.7 }}>JPG, PNG or WEBP · Max 5MB</p>
-                    </div>
-                  )}
-                </label>
-              </div>
-              <div style={{ display:"flex", gap:8 }}>
-                <button onClick={()=>{ setShowModal(false); setImageFile(null); setImagePreview(null); }} style={{ flex:1, padding:"10px", border:`1px solid ${C.border}`, borderRadius:5, background:"transparent", color:C.textMuted, cursor:"pointer", fontSize:13 }}>Cancel</button>
-                <button onClick={add} disabled={uploading} style={{ flex:2, padding:"10px", background:uploading?"rgba(196,98,45,0.4)":C.accent, color:"#FFF", border:"none", borderRadius:5, cursor:uploading?"default":"pointer", fontSize:13, fontWeight:700 }}>
-                  {uploading?"Uploading...":"Add Product"}
-                </button>
+
+              {/* RIGHT — form */}
+              <div style={{ flex:1, padding:"1.5rem", overflowY:"auto" }}>
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"1.25rem" }}>
+                  <h2 style={{ fontSize:18, fontWeight:700, color:C.text, margin:0, letterSpacing:"-0.02em" }}>Add Product</h2>
+                  <button onClick={()=>{ setShowModal(false); setImageFile(null); setImagePreview(null); }} style={{ background:C.surfaceHigh, border:"none", width:28, height:28, borderRadius:4, fontSize:14, cursor:"pointer", color:C.textMuted }}>✕</button>
+                </div>
+                <Inp label="Product Name" value={form.name} onChange={v=>setForm({...form,name:v})} ph="e.g. Blueberry Scones"/>
+                <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
+                  <Inp label="Price ($)" value={form.price} onChange={v=>setForm({...form,price:v})} ph="16.00"/>
+                  <Inp label="Stock Available" value={form.stock} onChange={v=>setForm({...form,stock:v})} ph="10"/>
+                </div>
+                <div style={{ marginBottom:12 }}>
+                  <label style={{ fontSize:10, fontWeight:600, color:C.textMuted, display:"block", marginBottom:5, textTransform:"uppercase", letterSpacing:"0.08em" }}>Category</label>
+                  <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
+                    {PRODUCT_CATS.map(cat=>(
+                      <button key={cat} onClick={()=>setForm({...form,category:cat})} style={{
+                        padding:"5px 12px", borderRadius:4, border:`1px solid ${form.category===cat?C.accent:C.border}`,
+                        background:form.category===cat?C.accentBg:"transparent", color:form.category===cat?C.accent:C.textMuted,
+                        fontSize:12, fontWeight:form.category===cat?700:400, cursor:"pointer"
+                      }}>{cat}</button>
+                    ))}
+                  </div>
+                </div>
+                <div style={{ marginBottom:12 }}>
+                  <label style={{ fontSize:10, fontWeight:600, color:C.textMuted, display:"block", marginBottom:5, textTransform:"uppercase", letterSpacing:"0.08em" }}>Description</label>
+                  <textarea value={form.desc} onChange={e=>setForm({...form,desc:e.target.value})} rows={3} placeholder="Describe your product — ingredients, texture, what makes it special..."
+                    style={{ width:"100%", padding:"9px 12px", border:`1px solid ${C.border}`, borderRadius:5, fontSize:13, color:C.text, background:C.surfaceHigh, outline:"none", resize:"none", boxSizing:"border-box" }}/>
+                </div>
+                <div style={{ display:"flex", gap:8, marginTop:"0.5rem" }}>
+                  <button onClick={()=>{ setShowModal(false); setImageFile(null); setImagePreview(null); }} style={{ flex:1, padding:"10px", border:`1px solid ${C.border}`, borderRadius:5, background:"transparent", color:C.textMuted, cursor:"pointer", fontSize:13 }}>Cancel</button>
+                  <button onClick={add} disabled={uploading} style={{ flex:2, padding:"10px", background:uploading?"rgba(196,98,45,0.4)":C.accent, color:"#FFF", border:"none", borderRadius:5, cursor:uploading?"default":"pointer", fontSize:13, fontWeight:700 }}>
+                    {uploading?"Uploading...":"Add Product"}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
