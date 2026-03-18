@@ -7,10 +7,6 @@ const supabase = createClient(
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt4YWpqbHJqZ3JhYnRteWtzcXJxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3NjIyMzMsImV4cCI6MjA4OTMzODIzM30.UCUOnwpyP4oBJyHhaCEM4kym_UlDY32a2SWP3x8atQU'
 );
 
-// ─── ANTHROPIC KEY — set via Vercel env var REACT_APP_ANTHROPIC_KEY ────────────
-// eslint-disable-next-line no-unused-expressions
-typeof window !== "undefined" && (window._anthropicKey = process.env.REACT_APP_ANTHROPIC_KEY || "");
-
 // ─── DESIGN TOKENS — Hearthside warm palette ─────────────────────────────────
 const C = {
   // Base — warm cream + dark contrast
@@ -88,8 +84,6 @@ const CHARITIES = [
   { id:4, name:"The Stop Community Food", emoji:"🌱", desc:"Community food programs in Davenport.", hood:"Davenport" },
 ];
 const HOODS = ["All","Leslieville","Kensington","Chinatown","Little Portugal","Brampton","Roncesvalles"];
-
-// eslint-disable-next-line no-unused-vars
 const CHAT_INIT = [
   { id:1, seller:"Maria's Home Bakery",  hood:"Leslieville",  emoji:"🍞", time:"8:02am",  msg:"Fresh sourdough just out of the oven! 8 loaves available today 🔥 Order by noon for afternoon pickup." },
   { id:2, seller:"The Dumpling Den",     hood:"Chinatown",    emoji:"🥟", time:"8:45am",  msg:"Making an extra batch of pork dumplings today — 5 orders left at the special price of $12/dozen." },
@@ -113,13 +107,12 @@ const STATUS_MAP = {
   cancelled:{ bg:"rgba(239,68,68,0.12)",   color:"#EF4444", label:"Cancelled"  },
 };
 const SELLER_NAV = [
-  { id:"dashboard",  icon:"▦", label:"Dashboard"    },
-  { id:"storefront", icon:"◫", label:"Storefront"   },
-  { id:"orders",     icon:"≡", label:"Orders"       },
-  { id:"finances",   icon:"◈", label:"Finances"     },
-  { id:"delivery",   icon:"⌖", label:"Delivery"     },
-  { id:"marketing",  icon:"✦", label:"AI Marketing" },
-  { id:"community",  icon:"◎", label:"Community"    },
+  { id:"dashboard",  icon:"▦", label:"Dashboard"  },
+  { id:"storefront", icon:"◫", label:"Storefront" },
+  { id:"orders",     icon:"≡", label:"Orders"     },
+  { id:"finances",   icon:"◈", label:"Finances"   },
+  { id:"delivery",   icon:"⌖", label:"Delivery"   },
+  { id:"community",  icon:"◎", label:"Community"  },
 ];
 const TIME_SLOTS = [
   { value:"next-day-am", label:"Tomorrow, 9am–12pm"  },
@@ -930,22 +923,22 @@ function SellerApp({ user, onSignOut }) {
 
   const ProfilePanel = () => (
     showProfilePanel ? (
-      <div style={{ position:"fixed", inset:0, zIndex:300, display:"flex" }}>
-        <div onClick={()=>setShowProfilePanel(false)} style={{ flex:1, background:"rgba(0,0,0,0.5)" }}/>
-        <div style={{ width:380, background:C.surface, borderLeft:`1px solid ${C.border}`, overflowY:"auto", fontFamily:"'DM Sans', system-ui, sans-serif" }}>
-          <div style={{ padding:"1.25rem 1.5rem", borderBottom:`1px solid ${C.border}`, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+      <div style={{ position:"fixed", inset:0, zIndex:300, display:"flex", alignItems:"center", justifyContent:"center" }}>
+        <div onClick={()=>setShowProfilePanel(false)} style={{ position:"absolute", inset:0, background:"rgba(0,0,0,0.6)" }}/>
+        <div style={{ position:"relative", width:600, maxWidth:"92vw", maxHeight:"88vh", background:C.surface, borderRadius:16, border:`1px solid ${C.border}`, overflowY:"auto", fontFamily:"'DM Sans', system-ui, sans-serif", boxShadow:"0 24px 60px rgba(0,0,0,0.35)" }}>
+          <div style={{ padding:"1.5rem 2rem", borderBottom:`1px solid ${C.border}`, display:"flex", justifyContent:"space-between", alignItems:"center", position:"sticky", top:0, background:C.surface, zIndex:10 }}>
             <div>
-              <p style={{ fontSize:16, fontWeight:700, color:C.text, margin:"0 0 1px", letterSpacing:"-0.01em" }}>Store Profile</p>
-              <p style={{ fontSize:12, color:C.textMuted, margin:0 }}>How customers see your store</p>
+              <p style={{ fontSize:20, fontWeight:700, color:C.text, margin:"0 0 2px", letterSpacing:"-0.02em" }}>Store Profile</p>
+              <p style={{ fontSize:13, color:C.textMuted, margin:0 }}>How customers see your store</p>
             </div>
-            <button onClick={()=>setShowProfilePanel(false)} style={{ background:C.surfaceHigh, border:"none", width:30, height:30, borderRadius:5, fontSize:16, cursor:"pointer", color:C.textMuted }}>✕</button>
+            <button onClick={()=>setShowProfilePanel(false)} style={{ background:C.surfaceHigh, border:"none", width:34, height:34, borderRadius:7, fontSize:18, cursor:"pointer", color:C.textMuted }}>✕</button>
           </div>
-          <div style={{ padding:"1.25rem 1.5rem" }}>
+          <div style={{ padding:"1.75rem 2rem" }}>
             {/* Logo */}
-            <div style={{ marginBottom:18 }}>
-              <label style={{ fontSize:10, fontWeight:700, color:C.textMuted, display:"block", marginBottom:10, textTransform:"uppercase", letterSpacing:"0.08em" }}>Store Logo</label>
+            <div style={{ marginBottom:22 }}>
+              <label style={{ fontSize:10, fontWeight:700, color:C.textMuted, display:"block", marginBottom:12, textTransform:"uppercase", letterSpacing:"0.08em" }}>Store Logo</label>
               <div style={{ display:"flex", alignItems:"center", gap:14 }}>
-                <div style={{ width:72, height:72, borderRadius:12, background:C.surfaceHigh, border:`2px dashed ${logoPreview?C.accent:C.border}`, overflow:"hidden", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                <div style={{ width:90, height:90, borderRadius:14, background:C.surfaceHigh, border:`2px dashed ${logoPreview?C.accent:C.border}`, overflow:"hidden", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
                   {logoPreview
                     ? <img src={logoPreview} alt="logo" style={{ width:"100%", height:"100%", objectFit:"cover" }}/>
                     : <span style={{ fontSize:11, color:C.textMuted, textAlign:"center", padding:"0 6px", lineHeight:1.4 }}>No logo</span>
@@ -995,7 +988,7 @@ function SellerApp({ user, onSignOut }) {
               <p style={{ fontSize:12, color:C.textSub, fontFamily:"monospace", margin:0 }}>hearthside.app/store/{user.id?.slice(0,8)||"your-id"}</p>
             </div>
 
-            <button onClick={saveProfile} disabled={profileSaving} style={{ width:"100%", padding:"12px", background:profileSaved?C.success:C.accent, color:"#FFF", border:"none", borderRadius:5, fontSize:13, fontWeight:700, cursor:"pointer", transition:"background 0.2s" }}>
+            <button onClick={saveProfile} disabled={profileSaving} style={{ width:"100%", padding:"14px", background:profileSaved?C.success:C.accent, color:"#FFF", border:"none", borderRadius:5, fontSize:13, fontWeight:700, cursor:"pointer", transition:"background 0.2s" }}>
               {profileSaving?"Saving...":profileSaved?"✓ Profile Saved!":"Save Profile"}
             </button>
           </div>
@@ -1043,13 +1036,6 @@ function SellerApp({ user, onSignOut }) {
         <button onClick={onSignOut} style={{ display:"flex", alignItems:"center", gap:8, width:"100%", padding:"8px 10px", background:"transparent", border:"1px solid rgba(255,255,255,0.1)", borderRadius:5, cursor:"pointer" }}>
           <span style={{ fontSize:12, color:C.sidebarMuted }}>Sign out</span>
         </button>
-      </div>
-      <div style={{ padding:"0.75rem", borderTop:`1px solid rgba(255,255,255,0.06)` }}>
-        <div style={{ background:"rgba(196,98,45,0.15)", border:"1px solid rgba(196,98,45,0.35)", borderRadius:6, padding:"10px 12px" }}>
-          <p style={{ color:"#F4A261", fontSize:10, fontWeight:700, margin:"0 0 2px", textTransform:"uppercase", letterSpacing:"0.08em" }}>Free Trial</p>
-          <p style={{ color:C.sidebarText, fontSize:11, margin:"0 0 8px" }}>14 days remaining</p>
-          <button style={{ background:C.accent, color:"#FFF", border:"none", borderRadius:4, padding:"6px 10px", fontSize:11, fontWeight:700, cursor:"pointer", width:"100%" }}>Upgrade →</button>
-        </div>
       </div>
     </div>
   );
@@ -1323,23 +1309,26 @@ function SellerApp({ user, onSignOut }) {
             <p style={{ fontSize:14, color:C.textMuted, margin:0 }}>No products yet — click Add Product to get started!</p>
           </div>
         )}
-        <div style={{ display:"grid", gridTemplateColumns:"repeat(3,minmax(0,1fr))", gap:10 }}>
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(3,minmax(0,1fr))", gap:12 }}>
           {products.map(p=>(
-            <div key={p.id} onClick={()=>{ setEditProduct({...p}); setEditForm(null); }} style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:8, overflow:"hidden", cursor:"pointer", transition:"border-color 0.15s" }}
+            <div key={p.id} onClick={()=>{ setEditProduct({...p}); setEditForm(null); setEditSlide(0); }} style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:10, overflow:"hidden", cursor:"pointer", transition:"border-color 0.15s" }}
               onMouseEnter={e=>e.currentTarget.style.borderColor=C.borderMid}
               onMouseLeave={e=>e.currentTarget.style.borderColor=C.border}>
-              {p.image_url
-                ? <img src={p.image_url} alt={p.name} style={{ width:"100%", height:130, objectFit:"cover", display:"block" }}/>
-                : <div style={{ width:"100%", height:80, background:C.surfaceHigh, display:"flex", alignItems:"center", justifyContent:"center", fontSize:28 }}>{p.emoji}</div>
-              }
-              <div style={{ padding:"0.875rem" }}>
-                <p style={{ fontSize:14, fontWeight:600, color:C.text, margin:"0 0 3px", letterSpacing:"-0.01em" }}>{p.name}</p>
-                <p style={{ fontSize:11, color:C.textMuted, margin:"0 0 10px", lineHeight:1.5 }}>{p.desc}</p>
-                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", borderTop:`1px solid ${C.border}`, paddingTop:9 }}>
-                  <span style={{ fontSize:16, fontWeight:700, color:C.accent, letterSpacing:"-0.01em" }}>${p.price?.toFixed(2)||"0.00"}</span>
-                  <span style={{ fontSize:11, color:p.stock<5?C.danger:C.textMuted, fontWeight:p.stock<5?600:400 }}>
-                    {p.stock<5?`⚠ ${p.stock} left`:`${p.stock} in stock`}
-                  </span>
+              {/* Square image area — aspect ratio 1:1 */}
+              <div style={{ position:"relative", paddingBottom:"100%", background:C.surfaceHigh }}>
+                {p.image_url
+                  ? <img src={p.image_url} alt={p.name} style={{ position:"absolute", inset:0, width:"100%", height:"100%", objectFit:"cover" }}/>
+                  : <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", fontSize:44 }}>{p.emoji}</div>
+                }
+                {p.stock<5 && (
+                  <span style={{ position:"absolute", top:8, right:8, background:C.danger, color:"#FFF", fontSize:10, fontWeight:700, padding:"2px 7px", borderRadius:4 }}>⚠ Low stock</span>
+                )}
+              </div>
+              <div style={{ padding:"0.75rem 0.875rem 0.875rem" }}>
+                <p style={{ fontSize:14, fontWeight:700, color:C.text, margin:"0 0 2px", letterSpacing:"-0.01em", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{p.name}</p>
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                  <span style={{ fontSize:15, fontWeight:700, color:C.accent }}>${p.price?.toFixed(2)||"0.00"}</span>
+                  <span style={{ fontSize:10, color:C.textMuted }}>{p.stock} in stock</span>
                 </div>
               </div>
             </div>
@@ -1348,18 +1337,18 @@ function SellerApp({ user, onSignOut }) {
 
         {/* ── PRODUCT PREVIEW + EDIT MODAL ── */}
         {editProduct && (
-          <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.6)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:200 }}>
-            <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:12, width:460, maxWidth:"95vw", maxHeight:"90vh", overflowY:"auto" }}>
+          <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.7)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:200 }}>
+            <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:16, width:680, maxWidth:"96vw", maxHeight:"92vh", overflowY:"auto", boxShadow:"0 24px 60px rgba(0,0,0,0.4)" }}>
 
               {/* ── PREVIEW MODE ── */}
               {!editForm && (
                 <>
                   {(() => {
                     const imgs = (() => { try { return JSON.parse(editProduct.images||"[]"); } catch(e) { return editProduct.image_url?[editProduct.image_url]:[]; } })();
-                    if (imgs.length===0) return <div style={{ width:"100%", height:160, background:C.surfaceHigh, borderRadius:"12px 12px 0 0", display:"flex", alignItems:"center", justifyContent:"center", fontSize:48 }}>{editProduct.emoji}</div>;
+                    if (imgs.length===0) return <div style={{ width:"100%", height:280, background:C.surfaceHigh, borderRadius:"16px 16px 0 0", display:"flex", alignItems:"center", justifyContent:"center", fontSize:72 }}>{editProduct.emoji}</div>;
                     return (
                       <div style={{ position:"relative" }}>
-                        <img src={imgs[editSlide]||imgs[0]} alt={editProduct.name} style={{ width:"100%", height:200, objectFit:"cover", borderRadius:"12px 12px 0 0", display:"block" }}/>
+                        <img src={imgs[editSlide]||imgs[0]} alt={editProduct.name} style={{ width:"100%", height:320, objectFit:"cover", borderRadius:"16px 16px 0 0", display:"block" }}/>
                         {imgs.length>1 && (
                           <>
                             <button onClick={e=>{ e.stopPropagation(); setEditSlide(s=>Math.max(0,s-1)); }} disabled={editSlide===0}
@@ -1377,15 +1366,15 @@ function SellerApp({ user, onSignOut }) {
                       </div>
                     );
                   })()}
-                  <div style={{ padding:"1.5rem" }}>
-                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:8 }}>
+                  <div style={{ padding:"2rem" }}>
+                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:10 }}>
                       <div>
-                        <p style={{ fontSize:20, fontWeight:700, color:C.text, margin:"0 0 4px", letterSpacing:"-0.02em" }}>{editProduct.name}</p>
+                        <p style={{ fontSize:26, fontWeight:700, color:C.text, margin:"0 0 5px", letterSpacing:"-0.02em" }}>{editProduct.name}</p>
                         <p style={{ fontSize:11, color:C.textMuted, margin:0 }}>{editProduct.emoji} · {editProduct.stock} in stock</p>
                       </div>
-                      <p style={{ fontSize:24, fontWeight:700, color:C.accent, margin:0, letterSpacing:"-0.02em" }}>${editProduct.price?.toFixed(2)||"0.00"}</p>
+                      <p style={{ fontSize:30, fontWeight:700, color:C.accent, margin:0, letterSpacing:"-0.02em" }}>${editProduct.price?.toFixed(2)||"0.00"}</p>
                     </div>
-                    <p style={{ fontSize:14, color:C.textSub, margin:"0 0 1.5rem", lineHeight:1.7 }}>{editProduct.desc||"No description added yet."}</p>
+                    <p style={{ fontSize:15, color:C.textSub, margin:"0 0 1.75rem", lineHeight:1.75 }}>{editProduct.desc||"No description added yet."}</p>
                     <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, marginBottom:"1.5rem" }}>
                       {[["Price",`$${editProduct.price?.toFixed(2)||"0.00"}`],["Stock",`${editProduct.stock||0} units`],["Category",editProduct.emoji||"–"]].map(([k,v])=>(
                         <div key={k} style={{ background:C.surfaceHigh, borderRadius:6, padding:"10px 12px" }}>
@@ -1682,105 +1671,7 @@ function SellerApp({ user, onSignOut }) {
     );
   };
 
-  // ── AI MARKETING ──
-  const Marketing = () => {
-    const [name,    setName]    = useState("");
-    const [details, setDetails] = useState("");
-    const [result,  setResult]  = useState(null);
-    const [loading, setLoading] = useState(false);
-    const [error,   setError]   = useState("");
-    const [copied,  setCopied]  = useState("");
-    const generate = async () => {
-      if (!name.trim()) return;
-      setLoading(true); setError(""); setResult(null);
-      try {
-        const res = await fetch("https://api.anthropic.com/v1/messages", {
-          method:"POST",
-          headers:{
-            "Content-Type":"application/json",
-            "x-api-key": (window._anthropicKey || ""),
-            "anthropic-version":"2023-06-01",
-            "anthropic-dangerous-direct-browser-access":"true",
-          },
-          body:JSON.stringify({
-            model:"claude-opus-4-6",
-            max_tokens:1024,
-            messages:[{
-              role:"user",
-              content:`You are a marketing copywriter for artisanal home-baked goods sold locally. Be warm, specific, and mouth-watering.
 
-Product: ${name}
-Details: ${details||"Home-baked with love, using quality ingredients"}
-
-Return ONLY a valid JSON object with no markdown fences, no extra text, no explanation:
-{"tagline":"A punchy 5-8 word tagline","description":"A 2-3 sentence storefront description that highlights texture, flavour, and what makes it special","instagram":"An Instagram caption under 150 characters with 3-5 relevant hashtags and an emoji","whatsapp":"A short WhatsApp broadcast message under 100 characters, conversational and enticing"}`
-            }]
-          })
-        });
-        if (!res.ok) {
-          const errData = await res.json();
-          setError(`API error: ${errData?.error?.message||res.status}`);
-          setLoading(false); return;
-        }
-        const data = await res.json();
-        const text = (data.content||[]).map(c=>c.text||"").join("").trim();
-        const jsonStr = text.replace(/^```json\s*/,"").replace(/^```\s*/,"").replace(/\s*```$/,"").trim();
-        setResult(JSON.parse(jsonStr));
-      } catch(e) {
-        setError("Could not generate copy. Check your connection and try again.");
-        console.error(e);
-      }
-      setLoading(false);
-    };
-    const copy = (text,key) => { navigator.clipboard.writeText(text).then(()=>{ setCopied(key); setTimeout(()=>setCopied(""),2000); }); };
-    return (
-      <div style={{ padding:"2rem", maxWidth:600 }}>
-        <div style={{ marginBottom:"1.5rem" }}>
-          <h1 style={{ fontSize:24, fontWeight:700, color:C.text, margin:"0 0 4px", letterSpacing:"-0.02em" }}>AI Marketing</h1>
-          <p style={{ color:C.textMuted, fontSize:13, margin:0 }}>Generate product copy and social captions powered by Claude</p>
-        </div>
-        <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:8, padding:"1.25rem", marginBottom:"1rem" }}>
-          <div style={{ display:"flex", gap:7, flexWrap:"wrap", marginBottom:"1.25rem" }}>
-            {products.slice(0,4).map(p=>(
-              <button key={p.id} onClick={()=>{ setName(p.name); setDetails(p.desc); }} style={{ padding:"5px 12px", border:`1px solid ${C.border}`, borderRadius:4, background:"transparent", fontSize:12, cursor:"pointer", color:C.textSub, display:"flex", alignItems:"center", gap:5 }}>
-                <span>{p.emoji}</span>{p.name}
-              </button>
-            ))}
-          </div>
-          <Inp label="Product Name" value={name} onChange={setName} ph="e.g. Blueberry Scones"/>
-          <div style={{ marginBottom:16 }}>
-            <label style={{ fontSize:10, fontWeight:600, color:C.textMuted, display:"block", marginBottom:5, textTransform:"uppercase", letterSpacing:"0.08em" }}>Key Details</label>
-            <textarea value={details} onChange={e=>setDetails(e.target.value)} rows={3} placeholder="Ingredients, textures, what makes it special..."
-              style={{ width:"100%", padding:"10px 12px", border:`1px solid ${C.border}`, borderRadius:5, fontSize:13, color:C.text, background:C.surfaceHigh, outline:"none", resize:"none", boxSizing:"border-box", lineHeight:1.6 }}/>
-          </div>
-          <button onClick={generate} disabled={!name.trim()||loading} style={{ background:name.trim()?C.accent:"rgba(255,255,255,0.06)", color:name.trim()?"#000":C.textMuted, border:"none", borderRadius:5, padding:"10px 20px", fontSize:13, fontWeight:700, cursor:name.trim()?"pointer":"default" }}>
-            {loading?"Generating...":"✦ Generate Copy"}
-          </button>
-        </div>
-        {error && <div style={{ background:C.dangerBg, border:`1px solid rgba(239,68,68,0.2)`, borderRadius:6, padding:"10px 14px", marginBottom:12, fontSize:13, color:C.danger }}>{error}</div>}
-        {result && (
-          <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:8, overflow:"hidden" }}>
-            <div style={{ background:C.accentBg, borderBottom:`1px solid ${C.border}`, padding:"1rem 1.25rem" }}>
-              <p style={{ fontSize:18, fontWeight:700, color:C.accent, margin:0, letterSpacing:"-0.01em" }}>"{result.tagline}"</p>
-            </div>
-            <div style={{ padding:"1rem 1.25rem" }}>
-              {[{ key:"description",label:"Storefront",icon:"🏪"},{key:"instagram",label:"Instagram",icon:"📸"},{key:"whatsapp",label:"WhatsApp",icon:"💬"}].map(item=>(
-                <div key={item.key} style={{ marginBottom:"1rem", paddingBottom:"1rem", borderBottom:`1px solid ${C.border}` }}>
-                  <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:6 }}>
-                    <p style={{ fontSize:10, fontWeight:700, color:C.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", margin:0 }}>{item.icon} {item.label}</p>
-                    <button onClick={()=>copy(result[item.key],item.key)} style={{ background:C.surfaceHigh, border:`1px solid ${C.border}`, borderRadius:3, padding:"3px 10px", fontSize:10, cursor:"pointer", color:C.textMuted, fontWeight:600 }}>
-                      {copied===item.key?"✓ Copied":"Copy"}
-                    </button>
-                  </div>
-                  <p style={{ fontSize:13, color:C.textSub, margin:0, lineHeight:1.7, background:C.surfaceHigh, padding:"9px 12px", borderRadius:4 }}>{result[item.key]}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  };
 
   // ── DELIVERY SETTINGS ──
   const Delivery = () => {
@@ -1863,7 +1754,6 @@ Return ONLY a valid JSON object with no markdown fences, no extra text, no expla
         {view==="orders"     && <Orders/>}
         {view==="finances"   && <Finances/>}
         {view==="delivery"   && <Delivery/>}
-        {view==="marketing"  && <Marketing/>}
         {view==="community"  && <SellerCommunity/>}
       </main>
     </div>
