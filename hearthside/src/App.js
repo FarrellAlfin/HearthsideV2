@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(
@@ -1660,7 +1660,6 @@ function SellerApp({ user, onSignOut }) {
     const [newCat,    setNewCat]    = useState("ingredients");
     const [newLabel,  setNewLabel]  = useState("");
     const [newAmt,    setNewAmt]    = useState("");
-    const [saved,     setSaved]     = useState(false);
 
     const addCost = () => {
       if (!newAmt||parseFloat(newAmt)<=0) return;
