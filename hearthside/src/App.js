@@ -881,9 +881,51 @@ function SellerApp({ user, onSignOut }) {
 
   useEffect(()=>{
     if (!user?.id) { setProducts([]); setLoadingProducts(false); return; }
+    // Load products
     supabase.from("products").select("*").eq("seller_id", user.id)
       .then(({ data })=>{ if (data&&data.length>0) setProducts(data); else setProducts([]); setLoadingProducts(false); });
-  }, [user?.id]);
+    // Load delivery settings (stored as jsonb in profiles.delivery_settings)
+    // Delivery component reads from its own useState — we store as profile column
+    // and reload on mount via a separate effect below
+    // Load profile data (desc, instagram, whatsapp, logo)
+    supabase.from("profiles").select("desc,instagram,whatsapp,logo_url,business,hood").eq("id", user.id).single()
+      .then(({ data })=>{
+        if (data) {
+          setProfileData(p=>({ ...p,
+            desc:       data.desc||"",
+            instagram:  data.instagram||"",
+            whatsapp:   data.whatsapp||"",
+            business:   data.business||p.business,
+            hood:       data.hood||p.hood,
+          }));
+          if (data.logo_url) setLogoPreview(data.logo_url);
+        }
+      });
+    // Load current month finances
+    const curMonth = `${MONTHS[new Date().getMonth()]} ${new Date().getFullYear()}`;
+    supabase.from("finances").select("*").eq("seller_id", user.id).order("created_at", { ascending:false })
+      .then(({ data })=>{
+        if (!data || data.length===0) return;
+        const current = data.find(r=>r.month===curMonth)||data[0];
+        if (current) {
+          setFinMonth(current.month);
+          const rv = String(current.revenue||"");
+          setFinRevenue(rv);
+          if (revenueInputRef.current) revenueInputRef.current.value = rv;
+          const rawCosts = current.costs||[];
+          const parsedCosts = typeof rawCosts==="string" ? JSON.parse(rawCosts) : rawCosts;
+          setFinCosts(parsedCosts.map(c=>({ ...c, color: COST_CATS_DEF.find(cat=>cat.value===c.cat)?.color||"#9C7A66" })));
+        }
+        // All other months go into history
+        const history = data.filter(r=>r.month!==current.month).map(r=>({
+          month: r.month,
+          revenue: r.revenue||0,
+          costs: (typeof r.costs==="string" ? JSON.parse(r.costs) : r.costs)||[],
+        }));
+        setFinHistory(history);
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── SIDEBAR ──
   const [showProfilePanel, setShowProfilePanel] = useState(false);
@@ -1724,15 +1766,37 @@ function SellerApp({ user, onSignOut }) {
     const [newAmt,    setNewAmt]    = useState("");
     const [showStmt,  setShowStmt]  = useState(false);
 
-    const saveMonthToHistory = () => {
+    const saveMonthToHistory = async () => {
       if (!finRevenue && finCosts.length===0) return;
+      const entry = { month:finMonth, revenue:parseFloat(finRevenue)||0, costs:finCosts };
+      // Update local history
       setFinHistory(h=>{
         const existing = h.findIndex(m=>m.month===finMonth);
-        const entry = { month:finMonth, revenue:parseFloat(finRevenue)||0, costs:[...finCosts] };
         if (existing>=0) { const n=[...h]; n[existing]=entry; return n; }
         return [...h, entry];
       });
+      // Persist to Supabase (upsert by seller_id + month)
+      if (user?.id) {
+        await supabase.from("finances").upsert({
+          seller_id: user.id,
+          month:     finMonth,
+          revenue:   parseFloat(finRevenue)||0,
+          costs:     finCosts,
+        }, { onConflict:"seller_id,month" });
+      }
     };
+
+    // Auto-save costs whenever they change
+    useEffect(()=>{
+      if (!user?.id || (finCosts.length===0 && !finRevenue)) return;
+      supabase.from("finances").upsert({
+        seller_id: user.id,
+        month:     finMonth,
+        revenue:   parseFloat(finRevenue)||0,
+        costs:     finCosts,
+      }, { onConflict:"seller_id,month" });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [finCosts]);
 
     const loadMonth = (entry) => {
       saveMonthToHistory();
@@ -1866,7 +1930,18 @@ function SellerApp({ user, onSignOut }) {
               <input
                 ref={revenueInputRef}
                 defaultValue={finRevenue}
-                onBlur={e=>{ const v=e.target.value.trim(); setFinRevenue(v); }}
+                onBlur={e=>{
+                  const v=e.target.value.trim();
+                  setFinRevenue(v);
+                  if (user?.id && (v||finCosts.length>0)) {
+                    supabase.from("finances").upsert({
+                      seller_id: user.id,
+                      month:     finMonth,
+                      revenue:   parseFloat(v)||0,
+                      costs:     finCosts,
+                    }, { onConflict:"seller_id,month" });
+                  }
+                }}
                 placeholder="0.00"
                 type="text"
                 inputMode="decimal"
@@ -2000,7 +2075,14 @@ function SellerApp({ user, onSignOut }) {
     const [days,   setDays]   = useState({ mon:true,tue:true,wed:false,thu:true,fri:true,sat:true,sun:false });
     const [saved,  setSaved]  = useState(false);
     const DAY_LABELS = [["mon","Mon"],["tue","Tue"],["wed","Wed"],["thu","Thu"],["fri","Fri"],["sat","Sat"],["sun","Sun"]];
-    const save = () => { setSaved(true); setTimeout(()=>setSaved(false),2500); };
+    const save = async () => {
+      if (user?.id) {
+        await supabase.from("profiles").update({
+          delivery_settings: { pickup, delivery:del, days }
+        }).eq("id", user.id);
+      }
+      setSaved(true); setTimeout(()=>setSaved(false),2500);
+    };
     return (
       <div style={{ padding:"2rem" }}>
         <h1 style={{ fontSize:24, fontWeight:700, color:C.text, margin:"0 0 1.5rem", letterSpacing:"-0.02em" }}>Delivery Settings</h1>
@@ -2071,9 +2153,10 @@ function SellerApp({ user, onSignOut }) {
 
   // ── CUSTOMERS ──
   const Customers = () => {
-    const [customers, setCustomers] = useState([]);
-    const [showAdd,   setShowAdd]   = useState(false);
-    const [search,    setSearch]    = useState("");
+    const [customers,   setCustomers]   = useState([]);
+    const [loadingCust, setLoadingCust] = useState(true);
+    const [showAdd,     setShowAdd]     = useState(false);
+    const [search,      setSearch]      = useState("");
     const [form, setForm] = useState({ name:"", phone:"", email:"", notes:"", tag:"regular" });
 
     const TAGS = [
@@ -2083,20 +2166,36 @@ function SellerApp({ user, onSignOut }) {
       { v:"new",       label:"New",         bg:"rgba(30,122,72,0.1)",  color:"#1E7A48" },
     ];
 
-    const addCustomer = () => {
+    useEffect(()=>{
+      if (!user?.id) { setLoadingCust(false); return; }
+      supabase.from("customers").select("*").eq("seller_id", user.id).order("created_at", { ascending:false })
+        .then(({ data })=>{ setCustomers(data||[]); setLoadingCust(false); });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    const addCustomer = async () => {
       if (!form.name.trim()) return;
-      setCustomers(p=>[...p, { id:Date.now(), ...form, since:new Date().toLocaleDateString("en-US",{month:"short",year:"numeric"}), orders:0 }]);
+      const since = new Date().toLocaleDateString("en-US",{month:"short",year:"numeric"});
+      const newCust = { seller_id:user.id, name:form.name, phone:form.phone, email:form.email, notes:form.notes, tag:form.tag, since };
+      const { data, error } = await supabase.from("customers").insert(newCust).select().single();
+      if (!error && data) setCustomers(p=>[data,...p]);
+      else setCustomers(p=>[{ id:Date.now(), ...newCust },...p]);
       setForm({ name:"", phone:"", email:"", notes:"", tag:"regular" });
       setShowAdd(false);
     };
 
-    const removeCustomer = (id) => setCustomers(p=>p.filter(c=>c.id!==id));
+    const removeCustomer = async (id) => {
+      await supabase.from("customers").delete().eq("id", id);
+      setCustomers(p=>p.filter(c=>c.id!==id));
+    };
 
     const filtered = customers.filter(c=>
       c.name.toLowerCase().includes(search.toLowerCase()) ||
       c.phone.includes(search) ||
       c.email.toLowerCase().includes(search.toLowerCase())
     );
+
+    if (loadingCust) return <div style={{ padding:"2rem", textAlign:"center", color:C.textMuted, fontSize:13 }}>Loading customers...</div>;
 
     return (
       <div style={{ padding:"2rem" }}>
