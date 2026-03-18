@@ -7,41 +7,44 @@ const supabase = createClient(
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt4YWpqbHJqZ3JhYnRteWtzcXJxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3NjIyMzMsImV4cCI6MjA4OTMzODIzM30.UCUOnwpyP4oBJyHhaCEM4kym_UlDY32a2SWP3x8atQU'
 );
 
-// ─── DESIGN TOKENS — sleek dark system ───────────────────────────────────────
+// ─── DESIGN TOKENS — Hearthside warm palette ─────────────────────────────────
 const C = {
-  // Base
-  bg:          "#0A0A0A",
-  surface:     "#111111",
-  surfaceHigh: "#1A1A1A",
-  surfaceTop:  "#222222",
-  border:      "rgba(255,255,255,0.07)",
-  borderMid:   "rgba(255,255,255,0.12)",
+  // Base — warm cream + dark contrast
+  bg:          "#F7F0E6",
+  surface:     "#FFFFFF",
+  surfaceHigh: "#F0E8DB",
+  surfaceTop:  "#E8DDD0",
+  border:      "rgba(164,98,60,0.14)",
+  borderMid:   "rgba(164,98,60,0.25)",
   // Text
-  text:        "#F5F5F5",
-  textSub:     "#A0A0A0",
-  textMuted:   "#606060",
-  // Accent — sharp lime green (not Uber's black, not generic orange)
-  accent:      "#C8F04A",
-  accentDark:  "#9BC235",
-  accentBg:    "rgba(200,240,74,0.08)",
-  accentBorder:"rgba(200,240,74,0.2)",
+  text:        "#1C0E07",
+  textSub:     "#5C3D2A",
+  textMuted:   "#9C7A66",
+  // Accent — logo burnt orange
+  accent:      "#C4622D",
+  accentDark:  "#A05025",
+  accentBg:    "rgba(196,98,45,0.08)",
+  accentBorder:"rgba(196,98,45,0.22)",
+  // Sidebar — deep espresso
+  sidebar:     "#1C0E07",
+  sidebarText: "#F5DCC8",
+  sidebarMuted:"rgba(245,220,200,0.45)",
   // Semantic
-  success:     "#22C55E",
-  successBg:   "rgba(34,197,94,0.1)",
-  warning:     "#F59E0B",
-  warningBg:   "rgba(245,158,11,0.1)",
-  danger:      "#EF4444",
-  dangerBg:    "rgba(239,68,68,0.1)",
-  info:        "#3B82F6",
-  infoBg:      "rgba(59,130,246,0.1)",
+  success:     "#1E7A48",
+  successBg:   "rgba(30,122,72,0.1)",
+  warning:     "#A07010",
+  warningBg:   "rgba(160,112,16,0.1)",
+  danger:      "#B52020",
+  dangerBg:    "rgba(181,32,32,0.1)",
+  info:        "#1A6B9C",
+  infoBg:      "rgba(26,107,156,0.1)",
   // Feature colors
-  charity:     "#A855F7",
-  charityBg:   "rgba(168,85,247,0.1)",
-  charityBorder:"rgba(168,85,247,0.25)",
-  chat:        "#06B6D4",
-  chatBg:      "rgba(6,182,212,0.1)",
+  charity:     "#7C3AED",
+  charityBg:   "rgba(124,58,237,0.08)",
+  charityBorder:"rgba(124,58,237,0.2)",
+  chat:        "#0D6E5C",
+  chatBg:      "rgba(13,110,92,0.1)",
 };
-const ff = { fontFamily:"'DM Sans', 'Inter', system-ui, sans-serif" };
 
 // ─── MOCK DATA ────────────────────────────────────────────────────────────────
 const STORES = [
@@ -216,24 +219,24 @@ function AuthScreen({ onAuth }) {
   return (
     <div style={{ minHeight:"100vh", background:C.bg, display:"flex", fontFamily:"'DM Sans', system-ui, sans-serif" }}>
       {/* Left panel */}
-      <div style={{ flex:1, display:"flex", flexDirection:"column", justifyContent:"center", padding:"4rem", background:"#0D0D0D", borderRight:`1px solid ${C.border}` }}>
+      <div style={{ flex:1, display:"flex", flexDirection:"column", justifyContent:"center", padding:"4rem", background:C.sidebar, borderRight:`1px solid ${C.border}` }}>
         <div style={{ maxWidth:400 }}>
           <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:"3rem" }}>
             <div style={{ width:32, height:32, background:C.accent, borderRadius:6, display:"flex", alignItems:"center", justifyContent:"center", fontSize:16 }}>🍞</div>
-            <span style={{ fontSize:18, fontWeight:700, color:C.text, letterSpacing:"-0.02em" }}>Hearthside</span>
+            <span style={{ fontSize:18, fontWeight:700, color:C.sidebarText, letterSpacing:"-0.02em" }}>Hearthside</span>
           </div>
-          <h1 style={{ fontSize:36, fontWeight:700, color:C.text, margin:"0 0 12px", letterSpacing:"-0.03em", lineHeight:1.15 }}>
+          <h1 style={{ fontSize:36, fontWeight:700, color:C.sidebarText, margin:"0 0 12px", letterSpacing:"-0.03em", lineHeight:1.15 }}>
             Home-baked goods<br/>
             <span style={{ color:C.accent }}>from your neighbours.</span>
           </h1>
-          <p style={{ fontSize:15, color:C.textSub, margin:0, lineHeight:1.7 }}>
+          <p style={{ fontSize:15, color:C.sidebarMuted, margin:0, lineHeight:1.7 }}>
             Order fresh baked goods from local home bakers, or build your bakery business and reach customers in your city.
           </p>
           <div style={{ marginTop:"2.5rem", display:"flex", flexDirection:"column", gap:12 }}>
             {["Real bakers. Real homes. Real fresh.","Delivery, pickup, or donate to charity","Community broadcasts from local sellers"].map((t,i)=>(
               <div key={i} style={{ display:"flex", alignItems:"center", gap:10 }}>
                 <div style={{ width:6, height:6, borderRadius:"50%", background:C.accent, flexShrink:0 }}/>
-                <span style={{ fontSize:13, color:C.textSub }}>{t}</span>
+                <span style={{ fontSize:13, color:C.sidebarMuted }}>{t}</span>
               </div>
             ))}
           </div>
@@ -241,7 +244,7 @@ function AuthScreen({ onAuth }) {
       </div>
 
       {/* Right panel — form */}
-      <div style={{ width:460, display:"flex", flexDirection:"column", justifyContent:"center", padding:"3rem 3.5rem" }}>
+      <div style={{ width:460, display:"flex", flexDirection:"column", justifyContent:"center", padding:"3rem 3.5rem", background:C.surface }}>
         <h2 style={{ fontSize:22, fontWeight:700, color:C.text, margin:"0 0 6px", letterSpacing:"-0.02em" }}>
           {mode==="login"?"Welcome back":"Create your account"}
         </h2>
@@ -370,7 +373,7 @@ function CustomerApp({ user, onSignOut }) {
             display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:3
           }}>
             <span style={{ fontSize:15, color:active?C.accent:C.textMuted }}>{n.icon}</span>
-            <span style={{ fontSize:10, color:active?C.accent:C.textMuted, fontWeight:active?600:400, letterSpacing:"0.02em" }}>{n.label}</span>
+            <span style={{ fontSize:10, color:active?C.accent:C.sidebarText, fontWeight:active?600:400, letterSpacing:"0.02em" }}>{n.label}</span>
           </button>
         );
       })}
@@ -406,7 +409,10 @@ function CustomerApp({ user, onSignOut }) {
           <div style={{ display:"grid", gridTemplateColumns:"repeat(2,minmax(0,1fr))", gap:10 }}>
             {products.map(p=>(
               <div key={p.id} style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:8, padding:"1rem" }}>
-                <div style={{ width:40, height:40, background:C.surfaceHigh, borderRadius:6, display:"flex", alignItems:"center", justifyContent:"center", fontSize:22, marginBottom:10 }}>{p.emoji}</div>
+                {p.image_url
+                ? <img src={p.image_url} alt={p.name} style={{ width:"100%", height:90, objectFit:"cover", borderRadius:4, marginBottom:10, display:"block" }}/>
+                : <div style={{ width:40, height:40, background:C.surfaceHigh, borderRadius:6, display:"flex", alignItems:"center", justifyContent:"center", fontSize:22, marginBottom:10 }}>{p.emoji}</div>
+              }
                 <p style={{ fontSize:14, fontWeight:600, color:C.text, margin:"0 0 4px", letterSpacing:"-0.01em" }}>{p.name}</p>
                 <p style={{ fontSize:11, color:C.textMuted, margin:"0 0 12px", lineHeight:1.5 }}>{p.desc}</p>
                 <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
@@ -819,12 +825,12 @@ function SellerApp({ user, onSignOut }) {
 
   // ── SIDEBAR ──
   const Sidebar = () => (
-    <div style={{ width:220, background:C.surface, display:"flex", flexDirection:"column", flexShrink:0, borderRight:`1px solid ${C.border}` }}>
+    <div style={{ width:220, background:C.sidebar, display:"flex", flexDirection:"column", flexShrink:0, borderRight:`1px solid rgba(255,255,255,0.06)` }}>
       <div style={{ padding:"1.25rem 1rem", borderBottom:`1px solid ${C.border}`, display:"flex", alignItems:"center", gap:10 }}>
         <div style={{ width:28, height:28, background:C.accent, borderRadius:5, display:"flex", alignItems:"center", justifyContent:"center", fontSize:14 }}>🍞</div>
         <div style={{ minWidth:0 }}>
-          <p style={{ color:C.text, fontSize:13, fontWeight:700, margin:0, letterSpacing:"-0.01em", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{user.business}</p>
-          <p style={{ color:C.textMuted, fontSize:10, margin:0 }}>Seller Dashboard</p>
+          <p style={{ color:C.sidebarText, fontSize:13, fontWeight:700, margin:0, letterSpacing:"-0.01em", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{user.business}</p>
+          <p style={{ color:C.sidebarMuted, fontSize:10, margin:0 }}>Seller Dashboard</p>
         </div>
       </div>
       <nav style={{ flex:1, padding:"0.5rem" }}>
@@ -833,24 +839,24 @@ function SellerApp({ user, onSignOut }) {
           return (
             <button key={item.id} onClick={()=>setView(item.id)} style={{
               display:"flex", alignItems:"center", gap:10, width:"100%", padding:"8px 10px",
-              background:active?"rgba(200,240,74,0.08)":"transparent", border:"none",
+              background:active?"rgba(196,98,45,0.15)":"transparent", border:"none",
               borderRadius:5, cursor:"pointer", marginBottom:1, textAlign:"left"
             }}>
-              <span style={{ fontSize:13, color:active?C.accent:C.textMuted, width:16, textAlign:"center" }}>{item.icon}</span>
+              <span style={{ fontSize:13, color:active?C.accent:C.sidebarMuted, width:16, textAlign:"center" }}>{item.icon}</span>
               <span style={{ fontSize:13, color:active?C.accent:C.textMuted, fontWeight:active?600:400 }}>{item.label}</span>
             </button>
           );
         })}
       </nav>
       <div style={{ padding:"0.75rem" }}>
-        <button onClick={onSignOut} style={{ display:"flex", alignItems:"center", gap:8, width:"100%", padding:"8px 10px", background:"transparent", border:`1px solid ${C.border}`, borderRadius:5, cursor:"pointer" }}>
-          <span style={{ fontSize:12, color:C.textMuted }}>Sign out</span>
+        <button onClick={onSignOut} style={{ display:"flex", alignItems:"center", gap:8, width:"100%", padding:"8px 10px", background:"transparent", border:"1px solid rgba(255,255,255,0.1)", borderRadius:5, cursor:"pointer" }}>
+          <span style={{ fontSize:12, color:C.sidebarMuted }}>Sign out</span>
         </button>
       </div>
       <div style={{ padding:"0.75rem", borderTop:`1px solid ${C.border}` }}>
-        <div style={{ background:C.accentBg, border:`1px solid ${C.accentBorder}`, borderRadius:6, padding:"10px 12px" }}>
-          <p style={{ color:C.accent, fontSize:10, fontWeight:700, margin:"0 0 2px", textTransform:"uppercase", letterSpacing:"0.08em" }}>Free Trial</p>
-          <p style={{ color:C.textSub, fontSize:11, margin:"0 0 8px" }}>14 days remaining</p>
+        <div style={{ background:"rgba(196,98,45,0.15)", border:"1px solid rgba(196,98,45,0.35)", borderRadius:6, padding:"10px 12px" }}>
+          <p style={{ color:"#F4A261", fontSize:10, fontWeight:700, margin:"0 0 2px", textTransform:"uppercase", letterSpacing:"0.08em" }}>Free Trial</p>
+          <p style={{ color:C.sidebarText, fontSize:11, margin:"0 0 8px" }}>14 days remaining</p>
           <button style={{ background:C.accent, color:"#000", border:"none", borderRadius:4, padding:"6px 10px", fontSize:11, fontWeight:700, cursor:"pointer", width:"100%" }}>Upgrade →</button>
         </div>
       </div>
@@ -970,14 +976,47 @@ function SellerApp({ user, onSignOut }) {
   // ── SELLER STOREFRONT ──
   const Storefront = () => {
     const [showModal, setShowModal] = useState(false);
-    const [form, setForm] = useState({ name:"", price:"", emoji:"🍞", desc:"" });
+    const [form, setForm] = useState({ name:"", price:"", emoji:"🍞", desc:"", stock:"10" });
+    const [imageFile, setImageFile] = useState(null);
+    const [imagePreview, setImagePreview] = useState(null);
+    const [uploading, setUploading] = useState(false);
+
+    const handleImage = (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      setImageFile(file);
+      setImagePreview(URL.createObjectURL(file));
+    };
+
     const add = async () => {
       if (!form.name||!form.price) return;
-      const newProduct = { seller_id:user.id, name:form.name, price:parseFloat(form.price)||0, emoji:form.emoji||"🍞", stock:10, desc:form.desc };
+      setUploading(true);
+      let imageUrl = null;
+      if (imageFile) {
+        const ext = imageFile.name.split(".").pop();
+        const path = `products/${user.id}/${Date.now()}.${ext}`;
+        const { error: upErr } = await supabase.storage.from("product-images").upload(path, imageFile);
+        if (!upErr) {
+          const { data: urlData } = supabase.storage.from("product-images").getPublicUrl(path);
+          imageUrl = urlData.publicUrl;
+        }
+      }
+      const newProduct = {
+        seller_id: user.id,
+        name: form.name,
+        price: parseFloat(form.price)||0,
+        emoji: form.emoji||"🍞",
+        stock: parseInt(form.stock)||10,
+        desc: form.desc,
+        image_url: imageUrl,
+      };
       const { data, error } = await supabase.from("products").insert(newProduct).select().single();
       if (!error&&data) setProducts(p=>[...p, data]);
       else setProducts(p=>[...p,{ id:Date.now(), ...newProduct }]);
-      setShowModal(false); setForm({ name:"", price:"", emoji:"🍞", desc:"" });
+      setUploading(false);
+      setShowModal(false);
+      setForm({ name:"", price:"", emoji:"🍞", desc:"", stock:"10" });
+      setImageFile(null); setImagePreview(null);
     };
     if (loadingProducts) return <div style={{ padding:"2rem", textAlign:"center", color:C.textMuted, fontSize:13 }}>Loading products...</div>;
     return (
@@ -997,20 +1036,27 @@ function SellerApp({ user, onSignOut }) {
         )}
         <div style={{ display:"grid", gridTemplateColumns:"repeat(3,minmax(0,1fr))", gap:10 }}>
           {products.map(p=>(
-            <div key={p.id} style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:8, padding:"1.1rem" }}>
-              <div style={{ width:44, height:44, background:C.surfaceHigh, borderRadius:7, display:"flex", alignItems:"center", justifyContent:"center", fontSize:22, marginBottom:10 }}>{p.emoji}</div>
-              <p style={{ fontSize:14, fontWeight:600, color:C.text, margin:"0 0 4px", letterSpacing:"-0.01em" }}>{p.name}</p>
-              <p style={{ fontSize:11, color:C.textMuted, margin:"0 0 12px", lineHeight:1.5 }}>{p.desc}</p>
-              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", borderTop:`1px solid ${C.border}`, paddingTop:10 }}>
-                <span style={{ fontSize:16, fontWeight:700, color:C.accent, letterSpacing:"-0.01em" }}>${p.price?.toFixed(2)||"0.00"}</span>
-                <span style={{ fontSize:11, color:p.stock<5?C.danger:C.textMuted }}>Stock: {p.stock}</span>
+            <div key={p.id} style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:8, overflow:"hidden" }}>
+              {p.image_url
+                ? <img src={p.image_url} alt={p.name} style={{ width:"100%", height:120, objectFit:"cover", display:"block" }}/>
+                : <div style={{ width:"100%", height:80, background:C.surfaceHigh, display:"flex", alignItems:"center", justifyContent:"center", fontSize:28 }}>{p.emoji}</div>
+              }
+              <div style={{ padding:"0.875rem" }}>
+                <p style={{ fontSize:14, fontWeight:600, color:C.text, margin:"0 0 3px", letterSpacing:"-0.01em" }}>{p.name}</p>
+                <p style={{ fontSize:11, color:C.textMuted, margin:"0 0 10px", lineHeight:1.5 }}>{p.desc}</p>
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", borderTop:`1px solid ${C.border}`, paddingTop:9 }}>
+                  <span style={{ fontSize:16, fontWeight:700, color:C.accent, letterSpacing:"-0.01em" }}>${p.price?.toFixed(2)||"0.00"}</span>
+                  <span style={{ fontSize:11, color:p.stock<5?C.danger:C.textMuted, fontWeight:p.stock<5?600:400 }}>
+                    {p.stock<5?`⚠ ${p.stock} left`:`${p.stock} in stock`}
+                  </span>
+                </div>
               </div>
             </div>
           ))}
         </div>
         {showModal && (
           <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.75)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:200 }}>
-            <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:10, padding:"1.75rem", width:380, maxWidth:"90vw" }}>
+            <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:10, padding:"1.75rem", width:440, maxWidth:"95vw" }}>
               <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"1.25rem" }}>
                 <h2 style={{ fontSize:18, fontWeight:700, color:C.text, margin:0, letterSpacing:"-0.02em" }}>Add Product</h2>
                 <button onClick={()=>setShowModal(false)} style={{ background:C.surfaceHigh, border:"none", width:28, height:28, borderRadius:4, fontSize:14, cursor:"pointer", color:C.textMuted }}>✕</button>
@@ -1018,14 +1064,35 @@ function SellerApp({ user, onSignOut }) {
               {[{ k:"name",label:"Product Name",ph:"e.g. Blueberry Scones"},{k:"price",label:"Price ($)",ph:"16.00"},{k:"emoji",label:"Emoji",ph:"🍞"}].map(f=>(
                 <Inp key={f.k} label={f.label} value={form[f.k]} onChange={v=>setForm({...form,[f.k]:v})} ph={f.ph}/>
               ))}
-              <div style={{ marginBottom:16 }}>
+              <Inp label="Stock Available" value={form.stock} onChange={v=>setForm({...form,stock:v})} ph="e.g. 10"/>
+              <div style={{ marginBottom:12 }}>
                 <label style={{ fontSize:10, fontWeight:600, color:C.textMuted, display:"block", marginBottom:5, textTransform:"uppercase", letterSpacing:"0.08em" }}>Description</label>
                 <textarea value={form.desc} onChange={e=>setForm({...form,desc:e.target.value})} rows={2} placeholder="Brief description..."
                   style={{ width:"100%", padding:"9px 12px", border:`1px solid ${C.border}`, borderRadius:5, fontSize:13, color:C.text, background:C.surfaceHigh, outline:"none", resize:"none", boxSizing:"border-box" }}/>
               </div>
+              <div style={{ marginBottom:16 }}>
+                <label style={{ fontSize:10, fontWeight:600, color:C.textMuted, display:"block", marginBottom:5, textTransform:"uppercase", letterSpacing:"0.08em" }}>Product Photo (optional)</label>
+                <label style={{ display:"block", border:`2px dashed ${imagePreview?C.accent:C.border}`, borderRadius:6, padding:"1rem", textAlign:"center", cursor:"pointer", background:imagePreview?C.accentBg:C.surfaceHigh, transition:"all 0.2s" }}>
+                  <input type="file" accept="image/*" onChange={handleImage} style={{ display:"none" }}/>
+                  {imagePreview ? (
+                    <div>
+                      <img src={imagePreview} alt="preview" style={{ width:"100%", height:120, objectFit:"cover", borderRadius:4, marginBottom:6 }}/>
+                      <p style={{ fontSize:11, color:C.accent, margin:0, fontWeight:600 }}>✓ Photo selected — tap to change</p>
+                    </div>
+                  ) : (
+                    <div>
+                      <p style={{ fontSize:22, margin:"0 0 4px" }}>📷</p>
+                      <p style={{ fontSize:12, color:C.textMuted, margin:0 }}>Tap to upload a photo</p>
+                      <p style={{ fontSize:10, color:C.textMuted, margin:"3px 0 0", opacity:0.7 }}>JPG, PNG or WEBP · Max 5MB</p>
+                    </div>
+                  )}
+                </label>
+              </div>
               <div style={{ display:"flex", gap:8 }}>
-                <button onClick={()=>setShowModal(false)} style={{ flex:1, padding:"10px", border:`1px solid ${C.border}`, borderRadius:5, background:"transparent", color:C.textMuted, cursor:"pointer", fontSize:13 }}>Cancel</button>
-                <button onClick={add} style={{ flex:2, padding:"10px", background:C.accent, color:"#000", border:"none", borderRadius:5, cursor:"pointer", fontSize:13, fontWeight:700 }}>Add Product</button>
+                <button onClick={()=>{ setShowModal(false); setImageFile(null); setImagePreview(null); }} style={{ flex:1, padding:"10px", border:`1px solid ${C.border}`, borderRadius:5, background:"transparent", color:C.textMuted, cursor:"pointer", fontSize:13 }}>Cancel</button>
+                <button onClick={add} disabled={uploading} style={{ flex:2, padding:"10px", background:uploading?"rgba(196,98,45,0.4)":C.accent, color:"#FFF", border:"none", borderRadius:5, cursor:uploading?"default":"pointer", fontSize:13, fontWeight:700 }}>
+                  {uploading?"Uploading...":"Add Product"}
+                </button>
               </div>
             </div>
           </div>
@@ -1156,15 +1223,40 @@ function SellerApp({ user, onSignOut }) {
       setLoading(true); setError(""); setResult(null);
       try {
         const res = await fetch("https://api.anthropic.com/v1/messages", {
-          method:"POST", headers:{ "Content-Type":"application/json" },
-          body:JSON.stringify({ model:"claude-sonnet-4-20250514", max_tokens:1000, messages:[{ role:"user",
-            content:`Copywriter for artisanal home-baked goods. Product: ${name}\nDetails: ${details||"Home-baked, quality ingredients"}\nReturn ONLY valid JSON no markdown:\n{"tagline":"5-8 word tagline","description":"2-3 sentence description","instagram":"caption with hashtags under 150 chars","whatsapp":"broadcast under 100 chars"}`
-          }] })
+          method:"POST",
+          headers:{
+            "Content-Type":"application/json",
+            "anthropic-version":"2023-06-01",
+            "anthropic-dangerous-direct-browser-access":"true",
+          },
+          body:JSON.stringify({
+            model:"claude-opus-4-6",
+            max_tokens:1024,
+            messages:[{
+              role:"user",
+              content:`You are a marketing copywriter for artisanal home-baked goods sold locally. Be warm, specific, and mouth-watering.
+
+Product: ${name}
+Details: ${details||"Home-baked with love, using quality ingredients"}
+
+Return ONLY a valid JSON object with no markdown fences, no extra text, no explanation:
+{"tagline":"A punchy 5-8 word tagline","description":"A 2-3 sentence storefront description that highlights texture, flavour, and what makes it special","instagram":"An Instagram caption under 150 characters with 3-5 relevant hashtags and an emoji","whatsapp":"A short WhatsApp broadcast message under 100 characters, conversational and enticing"}`
+            }]
+          })
         });
+        if (!res.ok) {
+          const errData = await res.json();
+          setError(`API error: ${errData?.error?.message||res.status}`);
+          setLoading(false); return;
+        }
         const data = await res.json();
-        const text = (data.content||[]).map(c=>c.text||"").join("");
-        setResult(JSON.parse(text.replace(/```json|```/g,"").trim()));
-      } catch(e) { setError("Something went wrong. Please try again."); }
+        const text = (data.content||[]).map(c=>c.text||"").join("").trim();
+        const jsonStr = text.replace(/^```json\s*/,"").replace(/^```\s*/,"").replace(/\s*```$/,"").trim();
+        setResult(JSON.parse(jsonStr));
+      } catch(e) {
+        setError("Could not generate copy. Check your connection and try again.");
+        console.error(e);
+      }
       setLoading(false);
     };
     const copy = (text,key) => { navigator.clipboard.writeText(text).then(()=>{ setCopied(key); setTimeout(()=>setCopied(""),2000); }); };
