@@ -523,10 +523,15 @@ function CustomerApp({ user, onSignOut }) {
 
   // ── CART DRAWER ──
   const CartDrawer = () => {
-    const [del,  setDel]  = useState({ type:"delivery", address:"", time:"next-day-am", name:"", phone:"" });
+    const [delType, setDelType] = useState("delivery");
+    const [delTime, setDelTime] = useState("next-day-am");
     const [step, setStep] = useState("review");
     const [done, setDone] = useState(false);
     const [proc, setProc] = useState(false);
+    // Uncontrolled refs — prevent focus loss from parent re-renders
+    const nameRef    = useRef(null);
+    const phoneRef   = useRef(null);
+    const addressRef = useRef(null);
 
     const place = async () => {
       setProc(true);
@@ -534,13 +539,18 @@ function CustomerApp({ user, onSignOut }) {
       const itemsSummary = cartProducts.map(p=>`${p.name} x${p.qty}`).join(", ");
       const itemsJson = JSON.stringify(cartProducts.map(p=>({ product_id:p.id, name:p.name, quantity:p.qty, price:p.price })));
       const { error } = await supabase.from("orders").insert({
-        customer_id: user.id,
-        seller_id:   cartStoreObj?.id || cartStore,
-        items:       itemsJson,
+        customer_id:  user.id,
+        seller_id:    cartStoreObj?.id || cartStore,
+        items:        itemsJson,
         total,
-        status:      "preparing",
-        is_charity:  isCharity,
+        status:       "preparing",
+        is_charity:   isCharity,
         charity_name: isCharity?(selectedCharity?.name||null):null,
+        delivery_type: delType,
+        delivery_name: nameRef.current?.value||"",
+        delivery_phone: phoneRef.current?.value||"",
+        delivery_address: delType==="delivery"?(addressRef.current?.value||""):"",
+        delivery_time: delTime,
       });
       if (error) { alert("Order failed: "+error.message); setProc(false); return; }
       await new Promise(r=>setTimeout(r,800));
@@ -550,14 +560,8 @@ function CustomerApp({ user, onSignOut }) {
     };
 
     if (!showCart) return null;
-    const FI = ({ label, value, onChange, ph, type="text" }) => (
-      <div style={{ marginBottom:10 }}>
-        <label style={{ fontSize:10, fontWeight:600, color:C.textMuted, display:"block", marginBottom:5, textTransform:"uppercase", letterSpacing:"0.08em" }}>{label}</label>
-        <input type={type} value={value} onChange={onChange} placeholder={ph}
-          style={{ width:"100%", padding:"10px 12px", border:`1px solid ${C.border}`, borderRadius:5, fontSize:13, color:C.text, background:C.surfaceHigh, outline:"none", boxSizing:"border-box" }}
-          onFocus={e=>e.target.style.borderColor=C.accent} onBlur={e=>e.target.style.borderColor=C.border}/>
-      </div>
-    );
+    const inputStyle = { width:"100%", padding:"10px 12px", border:`1px solid ${C.border}`, borderRadius:5, fontSize:13, color:C.text, background:C.surfaceHigh, outline:"none", boxSizing:"border-box" };
+    const LabelEl = ({label}) => <label style={{ fontSize:10, fontWeight:600, color:C.textMuted, display:"block", marginBottom:5, textTransform:"uppercase", letterSpacing:"0.08em" }}>{label}</label>;
 
     return (
       <div style={{ position:"fixed", inset:0, zIndex:100, display:"flex" }}>
@@ -576,10 +580,9 @@ function CustomerApp({ user, onSignOut }) {
             <>
               <div style={{ padding:"1rem 1.25rem", borderBottom:`1px solid ${C.border}`, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
                 <div>
-                  <p style={{ fontWeight:700, fontSize:14, color:C.text, margin:"0 0 1px", letterSpacing:"-0.01em" }}>
+                  <p style={{ fontWeight:700, fontSize:14, color:C.text, margin:0, letterSpacing:"-0.01em" }}>
                     {step==="review"?"Your Cart":"Delivery Details"}
                   </p>
-                  <p style={{ fontSize:11, color:C.textMuted, margin:0 }}>{cartStoreObj?.name}</p>
                 </div>
                 <button onClick={()=>setShowCart(false)} style={{ background:C.surfaceHigh, border:"none", width:28, height:28, borderRadius:4, fontSize:14, cursor:"pointer", color:C.textMuted }}>✕</button>
               </div>
@@ -614,10 +617,15 @@ function CustomerApp({ user, onSignOut }) {
                   {cartProducts.map(p=>(
                     <div key={p.id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"10px 0", borderBottom:`1px solid ${C.border}` }}>
                       <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-                        <div style={{ width:36, height:36, background:C.surfaceHigh, borderRadius:5, display:"flex", alignItems:"center", justifyContent:"center", fontSize:18 }}>{p.emoji}</div>
+                        <div style={{ width:44, height:44, background:C.surfaceHigh, borderRadius:6, overflow:"hidden", flexShrink:0 }}>
+                          {p.image_url
+                            ? <img src={p.image_url} alt={p.name} style={{ width:"100%", height:"100%", objectFit:"cover" }}/>
+                            : <div style={{ width:"100%", height:"100%", display:"flex", alignItems:"center", justifyContent:"center", fontSize:20 }}>🍞</div>
+                          }
+                        </div>
                         <div>
                           <p style={{ fontSize:13, color:C.text, fontWeight:500, margin:0 }}>{p.name}</p>
-                          <p style={{ fontSize:11, color:C.textMuted, margin:0 }}>× {p.qty}</p>
+                          <p style={{ fontSize:11, color:C.textMuted, margin:0 }}>× {p.qty} · ${(p.price*p.qty).toFixed(2)}</p>
                         </div>
                       </div>
                       <div style={{ display:"flex", alignItems:"center", gap:8 }}>
@@ -642,21 +650,21 @@ function CustomerApp({ user, onSignOut }) {
                 {step==="delivery" && <>
                   <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:12 }}>
                     {[{ v:"delivery", label:"Delivery", sub:`+$${delivFee}` },{ v:"pickup", label:"Pickup", sub:"Free" }].map(o=>(
-                      <button key={o.v} onClick={()=>setDel(p=>({...p,type:o.v}))} style={{
-                        padding:"12px", border:`1px solid ${del.type===o.v?C.accent:C.border}`,
-                        borderRadius:6, background:del.type===o.v?C.accentBg:"transparent", cursor:"pointer", textAlign:"left"
+                      <button key={o.v} onClick={()=>setDelType(o.v)} style={{
+                        padding:"12px", border:`1px solid ${delType===o.v?C.accent:C.border}`,
+                        borderRadius:6, background:delType===o.v?C.accentBg:"transparent", cursor:"pointer", textAlign:"left"
                       }}>
-                        <p style={{ fontSize:13, fontWeight:600, color:del.type===o.v?C.accent:C.text, margin:"0 0 2px" }}>{o.label}</p>
+                        <p style={{ fontSize:13, fontWeight:600, color:delType===o.v?C.accent:C.text, margin:"0 0 2px" }}>{o.label}</p>
                         <p style={{ fontSize:11, color:C.textMuted, margin:0 }}>{o.sub}</p>
                       </button>
                     ))}
                   </div>
-                  <FI label="Your Name" value={del.name} onChange={e=>setDel(p=>({...p,name:e.target.value}))} ph="Full name"/>
-                  <FI label="Phone" value={del.phone} onChange={e=>setDel(p=>({...p,phone:e.target.value}))} ph="+1 (416) 555-0100"/>
-                  {del.type==="delivery" && <FI label="Address" value={del.address} onChange={e=>setDel(p=>({...p,address:e.target.value}))} ph="123 Main St, Toronto, ON"/>}
+                  <div style={{ marginBottom:10 }}><LabelEl label="Your Name"/><input ref={nameRef} defaultValue="" placeholder="Full name" style={inputStyle}/></div>
+                  <div style={{ marginBottom:10 }}><LabelEl label="Phone"/><input ref={phoneRef} defaultValue="" placeholder="+1 (416) 555-0100" style={inputStyle}/></div>
+                  {delType==="delivery" && <div style={{ marginBottom:10 }}><LabelEl label="Address"/><input ref={addressRef} defaultValue="" placeholder="123 Main St, Toronto, ON" style={inputStyle}/></div>}
                   <div style={{ marginBottom:10 }}>
-                    <label style={{ fontSize:10, fontWeight:600, color:C.textMuted, display:"block", marginBottom:5, textTransform:"uppercase", letterSpacing:"0.08em" }}>Time Slot</label>
-                    <select value={del.time} onChange={e=>setDel(p=>({...p,time:e.target.value}))}
+                    <LabelEl label="Time Slot"/>
+                    <select value={delTime} onChange={e=>setDelTime(e.target.value)}
                       style={{ width:"100%", padding:"10px 12px", border:`1px solid ${C.border}`, borderRadius:5, fontSize:13, color:C.text, background:C.surfaceHigh, outline:"none" }}>
                       {TIME_SLOTS.map(t=><option key={t.value} value={t.value}>{t.label}</option>)}
                     </select>
@@ -2614,16 +2622,33 @@ function SellerApp({ user, onSignOut }) {
 }
 
 // ─── APP ROOT ─────────────────────────────────────────────────────────────────
-const USER_KEY = 'hearthside_user';
+// Store user keyed by their own ID so different accounts never collide
+const getUserKey = (id) => `hearthside_user_${id}`;
+const LAST_USER_KEY = 'hearthside_last_user_id';
 
 export default function App() {
   const [user, setUser] = useState(()=>{
-    try { const s=localStorage.getItem(USER_KEY); return s?JSON.parse(s):null; } catch(e){ return null; }
+    try {
+      // Restore the last logged-in user
+      const lastId = localStorage.getItem(LAST_USER_KEY);
+      if (!lastId) return null;
+      const s = localStorage.getItem(getUserKey(lastId));
+      return s ? JSON.parse(s) : null;
+    } catch(e) { return null; }
   });
 
   const saveUser = (u) => {
-    if (u) localStorage.setItem(USER_KEY, JSON.stringify(u));
-    else localStorage.removeItem(USER_KEY);
+    try {
+      if (u) {
+        localStorage.setItem(getUserKey(u.id), JSON.stringify(u));
+        localStorage.setItem(LAST_USER_KEY, u.id);
+      } else {
+        // On logout, clear the last user pointer but keep other accounts intact
+        const lastId = localStorage.getItem(LAST_USER_KEY);
+        if (lastId) localStorage.removeItem(getUserKey(lastId));
+        localStorage.removeItem(LAST_USER_KEY);
+      }
+    } catch(e) {}
     setUser(u);
   };
 
@@ -2632,9 +2657,25 @@ export default function App() {
     link.rel = "stylesheet";
     link.href = "https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap";
     document.head.appendChild(link);
-    // Validate session in background — clear if expired
-    supabase.auth.getSession().then(({ data:{ session } })=>{ if (!session) saveUser(null); }).catch(()=>{});
-    const { data:{ subscription } } = supabase.auth.onAuthStateChange((event)=>{ if (event==="SIGNED_OUT") saveUser(null); });
+
+    // Validate that the stored user matches the active Supabase session
+    // If session user ID doesn't match stored user ID → clear stored user
+    supabase.auth.getSession().then(({ data:{ session } })=>{
+      const lastId = localStorage.getItem(LAST_USER_KEY);
+      if (!session) {
+        // No active session — clear stored user
+        if (lastId) { localStorage.removeItem(getUserKey(lastId)); localStorage.removeItem(LAST_USER_KEY); }
+        setUser(null);
+      } else if (lastId && session.user.id !== lastId) {
+        // Session user doesn't match stored user — different account logged in elsewhere
+        // Keep stored user as-is (they may have multiple accounts), but don't auto-switch
+        // The current tab keeps its own stored user
+      }
+    }).catch(()=>{});
+
+    const { data:{ subscription } } = supabase.auth.onAuthStateChange((event, session)=>{
+      if (event==="SIGNED_OUT") saveUser(null);
+    });
     return ()=>{ try{ document.head.removeChild(link); }catch(e){} subscription.unsubscribe(); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
