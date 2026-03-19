@@ -306,7 +306,10 @@ function AuthScreen({ onAuth }) {
 
 // ─── CUSTOMER APP ─────────────────────────────────────────────────────────────
 function CustomerApp({ user, onSignOut }) {
-  const [view,             setView]            = useState("marketplace");
+  const [view, setView] = useState(()=>{
+    try { return localStorage.getItem('hearthside_customer_view')||"marketplace"; } catch(e) { return "marketplace"; }
+  });
+  const setViewAndSave = (v) => { try { localStorage.setItem('hearthside_customer_view',v); } catch(e){} setView(v); };
   const [activeStore,      setActiveStore]      = useState(null);
   const [cart,             setCart]             = useState({});
   const [cartStore,        setCartStore]        = useState(null);
@@ -365,7 +368,7 @@ function CustomerApp({ user, onSignOut }) {
       {CUST_NAV.map(n=>{
         const active = view===n.id;
         return (
-          <button key={n.id} onClick={()=>{ setView(n.id); setActiveStore(null); }} style={{
+          <button key={n.id} onClick={()=>{ setViewAndSave(n.id); setActiveStore(null); }} style={{
             flex:1, border:"none", background:"transparent", cursor:"pointer",
             borderTop:`2px solid ${active?C.accent:"transparent"}`,
             display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:3
@@ -793,7 +796,7 @@ function CustomerApp({ user, onSignOut }) {
             <p style={{ fontSize:12, color:C.textMuted, margin:0, lineHeight:1.5 }}>Click Browse Stores to add items. Your donation will be pre-selected at checkout.</p>
           </div>
         )}
-        <button onClick={()=>{ if(selected){ setSelectedCharity(selected); setIsCharity(true); } setView("marketplace"); }} style={{ width:"100%", padding:"12px", background:selected?C.charity:"rgba(255,255,255,0.08)", color:selected?"#FFF":C.textMuted, border:"none", borderRadius:5, fontSize:13, fontWeight:700, cursor:selected?"pointer":"default" }}>
+        <button onClick={()=>{ if(selected){ setSelectedCharity(selected); setIsCharity(true); } setViewAndSave("marketplace"); }} style={{ width:"100%", padding:"12px", background:selected?C.charity:"rgba(255,255,255,0.08)", color:selected?"#FFF":C.textMuted, border:"none", borderRadius:5, fontSize:13, fontWeight:700, cursor:selected?"pointer":"default" }}>
           {selected?"Browse Stores to Donate →":"Select a charity above first"}
         </button>
         <div style={{ marginTop:"1.5rem", borderTop:`1px solid ${C.border}`, paddingTop:"1.25rem" }}>
@@ -877,7 +880,10 @@ const COST_CATS_DEF = [
 ];
 
 function SellerApp({ user, onSignOut }) {
-  const [view,            setView]            = useState("dashboard");
+  const [view, setView] = useState(()=>{
+    try { return localStorage.getItem('hearthside_seller_view')||"dashboard"; } catch(e) { return "dashboard"; }
+  });
+  const setViewAndSave = (v) => { try { localStorage.setItem('hearthside_seller_view',v); } catch(e){} setView(v); };
   const [products,        setProducts]        = useState([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
   // Shared finances state — read by Dashboard, written by Finances
@@ -1104,7 +1110,7 @@ function SellerApp({ user, onSignOut }) {
         {SELLER_NAV.map(item=>{
           const active = view===item.id;
           return (
-            <button key={item.id} onClick={()=>setView(item.id)} style={{
+            <button key={item.id} onClick={()=>setViewAndSave(item.id)} style={{
               display:"flex", alignItems:"center", gap:10, width:"100%", padding:"8px 10px",
               background:active?"rgba(196,98,45,0.15)":"transparent", border:"none",
               borderRadius:5, cursor:"pointer", marginBottom:1, textAlign:"left"
@@ -1266,7 +1272,7 @@ function SellerApp({ user, onSignOut }) {
             <p style={{ fontSize:32, margin:"0 0 10px" }}>📊</p>
             <p style={{ fontSize:16, fontWeight:600, color:C.text, margin:"0 0 6px" }}>No financial data yet</p>
             <p style={{ fontSize:13, color:C.textMuted, margin:"0 0 1.25rem" }}>Head to the Finances tab to enter your revenue and costs. Your dashboard will populate automatically.</p>
-            <button onClick={()=>setView("finances")} style={{ background:C.accent, color:"#FFF", border:"none", borderRadius:6, padding:"10px 20px", fontSize:13, fontWeight:700, cursor:"pointer" }}>
+            <button onClick={()=>setViewAndSave("finances")} style={{ background:C.accent, color:"#FFF", border:"none", borderRadius:6, padding:"10px 20px", fontSize:13, fontWeight:700, cursor:"pointer" }}>
               Go to Finances →
             </button>
           </div>
