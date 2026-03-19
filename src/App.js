@@ -1485,7 +1485,6 @@ function SellerApp({ user, onSignOut }) {
         {editProduct && (
           <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.7)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:200 }}>
             <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:16, width:560, maxWidth:"96vw", maxHeight:"94vh", overflowY:"auto", boxShadow:"0 24px 60px rgba(0,0,0,0.4)" }}>
-              <>
 
               {/* ── PREVIEW MODE ── */}
               {!editForm && (
@@ -1681,11 +1680,10 @@ function SellerApp({ user, onSignOut }) {
                     <button onClick={saveEdit} disabled={saving} style={{ flex:2, padding:"10px", background:saving?"rgba(196,98,45,0.4)":C.accent, color:"#FFF", border:"none", borderRadius:5, cursor:saving?"default":"pointer", fontSize:13, fontWeight:700 }}>
                       {saving?"Saving...":"Save Changes"}
                     </button>
-                 </div>
+                  </div>
                 </div>
               </div>
               )}
-              </>
             </div>
           </div>
         )}
