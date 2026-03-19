@@ -3001,43 +3001,46 @@ export default function App() {
     link.href = "https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap";
     document.head.appendChild(link);
 
-    // Restore session on refresh — with 4s timeout fallback
-    const loadingTimeout = setTimeout(()=>setLoading(false), 4000);
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      clearTimeout(loadingTimeout);
-      if (session?.user) {
-        try {
-          const { data: profile } = await supabase.from("profiles").select("*").eq("id", session.user.id).single();
-          setUser({
-            id:       session.user.id,
-            email:    session.user.email,
-            name:     profile?.name     || session.user.email,
-            business: profile?.business || "My Bakery",
-            hood:     profile?.hood     || "",
-            role:     profile?.role     || "seller",
-          });
-        } catch(e) { console.error("Profile load error:", e); }
-      }
-      setLoading(false);
-    }).catch(()=>{ clearTimeout(loadingTimeout); setLoading(false); });
-
-    // Listen for auth changes (login/logout)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === "SIGNED_OUT") { setUser(null); return; }
-      if (session?.user && event === "SIGNED_IN") {
-        const { data: profile } = await supabase.from("profiles").select("*").eq("id", session.user.id).single();
-        setUser({
-          id:       session.user.id,
-          email:    session.user.email,
-          name:     profile?.name     || session.user.email,
+    const buildUser = async (supabaseUser) => {
+      try {
+        const { data: profile } = await supabase.from("profiles").select("*").eq("id", supabaseUser.id).single();
+        return {
+          id:       supabaseUser.id,
+          email:    supabaseUser.email,
+          name:     profile?.name     || supabaseUser.email,
           business: profile?.business || "My Bakery",
           hood:     profile?.hood     || "",
           role:     profile?.role     || "seller",
-        });
+        };
+      } catch(e) {
+        return {
+          id: supabaseUser.id, email: supabaseUser.email,
+          name: supabaseUser.email, business: "My Bakery", hood: "", role: "seller",
+        };
+      }
+    };
+
+    // Use onAuthStateChange as the SINGLE source of truth.
+    // It fires INITIAL_SESSION on page load with the stored session (handles refresh),
+    // SIGNED_IN when logging in, and SIGNED_OUT when logging out.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === "SIGNED_OUT" || !session?.user) {
+        setUser(null);
+        setLoading(false);
+        return;
+      }
+      if (event === "INITIAL_SESSION" || event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
+        const u = await buildUser(session.user);
+        setUser(u);
+        setLoading(false);
       }
     });
 
+    // Safety timeout — if onAuthStateChange never fires, stop loading after 5s
+    const timeout = setTimeout(()=>setLoading(false), 5000);
+
     return ()=>{
+      clearTimeout(timeout);
       try{ document.head.removeChild(link); }catch(e){}
       subscription.unsubscribe();
     };
