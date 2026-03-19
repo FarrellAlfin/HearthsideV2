@@ -1781,17 +1781,46 @@ function SellerApp({ user, onSignOut }) {
     const [filter,        setFilter]        = useState("all");
     const [liveOrders,    setLiveOrders]    = useState(ORDERS_DATA);
     const [loadingOrders, setLoadingOrders] = useState(true);
+
     useEffect(()=>{
       if (!user?.id) { setLoadingOrders(false); return; }
       supabase.from("orders").select("*").eq("seller_id", user.id.toString()).order("created_at",{ ascending:false })
         .then(({ data })=>{ if (data&&data.length>0) setLiveOrders(data.map(o=>({ ...o, customer:o.customer_id?.slice(0,8)||"Customer", date:new Date(o.created_at).toLocaleDateString("en-US",{month:"short",day:"numeric"}) }))); setLoadingOrders(false); });
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
+
+    const updateStatus = async (id, status) => {
+      await supabase.from("orders").update({ status }).eq("id", id);
+      setLiveOrders(p=>p.map(o=>o.id===id?{...o,status}:o));
+    };
+
     const filtered = filter==="all"?liveOrders:liveOrders.filter(o=>o.status===filter);
+    const deliveredTotal = liveOrders.filter(o=>o.status==="delivered").reduce((s,o)=>s+(o.total||0),0);
+    const pendingTotal   = liveOrders.filter(o=>o.status!=="delivered").reduce((s,o)=>s+(o.total||0),0);
+
     if (loadingOrders) return <div style={{ padding:"2rem", textAlign:"center", color:C.textMuted, fontSize:13 }}>Loading orders...</div>;
     return (
       <div style={{ padding:"2rem" }}>
         <h1 style={{ fontSize:24, fontWeight:700, color:C.text, margin:"0 0 1.25rem", letterSpacing:"-0.02em" }}>Orders</h1>
+
+        {/* Earnings summary */}
+        {liveOrders.length>0 && (
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(3,minmax(0,1fr))", gap:10, marginBottom:"1.5rem" }}>
+            <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:8, padding:"1rem 1.25rem" }}>
+              <p style={{ fontSize:10, color:C.textMuted, margin:"0 0 5px", textTransform:"uppercase", letterSpacing:"0.09em", fontWeight:600 }}>Total Orders</p>
+              <p style={{ fontSize:26, fontWeight:700, color:C.text, margin:0 }}>{liveOrders.length}</p>
+            </div>
+            <div style={{ background:C.surface, border:`1px solid ${C.successBg}`, borderRadius:8, padding:"1rem 1.25rem" }}>
+              <p style={{ fontSize:10, color:C.textMuted, margin:"0 0 5px", textTransform:"uppercase", letterSpacing:"0.09em", fontWeight:600 }}>Earned (Delivered)</p>
+              <p style={{ fontSize:26, fontWeight:700, color:C.success, margin:0 }}>${deliveredTotal.toFixed(2)}</p>
+            </div>
+            <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:8, padding:"1rem 1.25rem" }}>
+              <p style={{ fontSize:10, color:C.textMuted, margin:"0 0 5px", textTransform:"uppercase", letterSpacing:"0.09em", fontWeight:600 }}>Pending Revenue</p>
+              <p style={{ fontSize:26, fontWeight:700, color:C.warning, margin:0 }}>${pendingTotal.toFixed(2)}</p>
+            </div>
+          </div>
+        )}
+
         <div style={{ display:"flex", gap:7, marginBottom:"1rem" }}>
           {["all","preparing","ready","delivered"].map(s=>(
             <Pill key={s} label={s==="all"?`All (${liveOrders.length})`:s.charAt(0).toUpperCase()+s.slice(1)} active={filter===s} onClick={()=>setFilter(s)}/>
@@ -1808,7 +1837,7 @@ function SellerApp({ user, onSignOut }) {
             <table style={{ width:"100%", borderCollapse:"collapse", fontSize:13 }}>
               <thead>
                 <tr style={{ borderBottom:`1px solid ${C.border}` }}>
-                  {["Order","Customer","Items","Total","Status","Date"].map(h=>(
+                  {["Order","Customer","Items","Total","Status","Date",""].map(h=>(
                     <th key={h} style={{ textAlign:"left", padding:"10px 14px", color:C.textMuted, fontWeight:600, fontSize:10, textTransform:"uppercase", letterSpacing:"0.08em" }}>{h}</th>
                   ))}
                 </tr>
@@ -1816,16 +1845,47 @@ function SellerApp({ user, onSignOut }) {
               <tbody>
                 {filtered.map((o,i)=>(
                   <tr key={o.id} style={{ borderBottom:i<filtered.length-1?`1px solid ${C.border}`:"none" }}>
-                    <td style={{ padding:"11px 14px", color:C.accent, fontWeight:700, fontSize:12 }}>{o.id}</td>
+                    <td style={{ padding:"11px 14px", color:C.accent, fontWeight:700, fontSize:12 }}>{typeof o.id==="string"?o.id.slice(0,8):o.id}</td>
                     <td style={{ padding:"11px 14px", color:C.text, fontWeight:500 }}>{o.customer}</td>
-                    <td style={{ padding:"11px 14px", color:C.textMuted, maxWidth:180, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{o.items}</td>
-                    <td style={{ padding:"11px 14px", color:C.text, fontWeight:600 }}>${o.total?.toFixed(2)||"0.00"}</td>
+                    <td style={{ padding:"11px 14px", color:C.textMuted, maxWidth:160, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{o.items}</td>
+                    <td style={{ padding:"11px 14px", color:o.status==="delivered"?C.success:C.text, fontWeight:700 }}>${o.total?.toFixed(2)||"0.00"}</td>
                     <td style={{ padding:"11px 14px" }}><Badge status={o.status}/></td>
                     <td style={{ padding:"11px 14px", color:C.textMuted }}>{o.date}</td>
+                    <td style={{ padding:"11px 14px" }}>
+                      {o.status!=="delivered" && (
+                        <select value={o.status} onChange={e=>updateStatus(o.id, e.target.value)}
+                          style={{ padding:"4px 8px", border:`1px solid ${C.border}`, borderRadius:4, fontSize:11, color:C.text, background:C.surfaceHigh, cursor:"pointer", outline:"none" }}>
+                          <option value="preparing">Preparing</option>
+                          <option value="ready">Ready</option>
+                          <option value="delivered">Delivered ✓</option>
+                        </select>
+                      )}
+                      {o.status==="delivered" && <span style={{ fontSize:11, color:C.success, fontWeight:600 }}>✓ Done</span>}
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {/* Delivered earnings breakdown */}
+        {liveOrders.filter(o=>o.status==="delivered").length>0 && (
+          <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:8, padding:"1.25rem", marginTop:14 }}>
+            <p style={{ fontWeight:600, fontSize:13, color:C.text, margin:"0 0 10px" }}>Earnings Breakdown — Delivered Orders</p>
+            {liveOrders.filter(o=>o.status==="delivered").map((o,i,arr)=>(
+              <div key={o.id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"8px 0", borderBottom:i<arr.length-1?`1px solid ${C.border}`:"none" }}>
+                <div>
+                  <p style={{ fontSize:13, color:C.text, fontWeight:500, margin:0 }}>{o.customer}</p>
+                  <p style={{ fontSize:11, color:C.textMuted, margin:0 }}>{o.date} · {o.items}</p>
+                </div>
+                <span style={{ fontSize:15, fontWeight:700, color:C.success }}>${o.total?.toFixed(2)||"0.00"}</span>
+              </div>
+            ))}
+            <div style={{ display:"flex", justifyContent:"space-between", marginTop:10, paddingTop:10, borderTop:`1px solid ${C.border}` }}>
+              <span style={{ fontSize:13, fontWeight:700, color:C.text }}>Total Earned</span>
+              <span style={{ fontSize:16, fontWeight:700, color:C.success }}>${deliveredTotal.toFixed(2)}</span>
+            </div>
           </div>
         )}
       </div>
@@ -2564,10 +2624,6 @@ function SellerApp({ user, onSignOut }) {
       setForm({ product_id:"", custom_name:"", original_price:"", flash_price:"", quantity:"", unit:"pack", expires_at:"", notes:"", listing_type:"discount", charity_name:"", is_charity:false });
     };
 
-    const closeListing = async (id) => {
-      await supabase.from("flash_sales").update({ status:"closed" }).eq("id", id);
-      setListings(p=>p.map(l=>l.id===id?{...l,status:"closed"}:l));
-    };
 
     const deleteListing = async (id) => {
       await supabase.from("flash_sales").delete().eq("id", id);
@@ -2576,6 +2632,12 @@ function SellerApp({ user, onSignOut }) {
 
     const active = listings.filter(l=>l.status==="active");
     const closed = listings.filter(l=>l.status==="closed");
+
+    const toggleListing = async (id, currentStatus) => {
+      const newStatus = currentStatus==="active" ? "closed" : "active";
+      await supabase.from("flash_sales").update({ status:newStatus }).eq("id", id);
+      setListings(p=>p.map(l=>l.id===id?{...l,status:newStatus}:l));
+    };
 
     const TypeBadge = ({type}) => {
       const t = TYPES.find(x=>x.v===type)||TYPES[0];
@@ -2608,32 +2670,36 @@ function SellerApp({ user, onSignOut }) {
           ))}
         </div>
 
-        {/* Active listings */}
-        {active.length===0 ? (
+        {/* All listings — unified with toggle switch */}
+        {listings.length===0 ? (
           <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:8, padding:"3rem", textAlign:"center", marginBottom:14 }}>
             <p style={{ fontSize:36, margin:"0 0 10px" }}>⚡</p>
-            <p style={{ fontSize:15, fontWeight:600, color:C.text, margin:"0 0 6px" }}>No active flash sales</p>
+            <p style={{ fontSize:15, fontWeight:600, color:C.text, margin:"0 0 6px" }}>No flash sales yet</p>
             <p style={{ fontSize:13, color:C.textMuted, margin:"0 0 1.25rem" }}>List your leftover baked goods at a discount, in bulk, or donate them to a local charity.</p>
             <button onClick={()=>setShowAdd(true)} style={{ background:C.accent, color:"#FFF", border:"none", borderRadius:6, padding:"10px 20px", fontSize:13, fontWeight:700, cursor:"pointer" }}>+ Create your first listing</button>
           </div>
         ) : (
           <div style={{ display:"grid", gridTemplateColumns:"repeat(3,minmax(0,1fr))", gap:12, marginBottom:"1.5rem" }}>
-            {active.map(l=>{
+            {listings.map(l=>{
               const discount = l.original_price>0 ? Math.round((1-l.flash_price/l.original_price)*100) : null;
+              const isActive = l.status==="active";
               return (
-                <div key={l.id} style={{ background:C.surface, border:`1px solid ${l.is_charity?C.charityBorder:C.border}`, borderRadius:10, padding:"1.25rem", position:"relative" }}>
+                <div key={l.id} style={{ background:C.surface, border:`1px solid ${isActive?(l.is_charity?C.charityBorder:C.border):C.border}`, borderRadius:10, padding:"1.25rem", opacity:isActive?1:0.6, position:"relative" }}>
+                  {/* Header: name + type badge */}
                   <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:8 }}>
-                    <p style={{ fontSize:15, fontWeight:700, color:C.text, margin:0, lineHeight:1.3 }}>{l.custom_name}</p>
+                    <p style={{ fontSize:15, fontWeight:700, color:C.text, margin:0, lineHeight:1.3, flex:1, paddingRight:8 }}>{l.custom_name}</p>
                     <TypeBadge type={l.listing_type}/>
                   </div>
+
+                  {/* Details */}
                   <div style={{ display:"flex", gap:12, marginBottom:8, flexWrap:"wrap" }}>
                     {l.listing_type!=="charity" && (
                       <div>
                         <p style={{ fontSize:10, color:C.textMuted, margin:"0 0 1px", textTransform:"uppercase", letterSpacing:"0.06em" }}>Price</p>
                         <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-                          <span style={{ fontSize:18, fontWeight:700, color:C.accent }}>${l.flash_price?.toFixed(2)||"0.00"}</span>
+                          <span style={{ fontSize:18, fontWeight:700, color:isActive?C.accent:C.textMuted }}>${l.flash_price?.toFixed(2)||"0.00"}</span>
                           {l.original_price>0 && <span style={{ fontSize:12, color:C.textMuted, textDecoration:"line-through" }}>${l.original_price?.toFixed(2)}</span>}
-                          {discount>0 && <span style={{ fontSize:11, fontWeight:700, color:C.success, background:C.successBg, padding:"1px 6px", borderRadius:3 }}>-{discount}%</span>}
+                          {discount>0 && isActive && <span style={{ fontSize:11, fontWeight:700, color:C.success, background:C.successBg, padding:"1px 6px", borderRadius:3 }}>-{discount}%</span>}
                         </div>
                       </div>
                     )}
@@ -2655,33 +2721,23 @@ function SellerApp({ user, onSignOut }) {
                     )}
                   </div>
                   {l.notes && <p style={{ fontSize:12, color:C.textMuted, margin:"0 0 12px", lineHeight:1.5 }}>{l.notes}</p>}
-                  <div style={{ display:"flex", gap:7 }}>
-                    <button onClick={()=>closeListing(l.id)} style={{ flex:1, padding:"7px", border:`1px solid ${C.border}`, borderRadius:5, background:"transparent", color:C.textMuted, fontSize:12, cursor:"pointer" }}>Mark Closed</button>
-                    <button onClick={()=>deleteListing(l.id)} style={{ padding:"7px 12px", border:`1px solid ${C.danger}`, borderRadius:5, background:C.dangerBg, color:C.danger, fontSize:12, cursor:"pointer" }}>Delete</button>
+
+                  {/* Footer: toggle switch + delete */}
+                  <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", paddingTop:10, borderTop:`1px solid ${C.border}` }}>
+                    <button onClick={()=>toggleListing(l.id, l.status)} style={{
+                      display:"flex", alignItems:"center", gap:8, background:"transparent", border:"none", cursor:"pointer", padding:0
+                    }}>
+                      {/* Toggle pill */}
+                      <div style={{ width:38, height:22, borderRadius:11, background:isActive?C.accent:"rgba(156,122,102,0.25)", position:"relative", transition:"background 0.2s", flexShrink:0 }}>
+                        <div style={{ position:"absolute", top:3, left:isActive?18:3, width:16, height:16, borderRadius:"50%", background:"#FFF", transition:"left 0.2s", boxShadow:"0 1px 3px rgba(0,0,0,0.2)" }}/>
+                      </div>
+                      <span style={{ fontSize:12, fontWeight:600, color:isActive?C.accent:C.textMuted }}>{isActive?"Active":"Closed"}</span>
+                    </button>
+                    <button onClick={()=>deleteListing(l.id)} style={{ background:C.dangerBg, border:`1px solid ${C.danger}`, borderRadius:4, padding:"3px 10px", fontSize:11, color:C.danger, cursor:"pointer" }}>Delete</button>
                   </div>
                 </div>
               );
             })}
-          </div>
-        )}
-
-        {/* Closed listings */}
-        {closed.length>0 && (
-          <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:8, padding:"1.25rem" }}>
-            <p style={{ fontWeight:600, fontSize:13, color:C.text, margin:"0 0 12px" }}>Past Listings</p>
-            {closed.map((l,i)=>(
-              <div key={l.id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"9px 0", borderBottom:i<closed.length-1?`1px solid ${C.border}`:"none" }}>
-                <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-                  <TypeBadge type={l.listing_type}/>
-                  <span style={{ fontSize:13, color:C.text, fontWeight:500 }}>{l.custom_name}</span>
-                </div>
-                <div style={{ display:"flex", alignItems:"center", gap:12 }}>
-                  <span style={{ fontSize:12, color:C.textMuted }}>{l.quantity} {l.unit}</span>
-                  {!l.is_charity && <span style={{ fontSize:13, fontWeight:700, color:C.textMuted }}>${l.flash_price?.toFixed(2)}</span>}
-                  <button onClick={()=>deleteListing(l.id)} style={{ background:C.dangerBg, border:`1px solid ${C.danger}`, borderRadius:4, padding:"2px 8px", fontSize:11, color:C.danger, cursor:"pointer" }}>✕</button>
-                </div>
-              </div>
-            ))}
           </div>
         )}
 
@@ -2830,18 +2886,65 @@ function SellerApp({ user, onSignOut }) {
 
 // ─── APP ROOT ─────────────────────────────────────────────────────────────────
 export default function App() {
-  const [user, setUser] = useState(null);
+  const [user,    setUser]    = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(()=>{
+    // Load Google Font
     const link = document.createElement("link");
     link.rel = "stylesheet";
     link.href = "https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap";
     document.head.appendChild(link);
-    return ()=>{ try{ document.head.removeChild(link); }catch(e){} };
+
+    // Restore session on refresh
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (session?.user) {
+        const { data: profile } = await supabase.from("profiles").select("*").eq("id", session.user.id).single();
+        setUser({
+          id:       session.user.id,
+          email:    session.user.email,
+          name:     profile?.name     || session.user.email,
+          business: profile?.business || "My Bakery",
+          hood:     profile?.hood     || "",
+          role:     profile?.role     || "seller",
+        });
+      }
+      setLoading(false);
+    });
+
+    // Listen for auth changes (login/logout)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === "SIGNED_OUT") { setUser(null); return; }
+      if (session?.user && event === "SIGNED_IN") {
+        const { data: profile } = await supabase.from("profiles").select("*").eq("id", session.user.id).single();
+        setUser({
+          id:       session.user.id,
+          email:    session.user.email,
+          name:     profile?.name     || session.user.email,
+          business: profile?.business || "My Bakery",
+          hood:     profile?.hood     || "",
+          role:     profile?.role     || "seller",
+        });
+      }
+    });
+
+    return ()=>{
+      try{ document.head.removeChild(link); }catch(e){}
+      subscription.unsubscribe();
+    };
   }, []);
 
+  if (loading) return (
+    <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"100vh", background:"#F7F0E6", fontFamily:"DM Sans, sans-serif" }}>
+      <div style={{ textAlign:"center" }}>
+        <p style={{ fontSize:32, margin:"0 0 12px" }}>🍞</p>
+        <p style={{ fontSize:14, color:"#9C7A66", fontWeight:500 }}>Loading Hearthside...</p>
+      </div>
+    </div>
+  );
+
   if (!user) return <AuthScreen onAuth={setUser}/>;
-  if (user.role==="seller") return <SellerApp user={user} onSignOut={()=>setUser(null)}/>;
-  return <CustomerApp user={user} onSignOut={()=>setUser(null)}/>;
+  if (user.role==="seller") return <SellerApp user={user} onSignOut={async ()=>{ await supabase.auth.signOut(); setUser(null); }}/>;
+  return <CustomerApp user={user} onSignOut={async ()=>{ await supabase.auth.signOut(); setUser(null); }}/>;
 }
 // Wed 18 Mar 2026 23:40:45 EDT
