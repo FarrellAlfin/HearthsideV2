@@ -105,6 +105,7 @@ const SELLER_NAV = [
   { id:"orders",     icon:"≡", label:"Orders"     },
   { id:"customers",  icon:"◉", label:"Customers"  },
   { id:"finances",   icon:"◈", label:"Finances"   },
+  { id:"flashsales", icon:"⚡", label:"Flash Sales" },
   { id:"delivery",   icon:"⌖", label:"Delivery"   },
   { id:"community",  icon:"◎", label:"Community"  },
 ];
@@ -2509,6 +2510,306 @@ function SellerApp({ user, onSignOut }) {
     );
   };
 
+  // ── FLASH SALES ──
+  const FlashSales = () => {
+    const CHARITIES = [
+      "Daily Bread Food Bank","Second Harvest","Seva Food Bank","The Stop Community Food Centre","Flemingdon Health Centre","Local Mosque/Church/Temple","Other",
+    ];
+    const [listings,    setListings]    = useState([]);
+    const [loading,     setLoading]     = useState(true);
+    const [showAdd,     setShowAdd]     = useState(false);
+    const [form,        setForm]        = useState({
+      product_id:"", custom_name:"", original_price:"", flash_price:"",
+      quantity:"", unit:"pack", expires_at:"", notes:"",
+      listing_type:"discount", charity_name:"", is_charity:false,
+    });
+    const [saving, setSaving] = useState(false);
+
+    const TYPES = [
+      { v:"discount", label:"🏷 Discounted",  desc:"Sell at a reduced price",          bg:C.accentBg,   color:C.accent   },
+      { v:"bulk",     label:"📦 Bulk Deal",    desc:"Sell a larger quantity cheaply",   bg:C.infoBg,     color:C.info     },
+      { v:"charity",  label:"❤️ Donate",       desc:"Give to a charity of your choice", bg:C.charityBg,  color:C.charity  },
+    ];
+
+    useEffect(()=>{
+      if (!user?.id) { setLoading(false); return; }
+      supabase.from("flash_sales").select("*").eq("seller_id", user.id).order("created_at",{ascending:false})
+        .then(({data})=>{ setListings(data||[]); setLoading(false); });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    },[]);
+
+    const addListing = async () => {
+      if (!form.custom_name||!form.quantity) return;
+      setSaving(true);
+      const entry = {
+        seller_id:      user.id,
+        product_id:     form.product_id||null,
+        custom_name:    form.custom_name,
+        original_price: parseFloat(form.original_price)||0,
+        flash_price:    form.listing_type==="charity" ? 0 : parseFloat(form.flash_price)||0,
+        quantity:       parseInt(form.quantity)||1,
+        unit:           form.unit,
+        listing_type:   form.listing_type,
+        is_charity:     form.listing_type==="charity",
+        charity_name:   form.listing_type==="charity" ? form.charity_name : null,
+        notes:          form.notes,
+        expires_at:     form.expires_at||null,
+        status:         "active",
+      };
+      const { data, error } = await supabase.from("flash_sales").insert(entry).select().single();
+      if (!error && data) setListings(p=>[data,...p]);
+      else if (error) alert("Error: "+error.message);
+      setSaving(false);
+      setShowAdd(false);
+      setForm({ product_id:"", custom_name:"", original_price:"", flash_price:"", quantity:"", unit:"pack", expires_at:"", notes:"", listing_type:"discount", charity_name:"", is_charity:false });
+    };
+
+    const closeListing = async (id) => {
+      await supabase.from("flash_sales").update({ status:"closed" }).eq("id", id);
+      setListings(p=>p.map(l=>l.id===id?{...l,status:"closed"}:l));
+    };
+
+    const deleteListing = async (id) => {
+      await supabase.from("flash_sales").delete().eq("id", id);
+      setListings(p=>p.filter(l=>l.id!==id));
+    };
+
+    const active = listings.filter(l=>l.status==="active");
+    const closed = listings.filter(l=>l.status==="closed");
+
+    const TypeBadge = ({type}) => {
+      const t = TYPES.find(x=>x.v===type)||TYPES[0];
+      return <span style={{ background:t.bg, color:t.color, fontSize:10, fontWeight:700, padding:"2px 8px", borderRadius:4 }}>{t.label}</span>;
+    };
+
+    if (loading) return <div style={{ padding:"2rem", textAlign:"center", color:C.textMuted, fontSize:13 }}>Loading...</div>;
+
+    return (
+      <div style={{ padding:"2rem" }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:"1.5rem" }}>
+          <div>
+            <h1 style={{ fontSize:24, fontWeight:700, color:C.text, margin:"0 0 4px", letterSpacing:"-0.02em" }}>Flash Sales</h1>
+            <p style={{ fontSize:13, color:C.textMuted, margin:0 }}>Sell leftovers at a discount, in bulk, or donate to charity</p>
+          </div>
+          <button onClick={()=>setShowAdd(true)} style={{ background:C.accent, color:"#FFF", border:"none", borderRadius:6, padding:"10px 18px", fontSize:13, fontWeight:700, cursor:"pointer" }}>+ New Listing</button>
+        </div>
+
+        {/* Stats */}
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(3,minmax(0,1fr))", gap:10, marginBottom:"1.5rem" }}>
+          {[
+            ["Active Listings", active.length, C.accent],
+            ["Donated Batches", listings.filter(l=>l.is_charity).length, C.charity],
+            ["Closed Listings", closed.length, C.textMuted],
+          ].map(([label,val,color])=>(
+            <div key={label} style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:8, padding:"1rem 1.25rem" }}>
+              <p style={{ fontSize:10, color:C.textMuted, margin:"0 0 6px", textTransform:"uppercase", letterSpacing:"0.1em", fontWeight:600 }}>{label}</p>
+              <p style={{ fontSize:28, fontWeight:700, margin:0, color, letterSpacing:"-0.02em" }}>{val}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Active listings */}
+        {active.length===0 ? (
+          <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:8, padding:"3rem", textAlign:"center", marginBottom:14 }}>
+            <p style={{ fontSize:36, margin:"0 0 10px" }}>⚡</p>
+            <p style={{ fontSize:15, fontWeight:600, color:C.text, margin:"0 0 6px" }}>No active flash sales</p>
+            <p style={{ fontSize:13, color:C.textMuted, margin:"0 0 1.25rem" }}>List your leftover baked goods at a discount, in bulk, or donate them to a local charity.</p>
+            <button onClick={()=>setShowAdd(true)} style={{ background:C.accent, color:"#FFF", border:"none", borderRadius:6, padding:"10px 20px", fontSize:13, fontWeight:700, cursor:"pointer" }}>+ Create your first listing</button>
+          </div>
+        ) : (
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(3,minmax(0,1fr))", gap:12, marginBottom:"1.5rem" }}>
+            {active.map(l=>{
+              const discount = l.original_price>0 ? Math.round((1-l.flash_price/l.original_price)*100) : null;
+              return (
+                <div key={l.id} style={{ background:C.surface, border:`1px solid ${l.is_charity?C.charityBorder:C.border}`, borderRadius:10, padding:"1.25rem", position:"relative" }}>
+                  <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:8 }}>
+                    <p style={{ fontSize:15, fontWeight:700, color:C.text, margin:0, lineHeight:1.3 }}>{l.custom_name}</p>
+                    <TypeBadge type={l.listing_type}/>
+                  </div>
+                  <div style={{ display:"flex", gap:12, marginBottom:8, flexWrap:"wrap" }}>
+                    {l.listing_type!=="charity" && (
+                      <div>
+                        <p style={{ fontSize:10, color:C.textMuted, margin:"0 0 1px", textTransform:"uppercase", letterSpacing:"0.06em" }}>Price</p>
+                        <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                          <span style={{ fontSize:18, fontWeight:700, color:C.accent }}>${l.flash_price?.toFixed(2)||"0.00"}</span>
+                          {l.original_price>0 && <span style={{ fontSize:12, color:C.textMuted, textDecoration:"line-through" }}>${l.original_price?.toFixed(2)}</span>}
+                          {discount>0 && <span style={{ fontSize:11, fontWeight:700, color:C.success, background:C.successBg, padding:"1px 6px", borderRadius:3 }}>-{discount}%</span>}
+                        </div>
+                      </div>
+                    )}
+                    {l.is_charity && l.charity_name && (
+                      <div>
+                        <p style={{ fontSize:10, color:C.textMuted, margin:"0 0 1px", textTransform:"uppercase", letterSpacing:"0.06em" }}>Donating to</p>
+                        <p style={{ fontSize:13, fontWeight:600, color:C.charity, margin:0 }}>{l.charity_name}</p>
+                      </div>
+                    )}
+                    <div>
+                      <p style={{ fontSize:10, color:C.textMuted, margin:"0 0 1px", textTransform:"uppercase", letterSpacing:"0.06em" }}>Quantity</p>
+                      <p style={{ fontSize:13, fontWeight:600, color:C.text, margin:0 }}>{l.quantity} {l.unit}</p>
+                    </div>
+                    {l.expires_at && (
+                      <div>
+                        <p style={{ fontSize:10, color:C.textMuted, margin:"0 0 1px", textTransform:"uppercase", letterSpacing:"0.06em" }}>Expires</p>
+                        <p style={{ fontSize:13, fontWeight:600, color:C.warning, margin:0 }}>{new Date(l.expires_at).toLocaleDateString("en-US",{month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"})}</p>
+                      </div>
+                    )}
+                  </div>
+                  {l.notes && <p style={{ fontSize:12, color:C.textMuted, margin:"0 0 12px", lineHeight:1.5 }}>{l.notes}</p>}
+                  <div style={{ display:"flex", gap:7 }}>
+                    <button onClick={()=>closeListing(l.id)} style={{ flex:1, padding:"7px", border:`1px solid ${C.border}`, borderRadius:5, background:"transparent", color:C.textMuted, fontSize:12, cursor:"pointer" }}>Mark Closed</button>
+                    <button onClick={()=>deleteListing(l.id)} style={{ padding:"7px 12px", border:`1px solid ${C.danger}`, borderRadius:5, background:C.dangerBg, color:C.danger, fontSize:12, cursor:"pointer" }}>Delete</button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Closed listings */}
+        {closed.length>0 && (
+          <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:8, padding:"1.25rem" }}>
+            <p style={{ fontWeight:600, fontSize:13, color:C.text, margin:"0 0 12px" }}>Past Listings</p>
+            {closed.map((l,i)=>(
+              <div key={l.id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"9px 0", borderBottom:i<closed.length-1?`1px solid ${C.border}`:"none" }}>
+                <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                  <TypeBadge type={l.listing_type}/>
+                  <span style={{ fontSize:13, color:C.text, fontWeight:500 }}>{l.custom_name}</span>
+                </div>
+                <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+                  <span style={{ fontSize:12, color:C.textMuted }}>{l.quantity} {l.unit}</span>
+                  {!l.is_charity && <span style={{ fontSize:13, fontWeight:700, color:C.textMuted }}>${l.flash_price?.toFixed(2)}</span>}
+                  <button onClick={()=>deleteListing(l.id)} style={{ background:C.dangerBg, border:`1px solid ${C.danger}`, borderRadius:4, padding:"2px 8px", fontSize:11, color:C.danger, cursor:"pointer" }}>✕</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Add listing modal */}
+        {showAdd && (
+          <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.65)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:200 }}>
+            <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:12, width:520, maxWidth:"95vw", maxHeight:"92vh", overflowY:"auto", boxShadow:"0 24px 60px rgba(0,0,0,0.3)" }}>
+              <div style={{ padding:"1.25rem 1.5rem", borderBottom:`1px solid ${C.border}`, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                <h2 style={{ fontSize:18, fontWeight:700, color:C.text, margin:0 }}>New Flash Sale Listing</h2>
+                <button onClick={()=>setShowAdd(false)} style={{ background:C.surfaceHigh, border:"none", width:28, height:28, borderRadius:4, fontSize:14, cursor:"pointer", color:C.textMuted }}>✕</button>
+              </div>
+              <div style={{ padding:"1.25rem 1.5rem" }}>
+
+                {/* Listing type selector */}
+                <div style={{ marginBottom:16 }}>
+                  <label style={{ fontSize:10, fontWeight:700, color:C.textMuted, display:"block", marginBottom:8, textTransform:"uppercase", letterSpacing:"0.08em" }}>Listing Type</label>
+                  <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:8 }}>
+                    {TYPES.map(t=>(
+                      <button key={t.v} onClick={()=>setForm(f=>({...f,listing_type:t.v,is_charity:t.v==="charity"}))} style={{
+                        padding:"10px 8px", borderRadius:6, border:`1px solid ${form.listing_type===t.v?t.color:C.border}`,
+                        background:form.listing_type===t.v?t.bg:"transparent",
+                        color:form.listing_type===t.v?t.color:C.textMuted,
+                        fontSize:12, fontWeight:form.listing_type===t.v?700:400, cursor:"pointer", textAlign:"center", lineHeight:1.4
+                      }}>
+                        <div>{t.label}</div>
+                        <div style={{ fontSize:10, opacity:0.75, marginTop:2 }}>{t.desc}</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Link to existing product (optional) */}
+                {products.length>0 && (
+                  <div style={{ marginBottom:12 }}>
+                    <label style={{ fontSize:10, fontWeight:600, color:C.textMuted, display:"block", marginBottom:5, textTransform:"uppercase", letterSpacing:"0.08em" }}>Link to Product (optional)</label>
+                    <select value={form.product_id} onChange={e=>{
+                      const p = products.find(x=>x.id===e.target.value);
+                      setForm(f=>({...f, product_id:e.target.value, custom_name:p?p.name:f.custom_name, original_price:p?String(p.price):f.original_price }));
+                    }} style={{ width:"100%", padding:"9px 12px", border:`1px solid ${C.border}`, borderRadius:5, fontSize:13, color:C.text, background:C.surfaceHigh, outline:"none" }}>
+                      <option value="">— Select a product —</option>
+                      {products.map(p=><option key={p.id} value={p.id}>{p.name} (${p.price?.toFixed(2)})</option>)}
+                    </select>
+                  </div>
+                )}
+
+                {/* Name */}
+                <div style={{ marginBottom:12 }}>
+                  <label style={{ fontSize:10, fontWeight:600, color:C.textMuted, display:"block", marginBottom:5, textTransform:"uppercase", letterSpacing:"0.08em" }}>Item Name *</label>
+                  <input value={form.custom_name} onChange={e=>setForm(f=>({...f,custom_name:e.target.value}))} placeholder="e.g. Day-old sourdough loaves"
+                    style={{ width:"100%", padding:"9px 12px", border:`1px solid ${C.border}`, borderRadius:5, fontSize:13, color:C.text, background:C.surfaceHigh, outline:"none", boxSizing:"border-box" }}/>
+                </div>
+
+                {/* Price fields — hidden for charity */}
+                {form.listing_type!=="charity" && (
+                  <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:12 }}>
+                    <div>
+                      <label style={{ fontSize:10, fontWeight:600, color:C.textMuted, display:"block", marginBottom:5, textTransform:"uppercase", letterSpacing:"0.08em" }}>Original Price ($)</label>
+                      <input value={form.original_price} onChange={e=>setForm(f=>({...f,original_price:e.target.value}))} placeholder="0.00" type="text" inputMode="decimal"
+                        style={{ width:"100%", padding:"9px 12px", border:`1px solid ${C.border}`, borderRadius:5, fontSize:13, color:C.text, background:C.surfaceHigh, outline:"none", boxSizing:"border-box" }}/>
+                    </div>
+                    <div>
+                      <label style={{ fontSize:10, fontWeight:600, color:C.textMuted, display:"block", marginBottom:5, textTransform:"uppercase", letterSpacing:"0.08em" }}>Flash Price ($)</label>
+                      <input value={form.flash_price} onChange={e=>setForm(f=>({...f,flash_price:e.target.value}))} placeholder="0.00" type="text" inputMode="decimal"
+                        style={{ width:"100%", padding:"9px 12px", border:`1px solid ${C.border}`, borderRadius:5, fontSize:13, color:C.text, background:C.surfaceHigh, outline:"none", boxSizing:"border-box" }}/>
+                    </div>
+                  </div>
+                )}
+
+                {/* Charity selector */}
+                {form.listing_type==="charity" && (
+                  <div style={{ marginBottom:12 }}>
+                    <label style={{ fontSize:10, fontWeight:600, color:C.textMuted, display:"block", marginBottom:5, textTransform:"uppercase", letterSpacing:"0.08em" }}>Charity / Recipient *</label>
+                    <select value={form.charity_name} onChange={e=>setForm(f=>({...f,charity_name:e.target.value}))}
+                      style={{ width:"100%", padding:"9px 12px", border:`1px solid ${C.charityBorder}`, borderRadius:5, fontSize:13, color:C.text, background:C.charityBg, outline:"none" }}>
+                      <option value="">— Select a charity —</option>
+                      {CHARITIES.map(c=><option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </div>
+                )}
+
+                {/* Quantity + unit */}
+                <div style={{ display:"grid", gridTemplateColumns:"2fr 1fr", gap:10, marginBottom:12 }}>
+                  <div>
+                    <label style={{ fontSize:10, fontWeight:600, color:C.textMuted, display:"block", marginBottom:5, textTransform:"uppercase", letterSpacing:"0.08em" }}>Quantity *</label>
+                    <input value={form.quantity} onChange={e=>setForm(f=>({...f,quantity:e.target.value}))} placeholder="e.g. 5" type="text" inputMode="numeric"
+                      style={{ width:"100%", padding:"9px 12px", border:`1px solid ${C.border}`, borderRadius:5, fontSize:13, color:C.text, background:C.surfaceHigh, outline:"none", boxSizing:"border-box" }}/>
+                  </div>
+                  <div>
+                    <label style={{ fontSize:10, fontWeight:600, color:C.textMuted, display:"block", marginBottom:5, textTransform:"uppercase", letterSpacing:"0.08em" }}>Unit</label>
+                    <select value={form.unit} onChange={e=>setForm(f=>({...f,unit:e.target.value}))}
+                      style={{ width:"100%", padding:"9px 12px", border:`1px solid ${C.border}`, borderRadius:5, fontSize:13, color:C.text, background:C.surfaceHigh, outline:"none" }}>
+                      {["loaf","loaves","pack","box","bag","dozen","portion","kg","item"].map(u=><option key={u} value={u}>{u}</option>)}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Expiry */}
+                <div style={{ marginBottom:12 }}>
+                  <label style={{ fontSize:10, fontWeight:600, color:C.textMuted, display:"block", marginBottom:5, textTransform:"uppercase", letterSpacing:"0.08em" }}>Expires At (optional)</label>
+                  <input value={form.expires_at} onChange={e=>setForm(f=>({...f,expires_at:e.target.value}))} type="datetime-local"
+                    style={{ width:"100%", padding:"9px 12px", border:`1px solid ${C.border}`, borderRadius:5, fontSize:13, color:C.text, background:C.surfaceHigh, outline:"none", boxSizing:"border-box" }}/>
+                </div>
+
+                {/* Notes */}
+                <div style={{ marginBottom:16 }}>
+                  <label style={{ fontSize:10, fontWeight:600, color:C.textMuted, display:"block", marginBottom:5, textTransform:"uppercase", letterSpacing:"0.08em" }}>Notes (optional)</label>
+                  <textarea value={form.notes} onChange={e=>setForm(f=>({...f,notes:e.target.value}))} rows={2} placeholder="e.g. Baked this morning, perfect for freezing..."
+                    style={{ width:"100%", padding:"9px 12px", border:`1px solid ${C.border}`, borderRadius:5, fontSize:13, color:C.text, background:C.surfaceHigh, outline:"none", resize:"none", boxSizing:"border-box" }}/>
+                </div>
+
+                <div style={{ display:"flex", gap:8 }}>
+                  <button onClick={()=>setShowAdd(false)} style={{ flex:1, padding:"11px", border:`1px solid ${C.border}`, borderRadius:5, background:"transparent", color:C.textMuted, cursor:"pointer", fontSize:13 }}>Cancel</button>
+                  <button onClick={addListing} disabled={saving||!form.custom_name||!form.quantity} style={{
+                    flex:2, padding:"11px", border:"none", borderRadius:5, fontSize:13, fontWeight:700, cursor:"pointer",
+                    background:saving||!form.custom_name||!form.quantity?"rgba(196,98,45,0.3)":form.listing_type==="charity"?"#7C3AED":C.accent,
+                    color:"#FFF"
+                  }}>
+                    {saving?"Saving...":(form.listing_type==="charity"?"❤️ Submit Donation":"⚡ Post Flash Sale")}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div style={{ display:"flex", height:"100vh", fontFamily:"'DM Sans', system-ui, sans-serif", background:C.bg, overflow:"hidden" }}>
       <ProfilePanel/>
@@ -2519,6 +2820,7 @@ function SellerApp({ user, onSignOut }) {
         {view==="orders"     && <Orders/>}
         {view==="customers"  && <Customers/>}
         {view==="finances"   && <Finances/>}
+        {view==="flashsales" && <FlashSales/>}
         {view==="delivery"   && <Delivery/>}
         {view==="community"  && <SellerCommunity/>}
       </main>
