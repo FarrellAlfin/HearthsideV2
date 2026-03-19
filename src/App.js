@@ -5,6 +5,15 @@ import { createClient } from '@supabase/supabase-js';
 const supabase = createClient(
   'https://kxajjlrjgrabtmyksqrq.supabase.co',
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt4YWpqbHJqZ3JhYnRteWtzcXJxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3NjIyMzMsImV4cCI6MjA4OTMzODIzM30.UCUOnwpyP4oBJyHhaCEM4kym_UlDY32a2SWP3x8atQU',
+  {
+    auth: {
+      persistSession: true,
+      storageKey: 'hearthside-auth',
+      storage: window.localStorage,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+    }
+  }
 );
 
 // ─── DESIGN TOKENS — Hearthside warm palette ─────────────────────────────────
@@ -2981,9 +2990,22 @@ function SellerApp({ user, onSignOut }) {
 }
 
 // ─── APP ROOT ─────────────────────────────────────────────────────────────────
+const USER_KEY = 'hearthside_user';
+
 export default function App() {
-  const [user,    setUser]    = useState(null);
-  const [loading, setLoading] = useState(true);
+  // Restore user immediately from localStorage — no async, no loading flash
+  const [user, setUser] = useState(()=>{
+    try {
+      const stored = localStorage.getItem(USER_KEY);
+      return stored ? JSON.parse(stored) : null;
+    } catch(e) { return null; }
+  });
+
+  const saveUser = (u) => {
+    if (u) localStorage.setItem(USER_KEY, JSON.stringify(u));
+    else localStorage.removeItem(USER_KEY);
+    setUser(u);
+  };
 
   useEffect(()=>{
     // Load Google Font
@@ -2992,62 +3014,31 @@ export default function App() {
     link.href = "https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap";
     document.head.appendChild(link);
 
-    const buildUser = async (supabaseUser) => {
-      try {
-        const { data: profile } = await supabase.from("profiles").select("*").eq("id", supabaseUser.id).single();
-        return {
-          id:       supabaseUser.id,
-          email:    supabaseUser.email,
-          name:     profile?.name     || supabaseUser.email,
-          business: profile?.business || "My Bakery",
-          hood:     profile?.hood     || "",
-          role:     profile?.role     || "seller",
-        };
-      } catch(e) {
-        return {
-          id: supabaseUser.id, email: supabaseUser.email,
-          name: supabaseUser.email, business: "My Bakery", hood: "", role: "seller",
-        };
+    // Validate the stored session in the background
+    // If Supabase says the session is invalid, log the user out
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session) {
+        // No valid session — clear stored user
+        saveUser(null);
       }
-    };
+    }).catch(()=>{});
 
-    // Use onAuthStateChange as the SINGLE source of truth.
-    // It fires INITIAL_SESSION on page load with the stored session (handles refresh),
-    // SIGNED_IN when logging in, and SIGNED_OUT when logging out.
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === "SIGNED_OUT" || !session?.user) {
-        setUser(null);
-        setLoading(false);
-        return;
-      }
-      if (event === "INITIAL_SESSION" || event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
-        const u = await buildUser(session.user);
-        setUser(u);
-        setLoading(false);
-      }
+    // Listen for sign out events
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_OUT") saveUser(null);
     });
 
-    // Safety timeout — if onAuthStateChange never fires, stop loading after 5s
-    const timeout = setTimeout(()=>setLoading(false), 5000);
-
     return ()=>{
-      clearTimeout(timeout);
       try{ document.head.removeChild(link); }catch(e){}
       subscription.unsubscribe();
     };
   }, []);
 
-  if (loading) return (
-    <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"100vh", background:"#F7F0E6", fontFamily:"DM Sans, sans-serif" }}>
-      <div style={{ textAlign:"center" }}>
-        <p style={{ fontSize:32, margin:"0 0 12px" }}>🍞</p>
-        <p style={{ fontSize:14, color:"#9C7A66", fontWeight:500 }}>Loading Hearthside...</p>
-      </div>
-    </div>
-  );
+  const handleAuth = (u) => saveUser(u);
+  const handleSignOut = async () => { await supabase.auth.signOut(); saveUser(null); };
 
-  if (!user) return <AuthScreen onAuth={setUser}/>;
-  if (user.role==="seller") return <SellerApp user={user} onSignOut={async ()=>{ await supabase.auth.signOut(); setUser(null); }}/>;
-  return <CustomerApp user={user} onSignOut={async ()=>{ await supabase.auth.signOut(); setUser(null); }}/>;
+  if (!user) return <AuthScreen onAuth={handleAuth}/>;
+  if (user.role==="seller") return <SellerApp user={user} onSignOut={handleSignOut}/>;
+  return <CustomerApp user={user} onSignOut={handleSignOut}/>;
 }
 // Wed 18 Mar 2026 23:40:45 EDT
