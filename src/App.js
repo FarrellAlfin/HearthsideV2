@@ -1335,8 +1335,22 @@ function SellerApp({ user, onSignOut }) {
     const editStockRef = useRef(null);
     const editDescRef  = useRef(null);
 
+    // Capture current ref values into editForm before any state update
+    const captureRefs = (extra={}) => ({
+      name:         editNameRef.current?.value  ?? editForm.name,
+      price:        editPriceRef.current?.value ?? editForm.price,
+      stock:        editStockRef.current?.value ?? editForm.stock,
+      desc:         editDescRef.current?.value  ?? editForm.desc,
+      category:     editForm.category,
+      emoji:        editForm.emoji,
+      availability: editForm.availability,
+      ...extra,
+    });
+
     const saveEdit = async () => {
-      if (!editForm.name||!editForm.price||!editProduct) return;
+      const name  = editNameRef.current?.value?.trim()  || editForm.name;
+      const price = editPriceRef.current?.value?.trim() || editForm.price;
+      if (!name||!price||!editProduct) return;
       setSaving(true);
       // Upload any new images from editImages that are new File objects
       const uploadedUrls = [];
@@ -1354,12 +1368,12 @@ function SellerApp({ user, onSignOut }) {
         }
       }
       const updates = {
-        name: editNameRef.current?.value?.trim() || editForm.name,
-        price: parseFloat(editPriceRef.current?.value || editForm.price)||0,
-        category: editForm.category||"Other",
-        emoji: editForm.category||"Other",
-        desc: editDescRef.current?.value?.trim() ?? editForm.desc,
-        stock: parseInt(editStockRef.current?.value || editForm.stock)||0,
+        name:         name,
+        price:        parseFloat(price)||0,
+        category:     editForm.category||"Other",
+        emoji:        editForm.category||"Other",
+        desc:         editDescRef.current?.value?.trim() ?? editForm.desc,
+        stock:        parseInt(editStockRef.current?.value || editForm.stock)||0,
         availability: editForm.availability||"available",
         image_url: uploadedUrls[0]||editProduct.image_url||null,
         images: uploadedUrls.length>0 ? JSON.stringify(uploadedUrls) : editProduct.images||null,
@@ -1592,7 +1606,7 @@ function SellerApp({ user, onSignOut }) {
                     <label style={{ fontSize:10, fontWeight:600, color:C.textMuted, display:"block", marginBottom:6, textTransform:"uppercase", letterSpacing:"0.08em" }}>Category</label>
                     <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
                       {PRODUCT_CATS.map(cat=>(
-                        <button key={cat} onClick={()=>setEditForm({...editForm,category:cat,emoji:cat})} style={{
+                        <button key={cat} onClick={()=>setEditForm(captureRefs({category:cat,emoji:cat}))} style={{
                           padding:"5px 11px", borderRadius:4, border:`1px solid ${(editForm.category||editForm.emoji)===cat?C.accent:C.border}`,
                           background:(editForm.category||editForm.emoji)===cat?C.accentBg:"transparent",
                           color:(editForm.category||editForm.emoji)===cat?C.accent:C.textMuted,
@@ -1610,7 +1624,7 @@ function SellerApp({ user, onSignOut }) {
                         { v:"out_of_stock",     label:"✕ Out of Stock",       bg:C.dangerBg,  color:C.danger,  border:C.danger  },
                         { v:"out_till_eod",     label:"⏱ Out Till End of Day",bg:C.warningBg, color:C.warning, border:C.warning },
                       ].map(opt=>(
-                        <button key={opt.v} onClick={()=>setEditForm({...editForm,availability:opt.v})} style={{
+                        <button key={opt.v} onClick={()=>setEditForm(captureRefs({availability:opt.v}))} style={{
                           padding:"9px 6px", border:`1px solid ${editForm.availability===opt.v?opt.border:C.border}`,
                           borderRadius:6, background:editForm.availability===opt.v?opt.bg:"transparent",
                           color:editForm.availability===opt.v?opt.color:C.textMuted,
