@@ -1289,6 +1289,7 @@ function SellerApp({ user, onSignOut }) {
                 <div style={{ marginTop:10, paddingTop:10, borderTop:`1px solid ${C.border}`, display:"flex", justifyContent:"space-between" }}>
                   <span style={{ fontSize:12, fontWeight:600, color:C.text }}>Total</span>
                   <span style={{ fontSize:12, fontWeight:700, color:C.warning }}>${totalCosts.toFixed(2)}</span>
+                 </div>
                 )}
             </div>
           </div>
