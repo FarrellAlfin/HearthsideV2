@@ -1792,6 +1792,29 @@ function SellerApp({ user, onSignOut }) {
     const updateStatus = async (id, status) => {
       await supabase.from("orders").update({ status }).eq("id", id);
       setLiveOrders(p=>p.map(o=>o.id===id?{...o,status}:o));
+
+      // When marked delivered, deduct stock for each item in the order
+      if (status === "delivered") {
+        const order = liveOrders.find(o=>o.id===id);
+        if (order?.items) {
+          // items is stored as JSON array [{product_id, quantity, name}] or as a string
+          let items = [];
+          try { items = typeof order.items==="string" ? JSON.parse(order.items) : order.items; } catch(e) {}
+          if (Array.isArray(items)) {
+            for (const item of items) {
+              if (!item.product_id) continue;
+              // Fetch current stock then decrement
+              const { data: prod } = await supabase.from("products").select("stock").eq("id", item.product_id).single();
+              if (prod) {
+                const newStock = Math.max(0, (prod.stock||0) - (item.quantity||1));
+                await supabase.from("products").update({ stock: newStock }).eq("id", item.product_id);
+              }
+            }
+            // Reload products so storefront reflects new stock
+            reloadProducts();
+          }
+        }
+      }
     };
 
     const filtered = filter==="all"?liveOrders:liveOrders.filter(o=>o.status===filter);
@@ -2637,6 +2660,19 @@ function SellerApp({ user, onSignOut }) {
       const newStatus = currentStatus==="active" ? "closed" : "active";
       await supabase.from("flash_sales").update({ status:newStatus }).eq("id", id);
       setListings(p=>p.map(l=>l.id===id?{...l,status:newStatus}:l));
+
+      // When closing a flash sale, deduct quantity from linked product stock
+      if (newStatus==="closed") {
+        const listing = listings.find(l=>l.id===id);
+        if (listing?.product_id && listing?.quantity) {
+          const { data: prod } = await supabase.from("products").select("stock").eq("id", listing.product_id).single();
+          if (prod) {
+            const newStock = Math.max(0, (prod.stock||0) - (listing.quantity||0));
+            await supabase.from("products").update({ stock: newStock }).eq("id", listing.product_id);
+            reloadProducts();
+          }
+        }
+      }
     };
 
     const TypeBadge = ({type}) => {
@@ -2896,21 +2932,25 @@ export default function App() {
     link.href = "https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap";
     document.head.appendChild(link);
 
-    // Restore session on refresh
+    // Restore session on refresh — with 4s timeout fallback
+    const loadingTimeout = setTimeout(()=>setLoading(false), 4000);
     supabase.auth.getSession().then(async ({ data: { session } }) => {
+      clearTimeout(loadingTimeout);
       if (session?.user) {
-        const { data: profile } = await supabase.from("profiles").select("*").eq("id", session.user.id).single();
-        setUser({
-          id:       session.user.id,
-          email:    session.user.email,
-          name:     profile?.name     || session.user.email,
-          business: profile?.business || "My Bakery",
-          hood:     profile?.hood     || "",
-          role:     profile?.role     || "seller",
-        });
+        try {
+          const { data: profile } = await supabase.from("profiles").select("*").eq("id", session.user.id).single();
+          setUser({
+            id:       session.user.id,
+            email:    session.user.email,
+            name:     profile?.name     || session.user.email,
+            business: profile?.business || "My Bakery",
+            hood:     profile?.hood     || "",
+            role:     profile?.role     || "seller",
+          });
+        } catch(e) { console.error("Profile load error:", e); }
       }
       setLoading(false);
-    });
+    }).catch(()=>{ clearTimeout(loadingTimeout); setLoading(false); });
 
     // Listen for auth changes (login/logout)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
