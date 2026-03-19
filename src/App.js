@@ -904,7 +904,7 @@ function CustomerApp({ user, onSignOut }) {
     const [loadingMyOrders, setLoadingMyOrders] = useState(true);
     useEffect(()=>{
       if (!user?.id) { setLoadingMyOrders(false); return; }
-      supabase.from("orders").select("*").eq("customer_id", user.id).order("created_at", { ascending:false })
+      supabase.from("orders").select("*").eq("customer_id", user.id)
         .then(({ data, error })=>{
           if (error) { console.error("MyOrders error:", error); }
           if (data) setMyOrders(data.map(o=>{
@@ -918,7 +918,7 @@ function CustomerApp({ user, onSignOut }) {
                 itemsFull = parsed.map(i=>`${i.name} ×${i.quantity}`).join(", ");
               } else { itemLabel = o.items||"Order"; itemsFull = o.items||""; }
             } catch(e) { itemLabel = o.items||"Order"; itemsFull = o.items||""; }
-            return { ...o, itemLabel, itemsFull, date:new Date(o.created_at).toLocaleDateString("en-US",{month:"short",day:"numeric"}) };
+            return { ...o, itemLabel, itemsFull, date:o.created_at?new Date(o.created_at).toLocaleDateString("en-US",{month:"short",day:"numeric"}):"Recent" };
           }));
           setLoadingMyOrders(false);
         });
@@ -1895,7 +1895,7 @@ function SellerApp({ user, onSignOut }) {
     const [loadingOrders, setLoadingOrders] = useState(true);
     useEffect(()=>{
       if (!user?.id) { setLoadingOrders(false); return; }
-      supabase.from("orders").select("*").eq("seller_id", user.id).order("created_at",{ ascending:false })
+      supabase.from("orders").select("*").eq("seller_id", user.id)
         .then(({ data, error })=>{
           if (error) console.error("Seller orders error:", error);
           if (data && data.length>0) setLiveOrders(data.map(o=>{
@@ -1904,7 +1904,7 @@ function SellerApp({ user, onSignOut }) {
               const parsed = typeof o.items==="string" ? JSON.parse(o.items) : o.items;
               if (Array.isArray(parsed)) itemsFull = parsed.map(i=>`${i.name} ×${i.quantity}`).join(", ");
             } catch(e) {}
-            return { ...o, items:itemsFull, customer:o.delivery_name||o.customer_id?.slice(0,8)||"Customer", date:new Date(o.created_at).toLocaleDateString("en-US",{month:"short",day:"numeric"}) };
+            return { ...o, items:itemsFull, customer:o.delivery_name||o.customer_id?.slice(0,8)||"Customer", date:o.created_at?new Date(o.created_at).toLocaleDateString("en-US",{month:"short",day:"numeric"}):"Recent" };
           }));
           setLoadingOrders(false);
         });
