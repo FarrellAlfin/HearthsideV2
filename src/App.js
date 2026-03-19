@@ -540,7 +540,7 @@ function CustomerApp({ user, onSignOut }) {
       const itemsJson = JSON.stringify(cartProducts.map(p=>({ product_id:p.id, name:p.name, quantity:p.qty, price:p.price })));
       // Debug: log what we're inserting
       console.log("Placing order - customer:", user.id, "seller:", cartStoreObj?.id, "cartStore:", cartStore);
-      const { error } = await supabase.from("orders").insert({
+      const { data: orderData, error } = await supabase.from("orders").insert({
         customer_id:  user.id,
         seller_id:    cartStoreObj?.id || cartStore,
         items:        itemsJson,
@@ -905,7 +905,23 @@ function CustomerApp({ user, onSignOut }) {
     useEffect(()=>{
       if (!user?.id) { setLoadingMyOrders(false); return; }
       supabase.from("orders").select("*").eq("customer_id", user.id).order("created_at", { ascending:false })
-        .then(({ data })=>{ if (data) setMyOrders(data.map(o=>({ ...o, date:new Date(o.created_at).toLocaleDateString("en-US",{month:"short",day:"numeric"}) }))); setLoadingMyOrders(false); });
+        .then(({ data, error })=>{
+          if (error) { console.error("MyOrders error:", error); }
+          if (data) setMyOrders(data.map(o=>{
+            // items is JSON array [{name, quantity}] or plain string
+            let itemLabel = "Order";
+            let itemsFull = "";
+            try {
+              const parsed = typeof o.items==="string" ? JSON.parse(o.items) : o.items;
+              if (Array.isArray(parsed)) {
+                itemLabel = parsed[0]?.name||"Order";
+                itemsFull = parsed.map(i=>`${i.name} ×${i.quantity}`).join(", ");
+              } else { itemLabel = o.items||"Order"; itemsFull = o.items||""; }
+            } catch(e) { itemLabel = o.items||"Order"; itemsFull = o.items||""; }
+            return { ...o, itemLabel, itemsFull, date:new Date(o.created_at).toLocaleDateString("en-US",{month:"short",day:"numeric"}) };
+          }));
+          setLoadingMyOrders(false);
+        });
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
     if (loadingMyOrders) return <div style={{ padding:"2rem", textAlign:"center", color:C.textMuted, fontSize:13 }}>Loading...</div>;
@@ -923,8 +939,8 @@ function CustomerApp({ user, onSignOut }) {
           <div key={o.id} style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:8, padding:"1rem", marginBottom:8 }}>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:8 }}>
               <div>
-                <p style={{ fontSize:13, fontWeight:600, color:C.text, margin:"0 0 2px" }}>{o.items?.split(",")[0]||"Order"}</p>
-                <p style={{ fontSize:11, color:C.textMuted, margin:0 }}>{o.items}</p>
+                <p style={{ fontSize:13, fontWeight:600, color:C.text, margin:"0 0 2px" }}>{o.itemLabel||"Order"}</p>
+                <p style={{ fontSize:11, color:C.textMuted, margin:0 }}>{o.itemsFull}</p>
               </div>
               <div style={{ textAlign:"right" }}>
                 <p style={{ fontSize:13, fontWeight:700, color:C.accent, margin:"0 0 4px" }}>${o.total?.toFixed(2)||"0.00"}</p>
@@ -1879,8 +1895,19 @@ function SellerApp({ user, onSignOut }) {
     const [loadingOrders, setLoadingOrders] = useState(true);
     useEffect(()=>{
       if (!user?.id) { setLoadingOrders(false); return; }
-      supabase.from("orders").select("*").eq("seller_id", user.id.toString()).order("created_at",{ ascending:false })
-        .then(({ data })=>{ if (data&&data.length>0) setLiveOrders(data.map(o=>({ ...o, customer:o.customer_id?.slice(0,8)||"Customer", date:new Date(o.created_at).toLocaleDateString("en-US",{month:"short",day:"numeric"}) }))); setLoadingOrders(false); });
+      supabase.from("orders").select("*").eq("seller_id", user.id).order("created_at",{ ascending:false })
+        .then(({ data, error })=>{
+          if (error) console.error("Seller orders error:", error);
+          if (data && data.length>0) setLiveOrders(data.map(o=>{
+            let itemsFull = o.items||"";
+            try {
+              const parsed = typeof o.items==="string" ? JSON.parse(o.items) : o.items;
+              if (Array.isArray(parsed)) itemsFull = parsed.map(i=>`${i.name} ×${i.quantity}`).join(", ");
+            } catch(e) {}
+            return { ...o, items:itemsFull, customer:o.delivery_name||o.customer_id?.slice(0,8)||"Customer", date:new Date(o.created_at).toLocaleDateString("en-US",{month:"short",day:"numeric"}) };
+          }));
+          setLoadingOrders(false);
+        });
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
     const filtered = filter==="all"?liveOrders:liveOrders.filter(o=>o.status===filter);
