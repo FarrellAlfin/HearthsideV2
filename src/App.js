@@ -1681,10 +1681,11 @@ function SellerApp({ user, onSignOut }) {
                     <button onClick={saveEdit} disabled={saving} style={{ flex:2, padding:"10px", background:saving?"rgba(196,98,45,0.4)":C.accent, color:"#FFF", border:"none", borderRadius:5, cursor:saving?"default":"pointer", fontSize:13, fontWeight:700 }}>
                       {saving?"Saving...":"Save Changes"}
                     </button>
-                  </div>
+                 </div>
                 </div>
-              </>
+              </div>
               )}
+              </>
             </div>
           </div>
         )}
