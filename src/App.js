@@ -4,16 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(
   'https://kxajjlrjgrabtmyksqrq.supabase.co',
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt4YWpqbHJqZ3JhYnRteWtzcXJxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3NjIyMzMsImV4cCI6MjA4OTMzODIzM30.UCUOnwpyP4oBJyHhaCEM4kym_UlDY32a2SWP3x8atQU',
-  {
-    auth: {
-      persistSession: true,
-      storageKey: 'hearthside-auth',
-      storage: window.localStorage,
-      autoRefreshToken: true,
-      detectSessionInUrl: true,
-    }
-  }
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt4YWpqbHJqZ3JhYnRteWtzcXJxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3NjIyMzMsImV4cCI6MjA4OTMzODIzM30.UCUOnwpyP4oBJyHhaCEM4kym_UlDY32a2SWP3x8atQU'
 );
 
 // ─── DESIGN TOKENS — Hearthside warm palette ─────────────────────────────────
@@ -114,7 +105,6 @@ const SELLER_NAV = [
   { id:"orders",     icon:"≡", label:"Orders"     },
   { id:"customers",  icon:"◉", label:"Customers"  },
   { id:"finances",   icon:"◈", label:"Finances"   },
-  { id:"flashsales", icon:"⚡", label:"Flash Sales" },
   { id:"delivery",   icon:"⌖", label:"Delivery"   },
   { id:"community",  icon:"◎", label:"Community"  },
 ];
@@ -298,7 +288,7 @@ function AuthScreen({ onAuth }) {
             {mode==="login"?"Sign up":"Sign in"}
           </span>
         </p>
-        <p style={{ textAlign:"center", fontSize:11, color:C.textMuted, margin:"0.5rem 0 0", opacity:0.6 }}>Demo: any email & password works</p>
+
       </div>
     </div>
   );
@@ -306,10 +296,7 @@ function AuthScreen({ onAuth }) {
 
 // ─── CUSTOMER APP ─────────────────────────────────────────────────────────────
 function CustomerApp({ user, onSignOut }) {
-  const [view, setView] = useState(()=>{
-    try { return localStorage.getItem('hearthside_customer_view')||"marketplace"; } catch(e) { return "marketplace"; }
-  });
-  const setViewAndSave = (v) => { try { localStorage.setItem('hearthside_customer_view',v); } catch(e){} setView(v); };
+  const [view,             setView]            = useState("marketplace");
   const [activeStore,      setActiveStore]      = useState(null);
   const [cart,             setCart]             = useState({});
   const [cartStore,        setCartStore]        = useState(null);
@@ -319,10 +306,34 @@ function CustomerApp({ user, onSignOut }) {
   const [selectedCharity,  setSelectedCharity]  = useState(null);
 
   const cartCount    = Object.values(cart).reduce((s,q)=>s+q,0);
-  const cartStoreObj = STORES.find(s=>s.id===cartStore);
-  const cartProducts = cartStore?(STORE_PRODUCTS[cartStore]||[]).filter(p=>cart[p.id]).map(p=>({...p,qty:cart[p.id]})):[];
+  // Real seller/product data from Supabase
+  const [sellers,      setSellers]      = useState([]);
+  const [sellerProds,  setSellerProds]  = useState({}); // { seller_id: [products] }
+  const [loadingSellers, setLoadingSellers] = useState(true);
+
+  useEffect(()=>{
+    // Load all seller profiles
+    supabase.from("profiles").select("*").eq("role","seller")
+      .then(({ data })=>{
+        setSellers(data||[]);
+        setLoadingSellers(false);
+      });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[]);
+
+  const loadSellerProducts = async (sellerId) => {
+    if (sellerProds[sellerId]) return; // already loaded
+    const { data } = await supabase.from("products").select("*")
+      .eq("seller_id", sellerId)
+      .neq("availability","out_of_stock")
+      .gt("stock", 0);
+    setSellerProds(p=>({ ...p, [sellerId]: data||[] }));
+  };
+
+  const cartStoreObj = sellers.find(s=>s.id===cartStore);
+  const cartProducts = cartStore?(sellerProds[cartStore]||[]).filter(p=>cart[p.id]).map(p=>({...p,qty:cart[p.id]})):[];
   const subtotal     = cartProducts.reduce((s,p)=>s+p.price*p.qty,0);
-  const delivFee     = cartStoreObj?.deliveryFee||0;
+  const delivFee     = cartStoreObj?.delivery_settings?.delivery?.fee ? parseFloat(cartStoreObj.delivery_settings.delivery.fee)||0 : 0;
   const total        = subtotal+delivFee;
 
   const addToCart = (storeId, productId) => {
@@ -368,7 +379,7 @@ function CustomerApp({ user, onSignOut }) {
       {CUST_NAV.map(n=>{
         const active = view===n.id;
         return (
-          <button key={n.id} onClick={()=>{ setViewAndSave(n.id); setActiveStore(null); }} style={{
+          <button key={n.id} onClick={()=>{ setView(n.id); setActiveStore(null); }} style={{
             flex:1, border:"none", background:"transparent", cursor:"pointer",
             borderTop:`2px solid ${active?C.accent:"transparent"}`,
             display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:3
@@ -383,66 +394,73 @@ function CustomerApp({ user, onSignOut }) {
 
   // ── STORE DETAIL ──
   if (activeStore) {
-    const store    = STORES.find(s=>s.id===activeStore);
-    const products = STORE_PRODUCTS[activeStore]||[];
+    const store    = sellers.find(s=>s.id===activeStore);
+    const products = sellerProds[activeStore]||[];
+    if (!store) return null;
     return (
       <div style={{ minHeight:"100vh", background:C.bg, fontFamily:"'DM Sans', system-ui, sans-serif", paddingBottom:80 }}>
         <TopBar/>
         <div style={{ padding:"1.25rem 1.5rem 1rem", borderBottom:`1px solid ${C.border}`, background:C.surface }}>
           <button onClick={()=>setActiveStore(null)} style={{ background:"transparent", border:"none", fontSize:13, color:C.textMuted, cursor:"pointer", fontWeight:500, marginBottom:12, padding:0, display:"flex", alignItems:"center", gap:5 }}>← Back</button>
           <div style={{ display:"flex", alignItems:"flex-start", gap:14 }}>
-            <div style={{ width:56, height:56, background:C.surfaceHigh, borderRadius:8, display:"flex", alignItems:"center", justifyContent:"center", fontSize:28, flexShrink:0 }}>{store.emoji}</div>
+            <div style={{ width:56, height:56, background:C.surfaceHigh, borderRadius:8, overflow:"hidden", display:"flex", alignItems:"center", justifyContent:"center", fontSize:28, flexShrink:0 }}>
+              {store.logo_url ? <img src={store.logo_url} alt={store.business} style={{ width:"100%", height:"100%", objectFit:"cover" }}/> : <span>🍞</span>}
+            </div>
             <div style={{ flex:1 }}>
-              <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:4 }}>
-                <h1 style={{ fontSize:20, fontWeight:700, color:C.text, margin:0, letterSpacing:"-0.02em" }}>{store.name}</h1>
-                {store.badge && <span style={{ background:C.accentBg, color:C.accent, fontSize:10, fontWeight:700, padding:"2px 8px", borderRadius:3, letterSpacing:"0.04em" }}>{store.badge}</span>}
-              </div>
-              <p style={{ fontSize:12, color:C.textMuted, margin:"0 0 4px" }}>📍 {store.hood} · ⭐ {store.rating} ({store.reviews} reviews)</p>
-              <p style={{ fontSize:13, color:C.textSub, margin:0 }}>{store.desc}</p>
+              <h1 style={{ fontSize:20, fontWeight:700, color:C.text, margin:"0 0 4px", letterSpacing:"-0.02em" }}>{store.business||store.name}</h1>
+              <p style={{ fontSize:12, color:C.textMuted, margin:"0 0 4px" }}>📍 {store.hood}</p>
+              <p style={{ fontSize:13, color:C.textSub, margin:0 }}>{store.desc||"Home baker"}</p>
             </div>
           </div>
           <div style={{ display:"flex", gap:8, marginTop:12, flexWrap:"wrap" }}>
-            <span style={{ background:C.surfaceHigh, padding:"4px 10px", borderRadius:4, fontSize:12, color:C.textMuted }}>🚗 Delivery ${store.deliveryFee}</span>
-            <span style={{ background:C.surfaceHigh, padding:"4px 10px", borderRadius:4, fontSize:12, color:C.textMuted }}>📦 Min. ${store.minOrder}</span>
+            {delivFee>0 && <span style={{ background:C.surfaceHigh, padding:"4px 10px", borderRadius:4, fontSize:12, color:C.textMuted }}>🚗 Delivery ${delivFee.toFixed(2)}</span>}
             {store.whatsapp && (
               <a href={`https://wa.me/${store.whatsapp.replace(/[^0-9]/g,"")}`} target="_blank" rel="noreferrer"
                 style={{ display:"inline-flex", alignItems:"center", gap:5, background:"#25D366", color:"#FFF", padding:"4px 12px", borderRadius:4, fontSize:12, fontWeight:600, textDecoration:"none" }}>
-                <span>WhatsApp</span>
+                WhatsApp
               </a>
             )}
             {store.instagram && (
               <a href={`https://instagram.com/${store.instagram.replace("@","")}`} target="_blank" rel="noreferrer"
                 style={{ display:"inline-flex", alignItems:"center", gap:5, background:"linear-gradient(135deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888)", color:"#FFF", padding:"4px 12px", borderRadius:4, fontSize:12, fontWeight:600, textDecoration:"none" }}>
-                <span>Instagram</span>
+                Instagram
               </a>
             )}
           </div>
         </div>
         <div style={{ padding:"1rem 1.5rem" }}>
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(2,minmax(0,1fr))", gap:10 }}>
-            {products.map(p=>(
-              <div key={p.id} style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:8, padding:"1rem" }}>
-                {p.image_url
-                ? <img src={p.image_url} alt={p.name} style={{ width:"100%", height:90, objectFit:"cover", borderRadius:4, marginBottom:10, display:"block" }}/>
-                : <div style={{ width:40, height:40, background:C.surfaceHigh, borderRadius:6, display:"flex", alignItems:"center", justifyContent:"center", fontSize:22, marginBottom:10 }}>{p.emoji}</div>
-              }
-                <p style={{ fontSize:14, fontWeight:600, color:C.text, margin:"0 0 4px", letterSpacing:"-0.01em" }}>{p.name}</p>
-                <p style={{ fontSize:11, color:C.textMuted, margin:"0 0 12px", lineHeight:1.5 }}>{p.desc}</p>
-                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-                  <span style={{ fontSize:16, fontWeight:700, color:C.accent, letterSpacing:"-0.01em" }}>${p.price.toFixed(2)}</span>
-                  {cart[p.id] ? (
-                    <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                      <button onClick={()=>decCart(p.id)} style={{ width:28, height:28, border:`1px solid ${C.border}`, borderRadius:4, background:"transparent", cursor:"pointer", fontSize:16, color:C.text }}>−</button>
-                      <span style={{ fontSize:14, fontWeight:700, color:C.text, minWidth:16, textAlign:"center" }}>{cart[p.id]}</span>
-                      <button onClick={()=>addToCart(activeStore,p.id)} style={{ width:28, height:28, border:"none", borderRadius:4, background:C.accent, cursor:"pointer", fontSize:16, color:"#000" }}>+</button>
-                    </div>
-                  ) : (
-                    <button onClick={()=>addToCart(activeStore,p.id)} style={{ background:C.accent, color:"#000", border:"none", borderRadius:4, padding:"6px 14px", fontSize:12, fontWeight:700, cursor:"pointer" }}>Add</button>
-                  )}
+          {products.length===0 ? (
+            <div style={{ textAlign:"center", padding:"2rem", color:C.textMuted }}>
+              <p style={{ fontSize:24, margin:"0 0 8px" }}>🍞</p>
+              <p style={{ fontSize:13 }}>No products available right now.</p>
+            </div>
+          ) : (
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(2,minmax(0,1fr))", gap:10 }}>
+              {products.map(p=>(
+                <div key={p.id} style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:8, padding:"1rem" }}>
+                  {p.image_url
+                    ? <img src={p.image_url} alt={p.name} style={{ width:"100%", height:90, objectFit:"cover", borderRadius:4, marginBottom:10, display:"block" }}/>
+                    : <div style={{ width:40, height:40, background:C.surfaceHigh, borderRadius:6, display:"flex", alignItems:"center", justifyContent:"center", fontSize:22, marginBottom:10 }}>🍞</div>
+                  }
+                  <p style={{ fontSize:14, fontWeight:600, color:C.text, margin:"0 0 4px", letterSpacing:"-0.01em" }}>{p.name}</p>
+                  <p style={{ fontSize:11, color:C.textMuted, margin:"0 0 4px" }}>{p.category||""}</p>
+                  <p style={{ fontSize:11, color:C.textMuted, margin:"0 0 12px", lineHeight:1.5 }}>{p.desc}</p>
+                  <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                    <span style={{ fontSize:16, fontWeight:700, color:C.accent }}>${parseFloat(p.price||0).toFixed(2)}</span>
+                    {cart[p.id] ? (
+                      <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                        <button onClick={()=>decCart(p.id)} style={{ width:28, height:28, border:`1px solid ${C.border}`, borderRadius:4, background:"transparent", cursor:"pointer", fontSize:16, color:C.text }}>−</button>
+                        <span style={{ fontSize:14, fontWeight:700, color:C.text, minWidth:16, textAlign:"center" }}>{cart[p.id]}</span>
+                        <button onClick={()=>addToCart(activeStore,p.id)} style={{ width:28, height:28, border:"none", borderRadius:4, background:C.accent, cursor:"pointer", fontSize:16, color:"#000" }}>+</button>
+                      </div>
+                    ) : (
+                      <button onClick={()=>addToCart(activeStore,p.id)} style={{ background:C.accent, color:"#000", border:"none", borderRadius:4, padding:"6px 14px", fontSize:12, fontWeight:700, cursor:"pointer" }}>Add</button>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
         <BottomNav/>
       </div>
@@ -460,17 +478,21 @@ function CustomerApp({ user, onSignOut }) {
     const place = async () => {
       setProc(true);
       const itemsSummary = cartProducts.map(p=>`${p.name} x${p.qty}`).join(", ");
-      await supabase.from("orders").insert({
+      const itemsJson = JSON.stringify(cartProducts.map(p=>({ product_id:p.id, name:p.name, quantity:p.qty, price:p.price })));
+      const { error } = await supabase.from("orders").insert({
         customer_id: user.id,
-        seller_id: cartStoreObj?.id?.toString()||"unknown",
-        items: itemsSummary,
+        seller_id:   cartStoreObj?.id || cartStore,
+        items:       itemsJson,
         total,
-        status: "preparing",
-        is_charity: isCharity,
+        status:      "preparing",
+        is_charity:  isCharity,
         charity_name: isCharity?(selectedCharity?.name||null):null,
       });
+      if (error) { alert("Order failed: "+error.message); setProc(false); return; }
       await new Promise(r=>setTimeout(r,800));
       setProc(false); setDone(true);
+      // Clear cart after successful order
+      setCart({}); setCartStore(null);
     };
 
     if (!showCart) return null;
@@ -633,35 +655,57 @@ function CustomerApp({ user, onSignOut }) {
 
   // ── MARKETPLACE ──
   const Marketplace = () => {
-    const filtered = hoodFilter==="All"?STORES:STORES.filter(s=>s.hood===hoodFilter);
+    const [search, setSearch] = useState("");
+    const filtered = sellers.filter(s=>{
+      const matchHood = hoodFilter==="All" || s.hood===hoodFilter;
+      const matchSearch = !search ||
+        (s.business||s.name||"").toLowerCase().includes(search.toLowerCase()) ||
+        (s.desc||"").toLowerCase().includes(search.toLowerCase()) ||
+        (s.hood||"").toLowerCase().includes(search.toLowerCase());
+      return matchHood && matchSearch;
+    });
     return (
       <div style={{ padding:"1.25rem 1.5rem" }}>
         <div style={{ marginBottom:"1rem" }}>
           <h2 style={{ fontSize:22, fontWeight:700, color:C.text, margin:"0 0 3px", letterSpacing:"-0.02em" }}>Explore Local Bakers</h2>
           <p style={{ fontSize:13, color:C.textMuted, margin:0 }}>Fresh home-baked goods from your neighbourhood</p>
         </div>
+        {/* Search */}
+        <div style={{ marginBottom:10 }}>
+          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search bakers by name or neighbourhood..."
+            style={{ width:"100%", padding:"10px 14px", border:`1px solid ${C.border}`, borderRadius:6, fontSize:13, color:C.text, background:C.surface, outline:"none", boxSizing:"border-box" }}/>
+        </div>
+        {/* Hood filter */}
         <div style={{ display:"flex", gap:7, marginBottom:"1rem", overflowX:"auto", paddingBottom:4 }}>
           {HOODS.map(h=><Pill key={h} label={h} active={hoodFilter===h} onClick={()=>setHoodFilter(h)}/>)}
         </div>
-        <div style={{ display:"grid", gridTemplateColumns:"repeat(2,minmax(0,1fr))", gap:10 }}>
-          {filtered.map(store=>(
-            <div key={store.id} onClick={()=>setActiveStore(store.id)} style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:8, padding:"1rem", cursor:"pointer", transition:"border-color 0.15s" }}
-              onMouseEnter={e=>e.currentTarget.style.borderColor=C.borderMid}
-              onMouseLeave={e=>e.currentTarget.style.borderColor=C.border}>
-              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:10 }}>
-                <div style={{ width:44, height:44, background:C.surfaceHigh, borderRadius:7, display:"flex", alignItems:"center", justifyContent:"center", fontSize:22 }}>{store.emoji}</div>
-                {store.badge && <span style={{ background:C.accentBg, color:C.accent, fontSize:10, fontWeight:700, padding:"2px 8px", borderRadius:3, letterSpacing:"0.04em" }}>{store.badge}</span>}
-              </div>
-              <p style={{ fontSize:14, fontWeight:600, color:C.text, margin:"0 0 3px", letterSpacing:"-0.01em" }}>{store.name}</p>
-              <p style={{ fontSize:11, color:C.textMuted, margin:"0 0 5px" }}>📍 {store.hood}</p>
-              <p style={{ fontSize:11, color:C.textSub, margin:"0 0 10px", lineHeight:1.5 }}>{store.desc}</p>
-              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-                <span style={{ fontSize:11, color:C.textMuted }}>⭐ {store.rating} · {store.reviews}</span>
+        {loadingSellers ? (
+          <div style={{ textAlign:"center", padding:"2rem", color:C.textMuted, fontSize:13 }}>Finding bakers near you...</div>
+        ) : filtered.length===0 ? (
+          <div style={{ textAlign:"center", padding:"2rem", color:C.textMuted }}>
+            <p style={{ fontSize:24, margin:"0 0 8px" }}>🔍</p>
+            <p style={{ fontSize:14, fontWeight:600, color:C.text, margin:"0 0 4px" }}>No bakers found</p>
+            <p style={{ fontSize:13, margin:0 }}>{search ? `No results for "${search}"` : "No bakers in this neighbourhood yet."}</p>
+          </div>
+        ) : (
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(2,minmax(0,1fr))", gap:10 }}>
+            {filtered.map(store=>(
+              <div key={store.id} onClick={()=>{ setActiveStore(store.id); loadSellerProducts(store.id); }} style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:8, padding:"1rem", cursor:"pointer", transition:"border-color 0.15s" }}
+                onMouseEnter={e=>e.currentTarget.style.borderColor=C.borderMid}
+                onMouseLeave={e=>e.currentTarget.style.borderColor=C.border}>
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:10 }}>
+                  <div style={{ width:44, height:44, background:C.surfaceHigh, borderRadius:7, overflow:"hidden", display:"flex", alignItems:"center", justifyContent:"center", fontSize:22 }}>
+                    {store.logo_url ? <img src={store.logo_url} alt={store.business} style={{ width:"100%", height:"100%", objectFit:"cover" }}/> : <span>🍞</span>}
+                  </div>
+                </div>
+                <p style={{ fontSize:14, fontWeight:600, color:C.text, margin:"0 0 3px", letterSpacing:"-0.01em" }}>{store.business||store.name}</p>
+                <p style={{ fontSize:11, color:C.textMuted, margin:"0 0 5px" }}>📍 {store.hood||"Toronto"}</p>
+                <p style={{ fontSize:11, color:C.textSub, margin:"0 0 10px", lineHeight:1.5 }}>{store.desc||"Home baker"}</p>
                 <span style={{ fontSize:11, color:C.accent, fontWeight:600 }}>Browse →</span>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
     );
   };
@@ -796,7 +840,7 @@ function CustomerApp({ user, onSignOut }) {
             <p style={{ fontSize:12, color:C.textMuted, margin:0, lineHeight:1.5 }}>Click Browse Stores to add items. Your donation will be pre-selected at checkout.</p>
           </div>
         )}
-        <button onClick={()=>{ if(selected){ setSelectedCharity(selected); setIsCharity(true); } setViewAndSave("marketplace"); }} style={{ width:"100%", padding:"12px", background:selected?C.charity:"rgba(255,255,255,0.08)", color:selected?"#FFF":C.textMuted, border:"none", borderRadius:5, fontSize:13, fontWeight:700, cursor:selected?"pointer":"default" }}>
+        <button onClick={()=>{ if(selected){ setSelectedCharity(selected); setIsCharity(true); } setView("marketplace"); }} style={{ width:"100%", padding:"12px", background:selected?C.charity:"rgba(255,255,255,0.08)", color:selected?"#FFF":C.textMuted, border:"none", borderRadius:5, fontSize:13, fontWeight:700, cursor:selected?"pointer":"default" }}>
           {selected?"Browse Stores to Donate →":"Select a charity above first"}
         </button>
         <div style={{ marginTop:"1.5rem", borderTop:`1px solid ${C.border}`, paddingTop:"1.25rem" }}>
@@ -880,10 +924,7 @@ const COST_CATS_DEF = [
 ];
 
 function SellerApp({ user, onSignOut }) {
-  const [view, setView] = useState(()=>{
-    try { return localStorage.getItem('hearthside_seller_view')||"dashboard"; } catch(e) { return "dashboard"; }
-  });
-  const setViewAndSave = (v) => { try { localStorage.setItem('hearthside_seller_view',v); } catch(e){} setView(v); };
+  const [view,            setView]            = useState("dashboard");
   const [products,        setProducts]        = useState([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
   // Shared finances state — read by Dashboard, written by Finances
@@ -1110,7 +1151,7 @@ function SellerApp({ user, onSignOut }) {
         {SELLER_NAV.map(item=>{
           const active = view===item.id;
           return (
-            <button key={item.id} onClick={()=>setViewAndSave(item.id)} style={{
+            <button key={item.id} onClick={()=>setView(item.id)} style={{
               display:"flex", alignItems:"center", gap:10, width:"100%", padding:"8px 10px",
               background:active?"rgba(196,98,45,0.15)":"transparent", border:"none",
               borderRadius:5, cursor:"pointer", marginBottom:1, textAlign:"left"
@@ -1272,7 +1313,7 @@ function SellerApp({ user, onSignOut }) {
             <p style={{ fontSize:32, margin:"0 0 10px" }}>📊</p>
             <p style={{ fontSize:16, fontWeight:600, color:C.text, margin:"0 0 6px" }}>No financial data yet</p>
             <p style={{ fontSize:13, color:C.textMuted, margin:"0 0 1.25rem" }}>Head to the Finances tab to enter your revenue and costs. Your dashboard will populate automatically.</p>
-            <button onClick={()=>setViewAndSave("finances")} style={{ background:C.accent, color:"#FFF", border:"none", borderRadius:6, padding:"10px 20px", fontSize:13, fontWeight:700, cursor:"pointer" }}>
+            <button onClick={()=>setView("finances")} style={{ background:C.accent, color:"#FFF", border:"none", borderRadius:6, padding:"10px 20px", fontSize:13, fontWeight:700, cursor:"pointer" }}>
               Go to Finances →
             </button>
           </div>
@@ -1796,69 +1837,17 @@ function SellerApp({ user, onSignOut }) {
     const [filter,        setFilter]        = useState("all");
     const [liveOrders,    setLiveOrders]    = useState(ORDERS_DATA);
     const [loadingOrders, setLoadingOrders] = useState(true);
-
     useEffect(()=>{
       if (!user?.id) { setLoadingOrders(false); return; }
       supabase.from("orders").select("*").eq("seller_id", user.id.toString()).order("created_at",{ ascending:false })
         .then(({ data })=>{ if (data&&data.length>0) setLiveOrders(data.map(o=>({ ...o, customer:o.customer_id?.slice(0,8)||"Customer", date:new Date(o.created_at).toLocaleDateString("en-US",{month:"short",day:"numeric"}) }))); setLoadingOrders(false); });
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
-
-    const updateStatus = async (id, status) => {
-      await supabase.from("orders").update({ status }).eq("id", id);
-      setLiveOrders(p=>p.map(o=>o.id===id?{...o,status}:o));
-
-      // When marked delivered, deduct stock for each item in the order
-      if (status === "delivered") {
-        const order = liveOrders.find(o=>o.id===id);
-        if (order?.items) {
-          // items is stored as JSON array [{product_id, quantity, name}] or as a string
-          let items = [];
-          try { items = typeof order.items==="string" ? JSON.parse(order.items) : order.items; } catch(e) {}
-          if (Array.isArray(items)) {
-            for (const item of items) {
-              if (!item.product_id) continue;
-              // Fetch current stock then decrement
-              const { data: prod } = await supabase.from("products").select("stock").eq("id", item.product_id).single();
-              if (prod) {
-                const newStock = Math.max(0, (prod.stock||0) - (item.quantity||1));
-                await supabase.from("products").update({ stock: newStock }).eq("id", item.product_id);
-              }
-            }
-            // Reload products so storefront reflects new stock
-            reloadProducts();
-          }
-        }
-      }
-    };
-
     const filtered = filter==="all"?liveOrders:liveOrders.filter(o=>o.status===filter);
-    const deliveredTotal = liveOrders.filter(o=>o.status==="delivered").reduce((s,o)=>s+(o.total||0),0);
-    const pendingTotal   = liveOrders.filter(o=>o.status!=="delivered").reduce((s,o)=>s+(o.total||0),0);
-
     if (loadingOrders) return <div style={{ padding:"2rem", textAlign:"center", color:C.textMuted, fontSize:13 }}>Loading orders...</div>;
     return (
       <div style={{ padding:"2rem" }}>
         <h1 style={{ fontSize:24, fontWeight:700, color:C.text, margin:"0 0 1.25rem", letterSpacing:"-0.02em" }}>Orders</h1>
-
-        {/* Earnings summary */}
-        {liveOrders.length>0 && (
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(3,minmax(0,1fr))", gap:10, marginBottom:"1.5rem" }}>
-            <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:8, padding:"1rem 1.25rem" }}>
-              <p style={{ fontSize:10, color:C.textMuted, margin:"0 0 5px", textTransform:"uppercase", letterSpacing:"0.09em", fontWeight:600 }}>Total Orders</p>
-              <p style={{ fontSize:26, fontWeight:700, color:C.text, margin:0 }}>{liveOrders.length}</p>
-            </div>
-            <div style={{ background:C.surface, border:`1px solid ${C.successBg}`, borderRadius:8, padding:"1rem 1.25rem" }}>
-              <p style={{ fontSize:10, color:C.textMuted, margin:"0 0 5px", textTransform:"uppercase", letterSpacing:"0.09em", fontWeight:600 }}>Earned (Delivered)</p>
-              <p style={{ fontSize:26, fontWeight:700, color:C.success, margin:0 }}>${deliveredTotal.toFixed(2)}</p>
-            </div>
-            <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:8, padding:"1rem 1.25rem" }}>
-              <p style={{ fontSize:10, color:C.textMuted, margin:"0 0 5px", textTransform:"uppercase", letterSpacing:"0.09em", fontWeight:600 }}>Pending Revenue</p>
-              <p style={{ fontSize:26, fontWeight:700, color:C.warning, margin:0 }}>${pendingTotal.toFixed(2)}</p>
-            </div>
-          </div>
-        )}
-
         <div style={{ display:"flex", gap:7, marginBottom:"1rem" }}>
           {["all","preparing","ready","delivered"].map(s=>(
             <Pill key={s} label={s==="all"?`All (${liveOrders.length})`:s.charAt(0).toUpperCase()+s.slice(1)} active={filter===s} onClick={()=>setFilter(s)}/>
@@ -1875,7 +1864,7 @@ function SellerApp({ user, onSignOut }) {
             <table style={{ width:"100%", borderCollapse:"collapse", fontSize:13 }}>
               <thead>
                 <tr style={{ borderBottom:`1px solid ${C.border}` }}>
-                  {["Order","Customer","Items","Total","Status","Date",""].map(h=>(
+                  {["Order","Customer","Items","Total","Status","Date"].map(h=>(
                     <th key={h} style={{ textAlign:"left", padding:"10px 14px", color:C.textMuted, fontWeight:600, fontSize:10, textTransform:"uppercase", letterSpacing:"0.08em" }}>{h}</th>
                   ))}
                 </tr>
@@ -1883,47 +1872,16 @@ function SellerApp({ user, onSignOut }) {
               <tbody>
                 {filtered.map((o,i)=>(
                   <tr key={o.id} style={{ borderBottom:i<filtered.length-1?`1px solid ${C.border}`:"none" }}>
-                    <td style={{ padding:"11px 14px", color:C.accent, fontWeight:700, fontSize:12 }}>{typeof o.id==="string"?o.id.slice(0,8):o.id}</td>
+                    <td style={{ padding:"11px 14px", color:C.accent, fontWeight:700, fontSize:12 }}>{o.id}</td>
                     <td style={{ padding:"11px 14px", color:C.text, fontWeight:500 }}>{o.customer}</td>
-                    <td style={{ padding:"11px 14px", color:C.textMuted, maxWidth:160, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{o.items}</td>
-                    <td style={{ padding:"11px 14px", color:o.status==="delivered"?C.success:C.text, fontWeight:700 }}>${o.total?.toFixed(2)||"0.00"}</td>
+                    <td style={{ padding:"11px 14px", color:C.textMuted, maxWidth:180, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{o.items}</td>
+                    <td style={{ padding:"11px 14px", color:C.text, fontWeight:600 }}>${o.total?.toFixed(2)||"0.00"}</td>
                     <td style={{ padding:"11px 14px" }}><Badge status={o.status}/></td>
                     <td style={{ padding:"11px 14px", color:C.textMuted }}>{o.date}</td>
-                    <td style={{ padding:"11px 14px" }}>
-                      {o.status!=="delivered" && (
-                        <select value={o.status} onChange={e=>updateStatus(o.id, e.target.value)}
-                          style={{ padding:"4px 8px", border:`1px solid ${C.border}`, borderRadius:4, fontSize:11, color:C.text, background:C.surfaceHigh, cursor:"pointer", outline:"none" }}>
-                          <option value="preparing">Preparing</option>
-                          <option value="ready">Ready</option>
-                          <option value="delivered">Delivered ✓</option>
-                        </select>
-                      )}
-                      {o.status==="delivered" && <span style={{ fontSize:11, color:C.success, fontWeight:600 }}>✓ Done</span>}
-                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
-          </div>
-        )}
-
-        {/* Delivered earnings breakdown */}
-        {liveOrders.filter(o=>o.status==="delivered").length>0 && (
-          <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:8, padding:"1.25rem", marginTop:14 }}>
-            <p style={{ fontWeight:600, fontSize:13, color:C.text, margin:"0 0 10px" }}>Earnings Breakdown — Delivered Orders</p>
-            {liveOrders.filter(o=>o.status==="delivered").map((o,i,arr)=>(
-              <div key={o.id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"8px 0", borderBottom:i<arr.length-1?`1px solid ${C.border}`:"none" }}>
-                <div>
-                  <p style={{ fontSize:13, color:C.text, fontWeight:500, margin:0 }}>{o.customer}</p>
-                  <p style={{ fontSize:11, color:C.textMuted, margin:0 }}>{o.date} · {o.items}</p>
-                </div>
-                <span style={{ fontSize:15, fontWeight:700, color:C.success }}>${o.total?.toFixed(2)||"0.00"}</span>
-              </div>
-            ))}
-            <div style={{ display:"flex", justifyContent:"space-between", marginTop:10, paddingTop:10, borderTop:`1px solid ${C.border}` }}>
-              <span style={{ fontSize:13, fontWeight:700, color:C.text }}>Total Earned</span>
-              <span style={{ fontSize:16, fontWeight:700, color:C.success }}>${deliveredTotal.toFixed(2)}</span>
-            </div>
           </div>
         )}
       </div>
@@ -2608,375 +2566,6 @@ function SellerApp({ user, onSignOut }) {
     );
   };
 
-  // ── FLASH SALES ──
-  const FlashSales = () => {
-    const CHARITIES = [
-      "Daily Bread Food Bank","Second Harvest","Seva Food Bank","The Stop Community Food Centre","Flemingdon Health Centre","Local Mosque/Church/Temple","Other",
-    ];
-    const [listings,    setListings]    = useState([]);
-    const [loading,     setLoading]     = useState(true);
-    const [showAdd,     setShowAdd]     = useState(false);
-    const [form,        setForm]        = useState({
-      product_id:"", custom_name:"", original_price:"", flash_price:"",
-      quantity:"", unit:"pack", expires_at:"", notes:"",
-      listing_type:"discount", charity_name:"", is_charity:false,
-    });
-    const [saving, setSaving] = useState(false);
-    const [soldPrompt, setSoldPrompt] = useState(null); // {id, listing, soldQty}
-
-    const TYPES = [
-      { v:"discount", label:"🏷 Discounted",  desc:"Sell at a reduced price",          bg:C.accentBg,   color:C.accent   },
-      { v:"bulk",     label:"📦 Bulk Deal",    desc:"Sell a larger quantity cheaply",   bg:C.infoBg,     color:C.info     },
-      { v:"charity",  label:"❤️ Donate",       desc:"Give to a charity of your choice", bg:C.charityBg,  color:C.charity  },
-    ];
-
-    useEffect(()=>{
-      if (!user?.id) { setLoading(false); return; }
-      supabase.from("flash_sales").select("*").eq("seller_id", user.id).order("created_at",{ascending:false})
-        .then(({data})=>{ setListings(data||[]); setLoading(false); });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    },[]);
-
-    const addListing = async () => {
-      if (!form.custom_name||!form.quantity) return;
-      setSaving(true);
-      const entry = {
-        seller_id:      user.id,
-        product_id:     form.product_id||null,
-        custom_name:    form.custom_name,
-        original_price: parseFloat(form.original_price)||0,
-        flash_price:    form.listing_type==="charity" ? 0 : parseFloat(form.flash_price)||0,
-        quantity:       parseInt(form.quantity)||1,
-        unit:           form.unit,
-        listing_type:   form.listing_type,
-        is_charity:     form.listing_type==="charity",
-        charity_name:   form.listing_type==="charity" ? form.charity_name : null,
-        notes:          form.notes,
-        expires_at:     form.expires_at||null,
-        status:         "active",
-      };
-      const { data, error } = await supabase.from("flash_sales").insert(entry).select().single();
-      if (!error && data) setListings(p=>[data,...p]);
-      else if (error) alert("Error: "+error.message);
-      setSaving(false);
-      setShowAdd(false);
-      setForm({ product_id:"", custom_name:"", original_price:"", flash_price:"", quantity:"", unit:"pack", expires_at:"", notes:"", listing_type:"discount", charity_name:"", is_charity:false });
-    };
-
-
-    const deleteListing = async (id) => {
-      await supabase.from("flash_sales").delete().eq("id", id);
-      setListings(p=>p.filter(l=>l.id!==id));
-    };
-
-    const active = listings.filter(l=>l.status==="active");
-    const closed = listings.filter(l=>l.status==="closed");
-
-    const toggleListing = (id, currentStatus) => {
-      if (currentStatus==="active") {
-        // Show "how many sold?" prompt before closing
-        const listing = listings.find(l=>l.id===id);
-        setSoldPrompt({ id, listing, soldQty: String(listing?.quantity||"") });
-      } else {
-        // Reopen — just set back to active, no stock change
-        supabase.from("flash_sales").update({ status:"active" }).eq("id", id);
-        setListings(p=>p.map(l=>l.id===id?{...l,status:"active"}:l));
-      }
-    };
-
-    const confirmClose = async () => {
-      if (!soldPrompt) return;
-      const { id, listing, soldQty } = soldPrompt;
-      const sold = parseInt(soldQty)||0;
-
-      // Mark listing closed
-      await supabase.from("flash_sales").update({ status:"closed", quantity_sold: sold }).eq("id", id);
-      setListings(p=>p.map(l=>l.id===id?{...l,status:"closed",quantity_sold:sold}:l));
-
-      // Deduct only the confirmed sold amount from product stock
-      if (sold>0 && listing?.product_id) {
-        const { data: prod } = await supabase.from("products").select("stock").eq("id", listing.product_id).single();
-        if (prod) {
-          const newStock = Math.max(0, (prod.stock||0) - sold);
-          await supabase.from("products").update({ stock: newStock }).eq("id", listing.product_id);
-          reloadProducts();
-        }
-      }
-      setSoldPrompt(null);
-    };
-
-    const TypeBadge = ({type}) => {
-      const t = TYPES.find(x=>x.v===type)||TYPES[0];
-      return <span style={{ background:t.bg, color:t.color, fontSize:10, fontWeight:700, padding:"2px 8px", borderRadius:4 }}>{t.label}</span>;
-    };
-
-    if (loading) return <div style={{ padding:"2rem", textAlign:"center", color:C.textMuted, fontSize:13 }}>Loading...</div>;
-
-    return (
-      <div style={{ padding:"2rem" }}>
-        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:"1.5rem" }}>
-          <div>
-            <h1 style={{ fontSize:24, fontWeight:700, color:C.text, margin:"0 0 4px", letterSpacing:"-0.02em" }}>Flash Sales</h1>
-            <p style={{ fontSize:13, color:C.textMuted, margin:0 }}>Sell leftovers at a discount, in bulk, or donate to charity</p>
-          </div>
-          <button onClick={()=>setShowAdd(true)} style={{ background:C.accent, color:"#FFF", border:"none", borderRadius:6, padding:"10px 18px", fontSize:13, fontWeight:700, cursor:"pointer" }}>+ New Listing</button>
-        </div>
-
-        {/* Stats */}
-        <div style={{ display:"grid", gridTemplateColumns:"repeat(3,minmax(0,1fr))", gap:10, marginBottom:"1.5rem" }}>
-          {[
-            ["Active Listings", active.length, C.accent],
-            ["Donated Batches", listings.filter(l=>l.is_charity).length, C.charity],
-            ["Closed Listings", closed.length, C.textMuted],
-          ].map(([label,val,color])=>(
-            <div key={label} style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:8, padding:"1rem 1.25rem" }}>
-              <p style={{ fontSize:10, color:C.textMuted, margin:"0 0 6px", textTransform:"uppercase", letterSpacing:"0.1em", fontWeight:600 }}>{label}</p>
-              <p style={{ fontSize:28, fontWeight:700, margin:0, color, letterSpacing:"-0.02em" }}>{val}</p>
-            </div>
-          ))}
-        </div>
-
-        {/* All listings — unified with toggle switch */}
-        {listings.length===0 ? (
-          <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:8, padding:"3rem", textAlign:"center", marginBottom:14 }}>
-            <p style={{ fontSize:36, margin:"0 0 10px" }}>⚡</p>
-            <p style={{ fontSize:15, fontWeight:600, color:C.text, margin:"0 0 6px" }}>No flash sales yet</p>
-            <p style={{ fontSize:13, color:C.textMuted, margin:"0 0 1.25rem" }}>List your leftover baked goods at a discount, in bulk, or donate them to a local charity.</p>
-            <button onClick={()=>setShowAdd(true)} style={{ background:C.accent, color:"#FFF", border:"none", borderRadius:6, padding:"10px 20px", fontSize:13, fontWeight:700, cursor:"pointer" }}>+ Create your first listing</button>
-          </div>
-        ) : (
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(3,minmax(0,1fr))", gap:12, marginBottom:"1.5rem" }}>
-            {listings.map(l=>{
-              const discount = l.original_price>0 ? Math.round((1-l.flash_price/l.original_price)*100) : null;
-              const isActive = l.status==="active";
-              return (
-                <div key={l.id} style={{ background:C.surface, border:`1px solid ${isActive?(l.is_charity?C.charityBorder:C.border):C.border}`, borderRadius:10, padding:"1.25rem", opacity:isActive?1:0.6, position:"relative" }}>
-                  {/* Header: name + type badge */}
-                  <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:8 }}>
-                    <p style={{ fontSize:15, fontWeight:700, color:C.text, margin:0, lineHeight:1.3, flex:1, paddingRight:8 }}>{l.custom_name}</p>
-                    <TypeBadge type={l.listing_type}/>
-                  </div>
-
-                  {/* Details */}
-                  <div style={{ display:"flex", gap:12, marginBottom:8, flexWrap:"wrap" }}>
-                    {l.listing_type!=="charity" && (
-                      <div>
-                        <p style={{ fontSize:10, color:C.textMuted, margin:"0 0 1px", textTransform:"uppercase", letterSpacing:"0.06em" }}>Price</p>
-                        <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-                          <span style={{ fontSize:18, fontWeight:700, color:isActive?C.accent:C.textMuted }}>${l.flash_price?.toFixed(2)||"0.00"}</span>
-                          {l.original_price>0 && <span style={{ fontSize:12, color:C.textMuted, textDecoration:"line-through" }}>${l.original_price?.toFixed(2)}</span>}
-                          {discount>0 && isActive && <span style={{ fontSize:11, fontWeight:700, color:C.success, background:C.successBg, padding:"1px 6px", borderRadius:3 }}>-{discount}%</span>}
-                        </div>
-                      </div>
-                    )}
-                    {l.is_charity && l.charity_name && (
-                      <div>
-                        <p style={{ fontSize:10, color:C.textMuted, margin:"0 0 1px", textTransform:"uppercase", letterSpacing:"0.06em" }}>Donating to</p>
-                        <p style={{ fontSize:13, fontWeight:600, color:C.charity, margin:0 }}>{l.charity_name}</p>
-                      </div>
-                    )}
-                    <div>
-                      <p style={{ fontSize:10, color:C.textMuted, margin:"0 0 1px", textTransform:"uppercase", letterSpacing:"0.06em" }}>Quantity</p>
-                      <p style={{ fontSize:13, fontWeight:600, color:C.text, margin:0 }}>{l.quantity} {l.unit}</p>
-                    </div>
-                    {l.expires_at && (
-                      <div>
-                        <p style={{ fontSize:10, color:C.textMuted, margin:"0 0 1px", textTransform:"uppercase", letterSpacing:"0.06em" }}>Expires</p>
-                        <p style={{ fontSize:13, fontWeight:600, color:C.warning, margin:0 }}>{new Date(l.expires_at).toLocaleDateString("en-US",{month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"})}</p>
-                      </div>
-                    )}
-                  </div>
-                  {l.notes && <p style={{ fontSize:12, color:C.textMuted, margin:"0 0 8px", lineHeight:1.5 }}>{l.notes}</p>}
-                  {!isActive && l.quantity_sold!=null && (
-                    <p style={{ fontSize:12, color:C.success, fontWeight:600, margin:"0 0 8px" }}>✓ {l.quantity_sold} {l.unit} sold</p>
-                  )}
-                  {!isActive && !l.quantity_sold && (
-                    <p style={{ fontSize:12, color:C.textMuted, margin:"0 0 8px" }}>0 sold recorded</p>
-                  )}
-
-                  {/* Footer: toggle switch + delete */}
-                  <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", paddingTop:10, borderTop:`1px solid ${C.border}` }}>
-                    <button onClick={()=>toggleListing(l.id, l.status)} style={{
-                      display:"flex", alignItems:"center", gap:8, background:"transparent", border:"none", cursor:"pointer", padding:0
-                    }}>
-                      {/* Toggle pill */}
-                      <div style={{ width:38, height:22, borderRadius:11, background:isActive?C.accent:"rgba(156,122,102,0.25)", position:"relative", transition:"background 0.2s", flexShrink:0 }}>
-                        <div style={{ position:"absolute", top:3, left:isActive?18:3, width:16, height:16, borderRadius:"50%", background:"#FFF", transition:"left 0.2s", boxShadow:"0 1px 3px rgba(0,0,0,0.2)" }}/>
-                      </div>
-                      <span style={{ fontSize:12, fontWeight:600, color:isActive?C.accent:C.textMuted }}>{isActive?"Active":"Closed"}</span>
-                    </button>
-                    <button onClick={()=>deleteListing(l.id)} style={{ background:C.dangerBg, border:`1px solid ${C.danger}`, borderRadius:4, padding:"3px 10px", fontSize:11, color:C.danger, cursor:"pointer" }}>Delete</button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Sold quantity prompt modal */}
-        {soldPrompt && (
-          <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.6)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:300 }}>
-            <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:12, width:380, maxWidth:"92vw", padding:"1.75rem", boxShadow:"0 24px 60px rgba(0,0,0,0.3)" }}>
-              <p style={{ fontSize:18, fontWeight:700, color:C.text, margin:"0 0 6px", letterSpacing:"-0.01em" }}>Close listing</p>
-              <p style={{ fontSize:13, color:C.textMuted, margin:"0 0 1.25rem", lineHeight:1.6 }}>
-                How many <strong style={{ color:C.text }}>{soldPrompt.listing?.custom_name}</strong> did you actually sell?
-                {soldPrompt.listing?.product_id && <span> We'll deduct this from your product stock.</span>}
-              </p>
-              <div style={{ display:"flex", gap:8, alignItems:"center", marginBottom:"1.25rem" }}>
-                <div style={{ flex:1 }}>
-                  <label style={{ fontSize:10, fontWeight:600, color:C.textMuted, display:"block", marginBottom:5, textTransform:"uppercase", letterSpacing:"0.08em" }}>Units Sold</label>
-                  <input
-                    value={soldPrompt.soldQty}
-                    onChange={e=>setSoldPrompt(p=>({...p,soldQty:e.target.value}))}
-                    type="text" inputMode="numeric" placeholder="0"
-                    style={{ width:"100%", padding:"10px 12px", border:`1px solid ${C.border}`, borderRadius:6, fontSize:16, fontWeight:700, color:C.text, background:C.surfaceHigh, outline:"none", boxSizing:"border-box" }}
-                    autoFocus
-                  />
-                </div>
-                <div style={{ paddingTop:20 }}>
-                  <p style={{ fontSize:12, color:C.textMuted, margin:0 }}>of {soldPrompt.listing?.quantity} {soldPrompt.listing?.unit}</p>
-                </div>
-              </div>
-              <div style={{ background:C.surfaceHigh, borderRadius:6, padding:"10px 12px", marginBottom:"1.25rem" }}>
-                <p style={{ fontSize:12, color:C.textMuted, margin:0, lineHeight:1.6 }}>
-                  💡 Enter <strong>0</strong> if nothing sold — stock won't change. Enter the actual number sold to keep your stock accurate.
-                </p>
-              </div>
-              <div style={{ display:"flex", gap:8 }}>
-                <button onClick={()=>setSoldPrompt(null)} style={{ flex:1, padding:"10px", border:`1px solid ${C.border}`, borderRadius:5, background:"transparent", color:C.textMuted, cursor:"pointer", fontSize:13 }}>Cancel</button>
-                <button onClick={confirmClose} style={{ flex:2, padding:"10px", background:C.accent, color:"#FFF", border:"none", borderRadius:5, cursor:"pointer", fontSize:13, fontWeight:700 }}>
-                  Close Listing
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Add listing modal */}
-        {showAdd && (
-          <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.65)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:200 }}>
-            <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:12, width:520, maxWidth:"95vw", maxHeight:"92vh", overflowY:"auto", boxShadow:"0 24px 60px rgba(0,0,0,0.3)" }}>
-              <div style={{ padding:"1.25rem 1.5rem", borderBottom:`1px solid ${C.border}`, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-                <h2 style={{ fontSize:18, fontWeight:700, color:C.text, margin:0 }}>New Flash Sale Listing</h2>
-                <button onClick={()=>setShowAdd(false)} style={{ background:C.surfaceHigh, border:"none", width:28, height:28, borderRadius:4, fontSize:14, cursor:"pointer", color:C.textMuted }}>✕</button>
-              </div>
-              <div style={{ padding:"1.25rem 1.5rem" }}>
-
-                {/* Listing type selector */}
-                <div style={{ marginBottom:16 }}>
-                  <label style={{ fontSize:10, fontWeight:700, color:C.textMuted, display:"block", marginBottom:8, textTransform:"uppercase", letterSpacing:"0.08em" }}>Listing Type</label>
-                  <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:8 }}>
-                    {TYPES.map(t=>(
-                      <button key={t.v} onClick={()=>setForm(f=>({...f,listing_type:t.v,is_charity:t.v==="charity"}))} style={{
-                        padding:"10px 8px", borderRadius:6, border:`1px solid ${form.listing_type===t.v?t.color:C.border}`,
-                        background:form.listing_type===t.v?t.bg:"transparent",
-                        color:form.listing_type===t.v?t.color:C.textMuted,
-                        fontSize:12, fontWeight:form.listing_type===t.v?700:400, cursor:"pointer", textAlign:"center", lineHeight:1.4
-                      }}>
-                        <div>{t.label}</div>
-                        <div style={{ fontSize:10, opacity:0.75, marginTop:2 }}>{t.desc}</div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Link to existing product (optional) */}
-                {products.length>0 && (
-                  <div style={{ marginBottom:12 }}>
-                    <label style={{ fontSize:10, fontWeight:600, color:C.textMuted, display:"block", marginBottom:5, textTransform:"uppercase", letterSpacing:"0.08em" }}>Link to Product (optional)</label>
-                    <select value={form.product_id} onChange={e=>{
-                      const p = products.find(x=>x.id===e.target.value);
-                      setForm(f=>({...f, product_id:e.target.value, custom_name:p?p.name:f.custom_name, original_price:p?String(p.price):f.original_price }));
-                    }} style={{ width:"100%", padding:"9px 12px", border:`1px solid ${C.border}`, borderRadius:5, fontSize:13, color:C.text, background:C.surfaceHigh, outline:"none" }}>
-                      <option value="">— Select a product —</option>
-                      {products.map(p=><option key={p.id} value={p.id}>{p.name} (${p.price?.toFixed(2)})</option>)}
-                    </select>
-                  </div>
-                )}
-
-                {/* Name */}
-                <div style={{ marginBottom:12 }}>
-                  <label style={{ fontSize:10, fontWeight:600, color:C.textMuted, display:"block", marginBottom:5, textTransform:"uppercase", letterSpacing:"0.08em" }}>Item Name *</label>
-                  <input value={form.custom_name} onChange={e=>setForm(f=>({...f,custom_name:e.target.value}))} placeholder="e.g. Day-old sourdough loaves"
-                    style={{ width:"100%", padding:"9px 12px", border:`1px solid ${C.border}`, borderRadius:5, fontSize:13, color:C.text, background:C.surfaceHigh, outline:"none", boxSizing:"border-box" }}/>
-                </div>
-
-                {/* Price fields — hidden for charity */}
-                {form.listing_type!=="charity" && (
-                  <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:12 }}>
-                    <div>
-                      <label style={{ fontSize:10, fontWeight:600, color:C.textMuted, display:"block", marginBottom:5, textTransform:"uppercase", letterSpacing:"0.08em" }}>Original Price ($)</label>
-                      <input value={form.original_price} onChange={e=>setForm(f=>({...f,original_price:e.target.value}))} placeholder="0.00" type="text" inputMode="decimal"
-                        style={{ width:"100%", padding:"9px 12px", border:`1px solid ${C.border}`, borderRadius:5, fontSize:13, color:C.text, background:C.surfaceHigh, outline:"none", boxSizing:"border-box" }}/>
-                    </div>
-                    <div>
-                      <label style={{ fontSize:10, fontWeight:600, color:C.textMuted, display:"block", marginBottom:5, textTransform:"uppercase", letterSpacing:"0.08em" }}>Flash Price ($)</label>
-                      <input value={form.flash_price} onChange={e=>setForm(f=>({...f,flash_price:e.target.value}))} placeholder="0.00" type="text" inputMode="decimal"
-                        style={{ width:"100%", padding:"9px 12px", border:`1px solid ${C.border}`, borderRadius:5, fontSize:13, color:C.text, background:C.surfaceHigh, outline:"none", boxSizing:"border-box" }}/>
-                    </div>
-                  </div>
-                )}
-
-                {/* Charity selector */}
-                {form.listing_type==="charity" && (
-                  <div style={{ marginBottom:12 }}>
-                    <label style={{ fontSize:10, fontWeight:600, color:C.textMuted, display:"block", marginBottom:5, textTransform:"uppercase", letterSpacing:"0.08em" }}>Charity / Recipient *</label>
-                    <select value={form.charity_name} onChange={e=>setForm(f=>({...f,charity_name:e.target.value}))}
-                      style={{ width:"100%", padding:"9px 12px", border:`1px solid ${C.charityBorder}`, borderRadius:5, fontSize:13, color:C.text, background:C.charityBg, outline:"none" }}>
-                      <option value="">— Select a charity —</option>
-                      {CHARITIES.map(c=><option key={c} value={c}>{c}</option>)}
-                    </select>
-                  </div>
-                )}
-
-                {/* Quantity + unit */}
-                <div style={{ display:"grid", gridTemplateColumns:"2fr 1fr", gap:10, marginBottom:12 }}>
-                  <div>
-                    <label style={{ fontSize:10, fontWeight:600, color:C.textMuted, display:"block", marginBottom:5, textTransform:"uppercase", letterSpacing:"0.08em" }}>Quantity *</label>
-                    <input value={form.quantity} onChange={e=>setForm(f=>({...f,quantity:e.target.value}))} placeholder="e.g. 5" type="text" inputMode="numeric"
-                      style={{ width:"100%", padding:"9px 12px", border:`1px solid ${C.border}`, borderRadius:5, fontSize:13, color:C.text, background:C.surfaceHigh, outline:"none", boxSizing:"border-box" }}/>
-                  </div>
-                  <div>
-                    <label style={{ fontSize:10, fontWeight:600, color:C.textMuted, display:"block", marginBottom:5, textTransform:"uppercase", letterSpacing:"0.08em" }}>Unit</label>
-                    <select value={form.unit} onChange={e=>setForm(f=>({...f,unit:e.target.value}))}
-                      style={{ width:"100%", padding:"9px 12px", border:`1px solid ${C.border}`, borderRadius:5, fontSize:13, color:C.text, background:C.surfaceHigh, outline:"none" }}>
-                      {["loaf","loaves","pack","box","bag","dozen","portion","kg","item"].map(u=><option key={u} value={u}>{u}</option>)}
-                    </select>
-                  </div>
-                </div>
-
-                {/* Expiry */}
-                <div style={{ marginBottom:12 }}>
-                  <label style={{ fontSize:10, fontWeight:600, color:C.textMuted, display:"block", marginBottom:5, textTransform:"uppercase", letterSpacing:"0.08em" }}>Expires At (optional)</label>
-                  <input value={form.expires_at} onChange={e=>setForm(f=>({...f,expires_at:e.target.value}))} type="datetime-local"
-                    style={{ width:"100%", padding:"9px 12px", border:`1px solid ${C.border}`, borderRadius:5, fontSize:13, color:C.text, background:C.surfaceHigh, outline:"none", boxSizing:"border-box" }}/>
-                </div>
-
-                {/* Notes */}
-                <div style={{ marginBottom:16 }}>
-                  <label style={{ fontSize:10, fontWeight:600, color:C.textMuted, display:"block", marginBottom:5, textTransform:"uppercase", letterSpacing:"0.08em" }}>Notes (optional)</label>
-                  <textarea value={form.notes} onChange={e=>setForm(f=>({...f,notes:e.target.value}))} rows={2} placeholder="e.g. Baked this morning, perfect for freezing..."
-                    style={{ width:"100%", padding:"9px 12px", border:`1px solid ${C.border}`, borderRadius:5, fontSize:13, color:C.text, background:C.surfaceHigh, outline:"none", resize:"none", boxSizing:"border-box" }}/>
-                </div>
-
-                <div style={{ display:"flex", gap:8 }}>
-                  <button onClick={()=>setShowAdd(false)} style={{ flex:1, padding:"11px", border:`1px solid ${C.border}`, borderRadius:5, background:"transparent", color:C.textMuted, cursor:"pointer", fontSize:13 }}>Cancel</button>
-                  <button onClick={addListing} disabled={saving||!form.custom_name||!form.quantity} style={{
-                    flex:2, padding:"11px", border:"none", borderRadius:5, fontSize:13, fontWeight:700, cursor:"pointer",
-                    background:saving||!form.custom_name||!form.quantity?"rgba(196,98,45,0.3)":form.listing_type==="charity"?"#7C3AED":C.accent,
-                    color:"#FFF"
-                  }}>
-                    {saving?"Saving...":(form.listing_type==="charity"?"❤️ Submit Donation":"⚡ Post Flash Sale")}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  };
-
   return (
     <div style={{ display:"flex", height:"100vh", fontFamily:"'DM Sans', system-ui, sans-serif", background:C.bg, overflow:"hidden" }}>
       <ProfilePanel/>
@@ -2987,7 +2576,6 @@ function SellerApp({ user, onSignOut }) {
         {view==="orders"     && <Orders/>}
         {view==="customers"  && <Customers/>}
         {view==="finances"   && <Finances/>}
-        {view==="flashsales" && <FlashSales/>}
         {view==="delivery"   && <Delivery/>}
         {view==="community"  && <SellerCommunity/>}
       </main>
@@ -2996,55 +2584,19 @@ function SellerApp({ user, onSignOut }) {
 }
 
 // ─── APP ROOT ─────────────────────────────────────────────────────────────────
-const USER_KEY = 'hearthside_user';
-
 export default function App() {
-  // Restore user immediately from localStorage — no async, no loading flash
-  const [user, setUser] = useState(()=>{
-    try {
-      const stored = localStorage.getItem(USER_KEY);
-      return stored ? JSON.parse(stored) : null;
-    } catch(e) { return null; }
-  });
-
-  const saveUser = (u) => {
-    if (u) localStorage.setItem(USER_KEY, JSON.stringify(u));
-    else localStorage.removeItem(USER_KEY);
-    setUser(u);
-  };
+  const [user, setUser] = useState(null);
 
   useEffect(()=>{
-    // Load Google Font
     const link = document.createElement("link");
     link.rel = "stylesheet";
     link.href = "https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap";
     document.head.appendChild(link);
-
-    // Validate the stored session in the background
-    // If Supabase says the session is invalid, log the user out
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session) {
-        // No valid session — clear stored user
-        saveUser(null);
-      }
-    }).catch(()=>{});
-
-    // Listen for sign out events
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === "SIGNED_OUT") saveUser(null);
-    });
-
-    return ()=>{
-      try{ document.head.removeChild(link); }catch(e){}
-      subscription.unsubscribe();
-    };
+    return ()=>{ try{ document.head.removeChild(link); }catch(e){} };
   }, []);
 
-  const handleAuth = (u) => saveUser(u);
-  const handleSignOut = async () => { await supabase.auth.signOut(); saveUser(null); };
-
-  if (!user) return <AuthScreen onAuth={handleAuth}/>;
-  if (user.role==="seller") return <SellerApp user={user} onSignOut={handleSignOut}/>;
-  return <CustomerApp user={user} onSignOut={handleSignOut}/>;
+  if (!user) return <AuthScreen onAuth={setUser}/>;
+  if (user.role==="seller") return <SellerApp user={user} onSignOut={()=>setUser(null)}/>;
+  return <CustomerApp user={user} onSignOut={()=>setUser(null)}/>;
 }
 // Wed 18 Mar 2026 23:40:45 EDT
