@@ -540,7 +540,7 @@ function CustomerApp({ user, onSignOut }) {
       const itemsJson = JSON.stringify(cartProducts.map(p=>({ product_id:p.id, name:p.name, quantity:p.qty, price:p.price })));
       // Debug: log what we're inserting
       console.log("Placing order - customer:", user.id, "seller:", cartStoreObj?.id, "cartStore:", cartStore);
-      const { data: orderData, error } = await supabase.from("orders").insert({
+      const { error } = await supabase.from("orders").insert({
         customer_id:  user.id,
         seller_id:    cartStoreObj?.id || cartStore,
         items:        itemsJson,
