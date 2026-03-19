@@ -55,7 +55,6 @@ const STORES = [
   { id:5, name:"Biji's Spice Kitchen",  owner:"Biji Patel",     hood:"Brampton",        emoji:"🫙", instagram:"@bijispicekitchen",  whatsapp:"+14165550105", rating:4.8, reviews:145, badge:"Top Rated",    desc:"Homemade chutneys, pickles, and fresh-baked roti.", tags:["Condiments","Bread"],  deliveryFee:7, minOrder:20 },
   { id:6, name:"Sunshine Sourdough",    owner:"Tom Richards",   hood:"Roncesvalles",    emoji:"☀️", instagram:"@sunshinesourdough", whatsapp:null, rating:4.5, reviews:44,  badge:"New",          desc:"Country loaves, focaccia, and seasonal fruit crumbles.", tags:["Bread","Pastry"],  deliveryFee:5, minOrder:20 },
 ];
-// eslint-disable-next-line no-unused-vars
 const STORE_PRODUCTS = {
   1:[ { id:101, name:"Sourdough Loaf",       price:12, emoji:"🍞", desc:"Tangy slow-fermented sourdough with a golden crust.", stock:8  },
       { id:102, name:"Chocolate Brownies",   price:18, emoji:"🍫", desc:"Dense fudgy brownies with 70% dark chocolate & sea salt.", stock:12 },
@@ -430,38 +429,91 @@ function CustomerApp({ user, onSignOut }) {
           </div>
         </div>
         <div style={{ padding:"1rem 1.5rem" }}>
-          {products.length===0 ? (
+          {(() => {
+          const [lightbox, setLightbox] = React.useState(null); // {product, slide}
+          if (products.length===0) return (
             <div style={{ textAlign:"center", padding:"2rem", color:C.textMuted }}>
               <p style={{ fontSize:24, margin:"0 0 8px" }}>🍞</p>
               <p style={{ fontSize:13 }}>No products available right now.</p>
             </div>
-          ) : (
-            <div style={{ display:"grid", gridTemplateColumns:"repeat(2,minmax(0,1fr))", gap:10 }}>
-              {products.map(p=>(
-                <div key={p.id} style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:8, padding:"1rem" }}>
-                  {p.image_url
-                    ? <img src={p.image_url} alt={p.name} style={{ width:"100%", height:90, objectFit:"cover", borderRadius:4, marginBottom:10, display:"block" }}/>
-                    : <div style={{ width:40, height:40, background:C.surfaceHigh, borderRadius:6, display:"flex", alignItems:"center", justifyContent:"center", fontSize:22, marginBottom:10 }}>🍞</div>
-                  }
-                  <p style={{ fontSize:14, fontWeight:600, color:C.text, margin:"0 0 4px", letterSpacing:"-0.01em" }}>{p.name}</p>
-                  <p style={{ fontSize:11, color:C.textMuted, margin:"0 0 4px" }}>{p.category||""}</p>
-                  <p style={{ fontSize:11, color:C.textMuted, margin:"0 0 12px", lineHeight:1.5 }}>{p.desc}</p>
-                  <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-                    <span style={{ fontSize:16, fontWeight:700, color:C.accent }}>${parseFloat(p.price||0).toFixed(2)}</span>
-                    {cart[p.id] ? (
-                      <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                        <button onClick={()=>decCart(p.id)} style={{ width:28, height:28, border:`1px solid ${C.border}`, borderRadius:4, background:"transparent", cursor:"pointer", fontSize:16, color:C.text }}>−</button>
-                        <span style={{ fontSize:14, fontWeight:700, color:C.text, minWidth:16, textAlign:"center" }}>{cart[p.id]}</span>
-                        <button onClick={()=>addToCart(activeStore,p.id)} style={{ width:28, height:28, border:"none", borderRadius:4, background:C.accent, cursor:"pointer", fontSize:16, color:"#000" }}>+</button>
+          );
+          return (
+            <>
+              {/* Lightbox modal */}
+              {lightbox && (
+                <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.85)", zIndex:300, display:"flex", alignItems:"center", justifyContent:"center", padding:"1rem" }}
+                  onClick={()=>setLightbox(null)}>
+                  <div style={{ background:C.surface, borderRadius:12, width:360, maxWidth:"95vw", overflow:"hidden" }} onClick={e=>e.stopPropagation()}>
+                    {(() => {
+                      const imgs = (() => { try { const a=JSON.parse(lightbox.product.images||"[]"); return a.length>0?a:(lightbox.product.image_url?[lightbox.product.image_url]:[]); } catch(e){ return lightbox.product.image_url?[lightbox.product.image_url]:[]; } })();
+                      const slide = Math.min(lightbox.slide, imgs.length-1);
+                      return imgs.length>0 ? (
+                        <div style={{ position:"relative" }}>
+                          <img src={imgs[slide]} alt={lightbox.product.name} style={{ width:"100%", height:260, objectFit:"cover", display:"block" }}/>
+                          {imgs.length>1 && (
+                            <>
+                              <button onClick={()=>setLightbox(l=>({...l,slide:Math.max(0,l.slide-1)}))} disabled={slide===0}
+                                style={{ position:"absolute", left:8, top:"50%", transform:"translateY(-50%)", background:"rgba(0,0,0,0.5)", color:"#FFF", border:"none", borderRadius:"50%", width:32, height:32, cursor:"pointer", fontSize:16 }}>‹</button>
+                              <button onClick={()=>setLightbox(l=>({...l,slide:Math.min(imgs.length-1,l.slide+1)}))} disabled={slide===imgs.length-1}
+                                style={{ position:"absolute", right:8, top:"50%", transform:"translateY(-50%)", background:"rgba(0,0,0,0.5)", color:"#FFF", border:"none", borderRadius:"50%", width:32, height:32, cursor:"pointer", fontSize:16 }}>›</button>
+                              <span style={{ position:"absolute", top:8, right:8, background:"rgba(0,0,0,0.6)", color:"#FFF", fontSize:11, padding:"2px 8px", borderRadius:8 }}>{slide+1}/{imgs.length}</span>
+                              <div style={{ position:"absolute", bottom:8, left:"50%", transform:"translateX(-50%)", display:"flex", gap:5 }}>
+                                {imgs.map((_,i)=><div key={i} onClick={()=>setLightbox(l=>({...l,slide:i}))} style={{ width:6, height:6, borderRadius:"50%", background:i===slide?"#FFF":"rgba(255,255,255,0.5)", cursor:"pointer" }}/>)}
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      ) : <div style={{ height:180, background:C.surfaceHigh, display:"flex", alignItems:"center", justifyContent:"center", fontSize:48 }}>🍞</div>;
+                    })()}
+                    <div style={{ padding:"1rem" }}>
+                      <p style={{ fontSize:16, fontWeight:700, color:C.text, margin:"0 0 3px" }}>{lightbox.product.name}</p>
+                      {lightbox.product.category && <p style={{ fontSize:11, color:C.textMuted, margin:"0 0 6px" }}>{lightbox.product.category}</p>}
+                      <p style={{ fontSize:13, color:C.textSub, margin:"0 0 12px", lineHeight:1.6 }}>{lightbox.product.desc}</p>
+                      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                        <span style={{ fontSize:18, fontWeight:700, color:C.accent }}>${parseFloat(lightbox.product.price||0).toFixed(2)}</span>
+                        {cart[lightbox.product.id] ? (
+                          <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                            <button onClick={()=>decCart(lightbox.product.id)} style={{ width:30, height:30, border:`1px solid ${C.border}`, borderRadius:5, background:"transparent", cursor:"pointer", fontSize:16 }}>−</button>
+                            <span style={{ fontSize:15, fontWeight:700, color:C.text, minWidth:20, textAlign:"center" }}>{cart[lightbox.product.id]}</span>
+                            <button onClick={()=>addToCart(activeStore,lightbox.product.id)} style={{ width:30, height:30, border:"none", borderRadius:5, background:C.accent, cursor:"pointer", fontSize:16, color:"#000" }}>+</button>
+                          </div>
+                        ) : (
+                          <button onClick={()=>{ addToCart(activeStore,lightbox.product.id); }} style={{ background:C.accent, color:"#000", border:"none", borderRadius:5, padding:"8px 20px", fontSize:13, fontWeight:700, cursor:"pointer" }}>Add to Cart</button>
+                        )}
                       </div>
-                    ) : (
-                      <button onClick={()=>addToCart(activeStore,p.id)} style={{ background:C.accent, color:"#000", border:"none", borderRadius:4, padding:"6px 14px", fontSize:12, fontWeight:700, cursor:"pointer" }}>Add</button>
-                    )}
+                    </div>
+                    <button onClick={()=>setLightbox(null)} style={{ position:"absolute", top:10, right:10, background:"rgba(0,0,0,0.5)", color:"#FFF", border:"none", borderRadius:"50%", width:28, height:28, cursor:"pointer", fontSize:14, display:"flex", alignItems:"center", justifyContent:"center" }}>✕</button>
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
+              )}
+              {/* Compact product grid — 3 columns */}
+              <div style={{ display:"grid", gridTemplateColumns:"repeat(3,minmax(0,1fr))", gap:8 }}>
+                {products.map(p=>(
+                  <div key={p.id} style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:8, overflow:"hidden", cursor:"pointer" }}
+                    onClick={()=>setLightbox({ product:p, slide:0 })}>
+                    {/* Square image */}
+                    <div style={{ position:"relative", paddingBottom:"75%", background:C.surfaceHigh }}>
+                      {p.image_url
+                        ? <img src={p.image_url} alt={p.name} style={{ position:"absolute", inset:0, width:"100%", height:"100%", objectFit:"cover" }}/>
+                        : <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", fontSize:28 }}>🍞</div>
+                      }
+                      {cart[p.id] && (
+                        <span style={{ position:"absolute", top:5, right:5, background:C.accent, color:"#FFF", fontSize:10, fontWeight:700, width:18, height:18, borderRadius:"50%", display:"flex", alignItems:"center", justifyContent:"center" }}>{cart[p.id]}</span>
+                      )}
+                    </div>
+                    <div style={{ padding:"7px 8px 8px" }}>
+                      <p style={{ fontSize:12, fontWeight:600, color:C.text, margin:"0 0 2px", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{p.name}</p>
+                      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                        <span style={{ fontSize:13, fontWeight:700, color:C.accent }}>${parseFloat(p.price||0).toFixed(2)}</span>
+                        <button onClick={e=>{ e.stopPropagation(); addToCart(activeStore,p.id); }} style={{ background:C.accent, color:"#000", border:"none", borderRadius:3, padding:"3px 9px", fontSize:11, fontWeight:700, cursor:"pointer" }}>+</button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          );
+        })()}
         </div>
         <BottomNav/>
       </div>
@@ -478,7 +530,6 @@ function CustomerApp({ user, onSignOut }) {
 
     const place = async () => {
       setProc(true);
-      // eslint-disable-next-line no-unused-vars
       const itemsSummary = cartProducts.map(p=>`${p.name} x${p.qty}`).join(", ");
       const itemsJson = JSON.stringify(cartProducts.map(p=>({ product_id:p.id, name:p.name, quantity:p.qty, price:p.price })));
       const { error } = await supabase.from("orders").insert({
@@ -525,7 +576,7 @@ function CustomerApp({ user, onSignOut }) {
               <div style={{ padding:"1rem 1.25rem", borderBottom:`1px solid ${C.border}`, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
                 <div>
                   <p style={{ fontWeight:700, fontSize:14, color:C.text, margin:"0 0 1px", letterSpacing:"-0.01em" }}>
-                    {step==="review"?"Your Cart":step==="delivery"?"Delivery":"Payment"}
+                    {step==="review"?"Your Cart":"Delivery Details"}
                   </p>
                   <p style={{ fontSize:11, color:C.textMuted, margin:0 }}>{cartStoreObj?.name}</p>
                 </div>
@@ -611,24 +662,6 @@ function CustomerApp({ user, onSignOut }) {
                   </div>
                 </>}
 
-                {step==="payment" && <>
-                  <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14 }}>
-                    <p style={{ fontWeight:600, fontSize:13, color:C.text, margin:0 }}>Card Details</p>
-                    <span style={{ fontSize:11, color:C.success, background:C.successBg, padding:"3px 9px", borderRadius:3, fontWeight:600 }}>🔒 Stripe</span>
-                  </div>
-                  <FI label="Cardholder Name" value={pay.holder} onChange={e=>setPay(p=>({...p,holder:e.target.value}))} ph="Name on card"/>
-                  <FI label="Card Number" value={pay.card} onChange={e=>setPay(p=>({...p,card:e.target.value}))} ph="•••• •••• •••• ••••"/>
-                  <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
-                    <FI label="Expiry" value={pay.expiry} onChange={e=>setPay(p=>({...p,expiry:e.target.value}))} ph="MM/YY"/>
-                    <FI label="CVV" value={pay.cvv} onChange={e=>setPay(p=>({...p,cvv:e.target.value}))} ph="•••"/>
-                  </div>
-                  {isCharity&&selectedCharity && (
-                    <div style={{ marginTop:12, background:C.charityBg, border:`1px solid ${C.charityBorder}`, borderRadius:5, padding:"10px 12px" }}>
-                      <p style={{ fontSize:12, color:C.charity, fontWeight:600, margin:"0 0 2px" }}>💜 Donating to: {selectedCharity.name}</p>
-                      <p style={{ fontSize:11, color:C.textMuted, margin:0 }}>{selectedCharity.desc}</p>
-                    </div>
-                  )}
-                </>}
               </div>
 
               <div style={{ padding:"0.75rem 1.25rem", borderTop:`1px solid ${C.border}` }}>
@@ -636,12 +669,6 @@ function CustomerApp({ user, onSignOut }) {
                 {step==="delivery" && (
                   <div style={{ display:"flex", gap:8 }}>
                     <button onClick={()=>setStep("review")} style={{ flex:1, padding:"12px", border:`1px solid ${C.border}`, borderRadius:5, background:"transparent", color:C.textMuted, cursor:"pointer", fontSize:13 }}>Back</button>
-                    <button onClick={()=>setStep("payment")} style={{ flex:2, padding:"12px", background:C.accent, color:"#000", border:"none", borderRadius:5, fontSize:13, fontWeight:700, cursor:"pointer" }}>Continue →</button>
-                  </div>
-                )}
-                {step==="payment" && (
-                  <div style={{ display:"flex", gap:8 }}>
-                    <button onClick={()=>setStep("delivery")} style={{ flex:1, padding:"12px", border:`1px solid ${C.border}`, borderRadius:5, background:"transparent", color:C.textMuted, cursor:"pointer", fontSize:13 }}>Back</button>
                     <button onClick={place} disabled={proc} style={{ flex:2, padding:"12px", background:isCharity?C.charity:C.accent, color:isCharity?"#FFF":"#000", border:"none", borderRadius:5, fontSize:13, fontWeight:700, cursor:"pointer" }}>
                       {proc?"Processing...":isCharity?`💜 Donate $${total.toFixed(2)}`:`Place Order · $${total.toFixed(2)}`}
                     </button>
@@ -2586,19 +2613,35 @@ function SellerApp({ user, onSignOut }) {
 }
 
 // ─── APP ROOT ─────────────────────────────────────────────────────────────────
+const USER_KEY = 'hearthside_user';
+
 export default function App() {
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(()=>{
+    try { const s=localStorage.getItem(USER_KEY); return s?JSON.parse(s):null; } catch(e){ return null; }
+  });
+
+  const saveUser = (u) => {
+    if (u) localStorage.setItem(USER_KEY, JSON.stringify(u));
+    else localStorage.removeItem(USER_KEY);
+    setUser(u);
+  };
 
   useEffect(()=>{
     const link = document.createElement("link");
     link.rel = "stylesheet";
     link.href = "https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap";
     document.head.appendChild(link);
-    return ()=>{ try{ document.head.removeChild(link); }catch(e){} };
+    // Validate session in background — clear if expired
+    supabase.auth.getSession().then(({ data:{ session } })=>{ if (!session) saveUser(null); }).catch(()=>{});
+    const { data:{ subscription } } = supabase.auth.onAuthStateChange((event)=>{ if (event==="SIGNED_OUT") saveUser(null); });
+    return ()=>{ try{ document.head.removeChild(link); }catch(e){} subscription.unsubscribe(); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  if (!user) return <AuthScreen onAuth={setUser}/>;
-  if (user.role==="seller") return <SellerApp user={user} onSignOut={()=>setUser(null)}/>;
-  return <CustomerApp user={user} onSignOut={()=>setUser(null)}/>;
+  const handleSignOut = async () => { await supabase.auth.signOut(); saveUser(null); };
+
+  if (!user) return <AuthScreen onAuth={saveUser}/>;
+  if (user.role==="seller") return <SellerApp user={user} onSignOut={handleSignOut}/>;
+  return <CustomerApp user={user} onSignOut={handleSignOut}/>;
 }
 // Wed 18 Mar 2026 23:40:45 EDT
