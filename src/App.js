@@ -1893,33 +1893,67 @@ function SellerApp({ user, onSignOut }) {
     const [filter,        setFilter]        = useState("all");
     const [liveOrders,    setLiveOrders]    = useState(ORDERS_DATA);
     const [loadingOrders, setLoadingOrders] = useState(true);
+    const [selectedOrder, setSelectedOrder] = useState(null);
+
+    const parseOrder = (o) => {
+      let itemsParsed = [];
+      let itemsFull = o.items||"";
+      try {
+        const parsed = typeof o.items==="string" ? JSON.parse(o.items) : o.items;
+        if (Array.isArray(parsed)) { itemsParsed = parsed; itemsFull = parsed.map(i=>`${i.name} ×${i.quantity}`).join(", "); }
+      } catch(e) {}
+      return { ...o, itemsParsed, items:itemsFull, customer:o.delivery_name||o.customer_id?.slice(0,8)||"Customer", date:o.created_at?new Date(o.created_at).toLocaleDateString("en-US",{month:"short",day:"numeric"}):"Recent" };
+    };
+
     useEffect(()=>{
       if (!user?.id) { setLoadingOrders(false); return; }
       supabase.from("orders").select("*").eq("seller_id", user.id)
         .then(({ data, error })=>{
           if (error) console.error("Seller orders error:", error);
-          if (data && data.length>0) setLiveOrders(data.map(o=>{
-            let itemsFull = o.items||"";
-            try {
-              const parsed = typeof o.items==="string" ? JSON.parse(o.items) : o.items;
-              if (Array.isArray(parsed)) itemsFull = parsed.map(i=>`${i.name} ×${i.quantity}`).join(", ");
-            } catch(e) {}
-            return { ...o, items:itemsFull, customer:o.delivery_name||o.customer_id?.slice(0,8)||"Customer", date:o.created_at?new Date(o.created_at).toLocaleDateString("en-US",{month:"short",day:"numeric"}):"Recent" };
-          }));
+          if (data && data.length>0) setLiveOrders(data.map(parseOrder));
           setLoadingOrders(false);
         });
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
+
+    const updateStatus = async (id, status) => {
+      await supabase.from("orders").update({ status }).eq("id", id);
+      setLiveOrders(p=>p.map(o=>o.id===id?{...o,status}:o));
+      if (selectedOrder?.id===id) setSelectedOrder(o=>({...o,status}));
+    };
+
     const filtered = filter==="all"?liveOrders:liveOrders.filter(o=>o.status===filter);
+    const deliveredTotal = liveOrders.filter(o=>o.status==="delivered").reduce((s,o)=>s+(o.total||0),0);
+
     if (loadingOrders) return <div style={{ padding:"2rem", textAlign:"center", color:C.textMuted, fontSize:13 }}>Loading orders...</div>;
     return (
       <div style={{ padding:"2rem" }}>
         <h1 style={{ fontSize:24, fontWeight:700, color:C.text, margin:"0 0 1.25rem", letterSpacing:"-0.02em" }}>Orders</h1>
+
+        {/* KPIs */}
+        {liveOrders.length>0 && (
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(3,minmax(0,1fr))", gap:10, marginBottom:"1.25rem" }}>
+            <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:8, padding:"1rem 1.25rem" }}>
+              <p style={{ fontSize:10, color:C.textMuted, margin:"0 0 5px", textTransform:"uppercase", letterSpacing:"0.09em", fontWeight:600 }}>Total Orders</p>
+              <p style={{ fontSize:26, fontWeight:700, color:C.text, margin:0 }}>{liveOrders.length}</p>
+            </div>
+            <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:8, padding:"1rem 1.25rem" }}>
+              <p style={{ fontSize:10, color:C.textMuted, margin:"0 0 5px", textTransform:"uppercase", letterSpacing:"0.09em", fontWeight:600 }}>Earned (Delivered)</p>
+              <p style={{ fontSize:26, fontWeight:700, color:C.success, margin:0 }}>${deliveredTotal.toFixed(2)}</p>
+            </div>
+            <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:8, padding:"1rem 1.25rem" }}>
+              <p style={{ fontSize:10, color:C.textMuted, margin:"0 0 5px", textTransform:"uppercase", letterSpacing:"0.09em", fontWeight:600 }}>Pending</p>
+              <p style={{ fontSize:26, fontWeight:700, color:C.warning, margin:0 }}>{liveOrders.filter(o=>o.status!=="delivered").length}</p>
+            </div>
+          </div>
+        )}
+
         <div style={{ display:"flex", gap:7, marginBottom:"1rem" }}>
           {["all","preparing","ready","delivered"].map(s=>(
             <Pill key={s} label={s==="all"?`All (${liveOrders.length})`:s.charAt(0).toUpperCase()+s.slice(1)} active={filter===s} onClick={()=>setFilter(s)}/>
           ))}
         </div>
+
         {filtered.length===0 ? (
           <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:8, padding:"3rem", textAlign:"center" }}>
             <p style={{ fontSize:28, margin:"0 0 8px" }}>📋</p>
@@ -1931,24 +1965,112 @@ function SellerApp({ user, onSignOut }) {
             <table style={{ width:"100%", borderCollapse:"collapse", fontSize:13 }}>
               <thead>
                 <tr style={{ borderBottom:`1px solid ${C.border}` }}>
-                  {["Order","Customer","Items","Total","Status","Date"].map(h=>(
+                  {["Customer","Items","Total","Status","Date",""].map(h=>(
                     <th key={h} style={{ textAlign:"left", padding:"10px 14px", color:C.textMuted, fontWeight:600, fontSize:10, textTransform:"uppercase", letterSpacing:"0.08em" }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {filtered.map((o,i)=>(
-                  <tr key={o.id} style={{ borderBottom:i<filtered.length-1?`1px solid ${C.border}`:"none" }}>
-                    <td style={{ padding:"11px 14px", color:C.accent, fontWeight:700, fontSize:12 }}>{o.id}</td>
+                  <tr key={o.id} onClick={()=>setSelectedOrder(o)} style={{ borderBottom:i<filtered.length-1?`1px solid ${C.border}`:"none", cursor:"pointer" }}
+                    onMouseEnter={e=>e.currentTarget.style.background=C.surfaceHigh}
+                    onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
                     <td style={{ padding:"11px 14px", color:C.text, fontWeight:500 }}>{o.customer}</td>
-                    <td style={{ padding:"11px 14px", color:C.textMuted, maxWidth:180, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{o.items}</td>
-                    <td style={{ padding:"11px 14px", color:C.text, fontWeight:600 }}>${o.total?.toFixed(2)||"0.00"}</td>
+                    <td style={{ padding:"11px 14px", color:C.textMuted, maxWidth:200, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{o.items}</td>
+                    <td style={{ padding:"11px 14px", color:o.status==="delivered"?C.success:C.text, fontWeight:700 }}>${o.total?.toFixed(2)||"0.00"}</td>
                     <td style={{ padding:"11px 14px" }}><Badge status={o.status}/></td>
                     <td style={{ padding:"11px 14px", color:C.textMuted }}>{o.date}</td>
+                    <td style={{ padding:"11px 14px", color:C.accent, fontSize:12, fontWeight:600 }}>View →</td>
                   </tr>
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {/* Order detail modal */}
+        {selectedOrder && (
+          <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.6)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:200 }}>
+            <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:12, width:500, maxWidth:"95vw", maxHeight:"90vh", overflowY:"auto", boxShadow:"0 24px 60px rgba(0,0,0,0.3)" }}>
+              <div style={{ padding:"1.25rem 1.5rem", borderBottom:`1px solid ${C.border}`, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                <div>
+                  <p style={{ fontSize:16, fontWeight:700, color:C.text, margin:"0 0 2px" }}>Order Details</p>
+                  <p style={{ fontSize:11, color:C.textMuted, margin:0 }}>{selectedOrder.id?.slice?.(0,8)||selectedOrder.id}</p>
+                </div>
+                <button onClick={()=>setSelectedOrder(null)} style={{ background:C.surfaceHigh, border:"none", width:28, height:28, borderRadius:4, fontSize:14, cursor:"pointer", color:C.textMuted }}>✕</button>
+              </div>
+              <div style={{ padding:"1.25rem 1.5rem" }}>
+
+                {/* Status + update */}
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16, padding:"10px 14px", background:C.surfaceHigh, borderRadius:7 }}>
+                  <div>
+                    <p style={{ fontSize:10, color:C.textMuted, margin:"0 0 4px", textTransform:"uppercase", letterSpacing:"0.08em" }}>Status</p>
+                    <Badge status={selectedOrder.status}/>
+                  </div>
+                  {selectedOrder.status!=="delivered" && (
+                    <select value={selectedOrder.status} onChange={e=>updateStatus(selectedOrder.id, e.target.value)}
+                      style={{ padding:"7px 12px", border:`1px solid ${C.border}`, borderRadius:5, fontSize:12, color:C.text, background:C.surface, cursor:"pointer", outline:"none" }}>
+                      <option value="preparing">Preparing</option>
+                      <option value="ready">Ready for pickup/delivery</option>
+                      <option value="delivered">Delivered ✓</option>
+                    </select>
+                  )}
+                  {selectedOrder.status==="delivered" && <span style={{ fontSize:12, color:C.success, fontWeight:600 }}>✓ Completed</span>}
+                </div>
+
+                {/* Customer info */}
+                <div style={{ marginBottom:16 }}>
+                  <p style={{ fontSize:10, fontWeight:700, color:C.textMuted, margin:"0 0 8px", textTransform:"uppercase", letterSpacing:"0.08em" }}>Customer</p>
+                  <div style={{ background:C.surfaceHigh, borderRadius:7, padding:"10px 14px" }}>
+                    {[
+                      ["Name",     selectedOrder.delivery_name   || "—"],
+                      ["Phone",    selectedOrder.delivery_phone  || "—"],
+                      ["Type",     selectedOrder.delivery_type==="pickup"?"Pickup":"Delivery"],
+                      ["Address",  selectedOrder.delivery_address|| "—"],
+                      ["Time",     selectedOrder.delivery_time   || "—"],
+                    ].map(([k,v])=>(
+                      <div key={k} style={{ display:"flex", justifyContent:"space-between", padding:"5px 0", borderBottom:`1px solid ${C.border}` }}>
+                        <span style={{ fontSize:12, color:C.textMuted }}>{k}</span>
+                        <span style={{ fontSize:12, color:C.text, fontWeight:500, textAlign:"right", maxWidth:280 }}>{v}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Items ordered */}
+                <div style={{ marginBottom:16 }}>
+                  <p style={{ fontSize:10, fontWeight:700, color:C.textMuted, margin:"0 0 8px", textTransform:"uppercase", letterSpacing:"0.08em" }}>Items Ordered</p>
+                  <div style={{ background:C.surfaceHigh, borderRadius:7, overflow:"hidden" }}>
+                    {selectedOrder.itemsParsed?.length>0 ? selectedOrder.itemsParsed.map((item,i)=>(
+                      <div key={i} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"10px 14px", borderBottom:i<selectedOrder.itemsParsed.length-1?`1px solid ${C.border}`:"none" }}>
+                        <div>
+                          <p style={{ fontSize:13, fontWeight:600, color:C.text, margin:"0 0 1px" }}>{item.name}</p>
+                          <p style={{ fontSize:11, color:C.textMuted, margin:0 }}>× {item.quantity}</p>
+                        </div>
+                        <span style={{ fontSize:13, fontWeight:700, color:C.accent }}>${((item.price||0)*item.quantity).toFixed(2)}</span>
+                      </div>
+                    )) : (
+                      <div style={{ padding:"10px 14px" }}>
+                        <p style={{ fontSize:13, color:C.textMuted, margin:0 }}>{selectedOrder.items||"No item details"}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Total */}
+                <div style={{ display:"flex", justifyContent:"space-between", padding:"12px 14px", background:C.accentBg, border:`1px solid ${C.accentBorder}`, borderRadius:7 }}>
+                  <span style={{ fontSize:14, fontWeight:700, color:C.text }}>Total</span>
+                  <span style={{ fontSize:16, fontWeight:700, color:C.accent }}>${selectedOrder.total?.toFixed(2)||"0.00"}</span>
+                </div>
+
+                {selectedOrder.is_charity && (
+                  <div style={{ marginTop:10, background:C.charityBg, border:`1px solid ${C.charityBorder}`, borderRadius:7, padding:"10px 14px" }}>
+                    <p style={{ fontSize:12, color:C.charity, fontWeight:600, margin:"0 0 2px" }}>💜 Charity Donation</p>
+                    <p style={{ fontSize:12, color:C.textMuted, margin:0 }}>Donating to: {selectedOrder.charity_name||"—"}</p>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         )}
       </div>
