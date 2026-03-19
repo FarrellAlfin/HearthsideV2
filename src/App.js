@@ -878,6 +878,22 @@ function SellerApp({ user, onSignOut }) {
   const [finCosts,    setFinCosts]    = useState([]);
   const [finHistory,  setFinHistory]  = useState([]); // [{month, revenue, costs:[]}]
   const revenueInputRef = useRef(null); // uncontrolled ref — prevents focus loss
+  // Edit product state lifted here so it survives Storefront remounts
+  const [editProduct,  setEditProduct]  = useState(null);
+  const [editForm,     setEditForm]     = useState(null);
+  const [editImages,   setEditImages]   = useState([]);
+  const [editSlide,    setEditSlide]    = useState(0);
+  const [saving,       setSaving]       = useState(false);
+  const editNameRef  = useRef(null);
+  const editPriceRef = useRef(null);
+  const editStockRef = useRef(null);
+  const editDescRef  = useRef(null);
+  // Re-fetch products from Supabase
+  const reloadProducts = () => {
+    if (!user?.id) return;
+    supabase.from("products").select("*").eq("seller_id", user.id)
+      .then(({ data })=>{ if (data) setProducts(data); });
+  };
 
   useEffect(()=>{
     if (!user?.id) { setProducts([]); setLoadingProducts(false); return; }
@@ -1319,23 +1335,13 @@ function SellerApp({ user, onSignOut }) {
   const Storefront = () => {
     const PRODUCT_CATS = ["Bread","Pastry","Cake","Cookie","Savoury","Dumpling","Condiment","Drink","Other"];
     const [showModal,    setShowModal]    = useState(false);
-    const [editProduct,  setEditProduct]  = useState(null);
     const [catFilter,    setCatFilter]    = useState("All");
     const [form,         setForm]         = useState({ name:"", price:"", category:"Bread", desc:"", stock:"10" });
-    const [editForm,     setEditForm]     = useState(null);
     const [imageFile,    setImageFile]    = useState(null);
     const [imagePreview, setImagePreview] = useState(null);
     const [uploading,    setUploading]    = useState(false);
-    const [saving,       setSaving]       = useState(false);
-    const [editImages,   setEditImages]   = useState([]);
-    const [editSlide,    setEditSlide]    = useState(0);
-    // Uncontrolled refs for edit form text fields
-    const editNameRef  = useRef(null);
-    const editPriceRef = useRef(null);
-    const editStockRef = useRef(null);
-    const editDescRef  = useRef(null);
+    // editProduct, editForm, editImages, editSlide, saving, refs — all in SellerApp scope
 
-    // Capture current ref values into editForm before any state update
     const captureRefs = (extra={}) => ({
       name:         editNameRef.current?.value  ?? editForm.name,
       price:        editPriceRef.current?.value ?? editForm.price,
@@ -1348,8 +1354,8 @@ function SellerApp({ user, onSignOut }) {
     });
 
     const saveEdit = async () => {
-      const name  = editNameRef.current?.value?.trim()  || editForm.name;
-      const price = editPriceRef.current?.value?.trim() || editForm.price;
+      const name  = editNameRef.current?.value?.trim()  || editForm?.name;
+      const price = editPriceRef.current?.value?.trim() || editForm?.price;
       if (!name||!price||!editProduct) return;
       setSaving(true);
       // Upload any new images from editImages that are new File objects
@@ -1372,14 +1378,15 @@ function SellerApp({ user, onSignOut }) {
         price:        parseFloat(price)||0,
         category:     editForm.category||"Other",
         emoji:        editForm.category||"Other",
-        desc:         editDescRef.current?.value?.trim() ?? editForm.desc,
-        stock:        parseInt(editStockRef.current?.value || editForm.stock)||0,
+        desc:         editDescRef.current?.value?.trim() ?? editForm?.desc ?? "",
+        stock:        parseInt(editStockRef.current?.value || editForm?.stock)||0,
         availability: editForm.availability||"available",
         image_url: uploadedUrls[0]||editProduct.image_url||null,
         images: uploadedUrls.length>0 ? JSON.stringify(uploadedUrls) : editProduct.images||null,
       };
       const { error } = await supabase.from("products").update(updates).eq("id", editProduct.id);
-      if (!error) setProducts(p=>p.map(prod=>prod.id===editProduct.id?{...prod,...updates}:prod));
+      if (error) { console.error("Save error:", error); alert("Save failed: " + error.message); }
+      else { reloadProducts(); }
       setSaving(false); setEditProduct(null); setEditForm(null); setEditImages([]); setEditSlide(0);
     };
 
