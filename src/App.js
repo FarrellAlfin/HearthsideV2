@@ -55,6 +55,7 @@ const STORES = [
   { id:5, name:"Biji's Spice Kitchen",  owner:"Biji Patel",     hood:"Brampton",        emoji:"🫙", instagram:"@bijispicekitchen",  whatsapp:"+14165550105", rating:4.8, reviews:145, badge:"Top Rated",    desc:"Homemade chutneys, pickles, and fresh-baked roti.", tags:["Condiments","Bread"],  deliveryFee:7, minOrder:20 },
   { id:6, name:"Sunshine Sourdough",    owner:"Tom Richards",   hood:"Roncesvalles",    emoji:"☀️", instagram:"@sunshinesourdough", whatsapp:null, rating:4.5, reviews:44,  badge:"New",          desc:"Country loaves, focaccia, and seasonal fruit crumbles.", tags:["Bread","Pastry"],  deliveryFee:5, minOrder:20 },
 ];
+// eslint-disable-next-line no-unused-vars
 const STORE_PRODUCTS = {
   1:[ { id:101, name:"Sourdough Loaf",       price:12, emoji:"🍞", desc:"Tangy slow-fermented sourdough with a golden crust.", stock:8  },
       { id:102, name:"Chocolate Brownies",   price:18, emoji:"🍫", desc:"Dense fudgy brownies with 70% dark chocolate & sea salt.", stock:12 },
@@ -523,13 +524,13 @@ function CustomerApp({ user, onSignOut }) {
   // ── CART DRAWER ──
   const CartDrawer = () => {
     const [del,  setDel]  = useState({ type:"delivery", address:"", time:"next-day-am", name:"", phone:"" });
-    const [pay,  setPay]  = useState({ holder:"", card:"", expiry:"", cvv:"" });
     const [step, setStep] = useState("review");
     const [done, setDone] = useState(false);
     const [proc, setProc] = useState(false);
 
     const place = async () => {
       setProc(true);
+      // eslint-disable-next-line no-unused-vars
       const itemsSummary = cartProducts.map(p=>`${p.name} x${p.qty}`).join(", ");
       const itemsJson = JSON.stringify(cartProducts.map(p=>({ product_id:p.id, name:p.name, quantity:p.qty, price:p.price })));
       const { error } = await supabase.from("orders").insert({
