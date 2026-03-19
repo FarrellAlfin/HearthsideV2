@@ -1683,7 +1683,6 @@ function SellerApp({ user, onSignOut }) {
                     </button>
                   </div>
                 </div>
-              </div>
               </>
               )}
             </div>
