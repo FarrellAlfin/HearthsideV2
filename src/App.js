@@ -2607,6 +2607,7 @@ function SellerApp({ user, onSignOut }) {
       listing_type:"discount", charity_name:"", is_charity:false,
     });
     const [saving, setSaving] = useState(false);
+    const [soldPrompt, setSoldPrompt] = useState(null); // {id, listing, soldQty}
 
     const TYPES = [
       { v:"discount", label:"🏷 Discounted",  desc:"Sell at a reduced price",          bg:C.accentBg,   color:C.accent   },
@@ -2656,23 +2657,37 @@ function SellerApp({ user, onSignOut }) {
     const active = listings.filter(l=>l.status==="active");
     const closed = listings.filter(l=>l.status==="closed");
 
-    const toggleListing = async (id, currentStatus) => {
-      const newStatus = currentStatus==="active" ? "closed" : "active";
-      await supabase.from("flash_sales").update({ status:newStatus }).eq("id", id);
-      setListings(p=>p.map(l=>l.id===id?{...l,status:newStatus}:l));
-
-      // When closing a flash sale, deduct quantity from linked product stock
-      if (newStatus==="closed") {
+    const toggleListing = (id, currentStatus) => {
+      if (currentStatus==="active") {
+        // Show "how many sold?" prompt before closing
         const listing = listings.find(l=>l.id===id);
-        if (listing?.product_id && listing?.quantity) {
-          const { data: prod } = await supabase.from("products").select("stock").eq("id", listing.product_id).single();
-          if (prod) {
-            const newStock = Math.max(0, (prod.stock||0) - (listing.quantity||0));
-            await supabase.from("products").update({ stock: newStock }).eq("id", listing.product_id);
-            reloadProducts();
-          }
+        setSoldPrompt({ id, listing, soldQty: String(listing?.quantity||"") });
+      } else {
+        // Reopen — just set back to active, no stock change
+        supabase.from("flash_sales").update({ status:"active" }).eq("id", id);
+        setListings(p=>p.map(l=>l.id===id?{...l,status:"active"}:l));
+      }
+    };
+
+    const confirmClose = async () => {
+      if (!soldPrompt) return;
+      const { id, listing, soldQty } = soldPrompt;
+      const sold = parseInt(soldQty)||0;
+
+      // Mark listing closed
+      await supabase.from("flash_sales").update({ status:"closed", quantity_sold: sold }).eq("id", id);
+      setListings(p=>p.map(l=>l.id===id?{...l,status:"closed",quantity_sold:sold}:l));
+
+      // Deduct only the confirmed sold amount from product stock
+      if (sold>0 && listing?.product_id) {
+        const { data: prod } = await supabase.from("products").select("stock").eq("id", listing.product_id).single();
+        if (prod) {
+          const newStock = Math.max(0, (prod.stock||0) - sold);
+          await supabase.from("products").update({ stock: newStock }).eq("id", listing.product_id);
+          reloadProducts();
         }
       }
+      setSoldPrompt(null);
     };
 
     const TypeBadge = ({type}) => {
@@ -2756,7 +2771,13 @@ function SellerApp({ user, onSignOut }) {
                       </div>
                     )}
                   </div>
-                  {l.notes && <p style={{ fontSize:12, color:C.textMuted, margin:"0 0 12px", lineHeight:1.5 }}>{l.notes}</p>}
+                  {l.notes && <p style={{ fontSize:12, color:C.textMuted, margin:"0 0 8px", lineHeight:1.5 }}>{l.notes}</p>}
+                  {!isActive && l.quantity_sold!=null && (
+                    <p style={{ fontSize:12, color:C.success, fontWeight:600, margin:"0 0 8px" }}>✓ {l.quantity_sold} {l.unit} sold</p>
+                  )}
+                  {!isActive && !l.quantity_sold && (
+                    <p style={{ fontSize:12, color:C.textMuted, margin:"0 0 8px" }}>0 sold recorded</p>
+                  )}
 
                   {/* Footer: toggle switch + delete */}
                   <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", paddingTop:10, borderTop:`1px solid ${C.border}` }}>
@@ -2774,6 +2795,45 @@ function SellerApp({ user, onSignOut }) {
                 </div>
               );
             })}
+          </div>
+        )}
+
+        {/* Sold quantity prompt modal */}
+        {soldPrompt && (
+          <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.6)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:300 }}>
+            <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:12, width:380, maxWidth:"92vw", padding:"1.75rem", boxShadow:"0 24px 60px rgba(0,0,0,0.3)" }}>
+              <p style={{ fontSize:18, fontWeight:700, color:C.text, margin:"0 0 6px", letterSpacing:"-0.01em" }}>Close listing</p>
+              <p style={{ fontSize:13, color:C.textMuted, margin:"0 0 1.25rem", lineHeight:1.6 }}>
+                How many <strong style={{ color:C.text }}>{soldPrompt.listing?.custom_name}</strong> did you actually sell?
+                {soldPrompt.listing?.product_id && <span> We'll deduct this from your product stock.</span>}
+              </p>
+              <div style={{ display:"flex", gap:8, alignItems:"center", marginBottom:"1.25rem" }}>
+                <div style={{ flex:1 }}>
+                  <label style={{ fontSize:10, fontWeight:600, color:C.textMuted, display:"block", marginBottom:5, textTransform:"uppercase", letterSpacing:"0.08em" }}>Units Sold</label>
+                  <input
+                    value={soldPrompt.soldQty}
+                    onChange={e=>setSoldPrompt(p=>({...p,soldQty:e.target.value}))}
+                    type="text" inputMode="numeric" placeholder="0"
+                    style={{ width:"100%", padding:"10px 12px", border:`1px solid ${C.border}`, borderRadius:6, fontSize:16, fontWeight:700, color:C.text, background:C.surfaceHigh, outline:"none", boxSizing:"border-box" }}
+                    autoFocus
+                  />
+                </div>
+                <div style={{ paddingTop:20 }}>
+                  <p style={{ fontSize:12, color:C.textMuted, margin:0 }}>of {soldPrompt.listing?.quantity} {soldPrompt.listing?.unit}</p>
+                </div>
+              </div>
+              <div style={{ background:C.surfaceHigh, borderRadius:6, padding:"10px 12px", marginBottom:"1.25rem" }}>
+                <p style={{ fontSize:12, color:C.textMuted, margin:0, lineHeight:1.6 }}>
+                  💡 Enter <strong>0</strong> if nothing sold — stock won't change. Enter the actual number sold to keep your stock accurate.
+                </p>
+              </div>
+              <div style={{ display:"flex", gap:8 }}>
+                <button onClick={()=>setSoldPrompt(null)} style={{ flex:1, padding:"10px", border:`1px solid ${C.border}`, borderRadius:5, background:"transparent", color:C.textMuted, cursor:"pointer", fontSize:13 }}>Cancel</button>
+                <button onClick={confirmClose} style={{ flex:2, padding:"10px", background:C.accent, color:"#FFF", border:"none", borderRadius:5, cursor:"pointer", fontSize:13, fontWeight:700 }}>
+                  Close Listing
+                </button>
+              </div>
+            </div>
           </div>
         )}
 
