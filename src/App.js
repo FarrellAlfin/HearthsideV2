@@ -2524,3 +2524,4 @@ export default function App() {
   if (user.role==="seller") return <SellerApp user={user} onSignOut={()=>setUser(null)}/>;
   return <CustomerApp user={user} onSignOut={()=>setUser(null)}/>;
 }
+// Wed 18 Mar 2026 23:40:45 EDT
