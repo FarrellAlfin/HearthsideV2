@@ -393,6 +393,7 @@ function CustomerApp({ user, onSignOut }) {
   );
 
   // ── STORE DETAIL ──
+  const [lightbox, setLightbox] = useState(null);
   if (activeStore) {
     const store    = sellers.find(s=>s.id===activeStore);
     const products = sellerProds[activeStore]||[];
@@ -430,7 +431,6 @@ function CustomerApp({ user, onSignOut }) {
         </div>
         <div style={{ padding:"1rem 1.5rem" }}>
           {(() => {
-          const [lightbox, setLightbox] = React.useState(null); // {product, slide}
           if (products.length===0) return (
             <div style={{ textAlign:"center", padding:"2rem", color:C.textMuted }}>
               <p style={{ fontSize:24, margin:"0 0 8px" }}>🍞</p>
