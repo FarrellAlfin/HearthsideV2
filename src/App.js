@@ -234,7 +234,7 @@ function AuthScreen({ onAuth }) {
   };
 
   return (
-    <div style={{ minHeight:"100vh", minHeight:"100dvh", background:C.bg, display:"flex", flexDirection:"column", fontFamily:"'Plus Jakarta Sans', system-ui, sans-serif", overflowY:"auto" }}>
+    <div style={{ minHeight:"100dvh", background:C.bg, display:"flex", flexDirection:"column", fontFamily:"'Plus Jakarta Sans', system-ui, sans-serif", overflowY:"auto" }}>
       {/* Hero — compact top banner, padded for status bar */}
       <div style={{ background:C.sidebar, padding:"1.75rem 1.5rem 1.75rem", paddingTop:"max(env(safe-area-inset-top, 0px) + 16px, 52px)", flexShrink:0 }}>
         <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:"1.25rem" }}>
@@ -373,9 +373,7 @@ function CustomerApp({ user, onSignOut }) {
     { id:"orders",      icon:"history",   label:"Order History"  },
   ];
 
-  const [sidebarOpen, setSidebarOpen] = useState(false); // not used on mobile
   const [sidebarCart, setSidebarCart] = useState(false);
-  const toggleSidebarCust = () => setSidebarOpen(v=>!v);
 
   const TopBar = () => (
     <div style={{ background:"rgba(251,249,245,0.92)", backdropFilter:"blur(16px)", WebkitBackdropFilter:"blur(16px)", borderBottom:`1px solid ${C.border}`, paddingLeft:"1rem", paddingRight:"1rem", paddingBottom:10, paddingTop:"calc(max(env(safe-area-inset-top, 0px), 44px) + 4px)", display:"flex", justifyContent:"space-between", alignItems:"center", position:"sticky", top:0, zIndex:50 }}>
@@ -466,9 +464,7 @@ function CustomerApp({ user, onSignOut }) {
       )}
     </div>
   )
-  // Mobile bottom tab bar — replaces sidebar for phone layout
-  const CustSidebar = () => null; // not used on mobile
-
+  // ── BOTTOM NAV ──
   const BottomNav = () => {
     const allTabs = [
       ...CUST_NAV,
@@ -805,16 +801,6 @@ function CustomerApp({ user, onSignOut }) {
     };
 
     if (!showCheckout) return null;
-
-    const Field = ({ label, refProp, placeholder, type="text" }) => (
-      <div style={{ marginBottom:16 }}>
-        <label style={{ fontSize:11, fontWeight:700, color:C.textMuted, display:"block", marginBottom:6, textTransform:"uppercase", letterSpacing:"0.08em" }}>{label}</label>
-        <input ref={refProp} type={type} placeholder={placeholder} defaultValue=""
-          style={{ width:"100%", padding:"13px 14px", border:`1px solid ${C.border}`, borderRadius:10, fontSize:16, color:C.text, background:C.surface, outline:"none", boxSizing:"border-box", fontFamily:"inherit" }}
-          onFocus={e=>e.target.style.borderColor=C.primary}
-          onBlur={e=>e.target.style.borderColor=C.border}/>
-      </div>
-    );
 
     // ── Order Confirmed ──
     if (done) return (
