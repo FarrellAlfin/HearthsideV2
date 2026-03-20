@@ -313,6 +313,7 @@ function CustomerApp({ user, onSignOut }) {
   const [cartStore,        setCartStore]        = useState(null);
   const [hoodFilter,       setHoodFilter]       = useState("All");
   const [showCart,         setShowCart]         = useState(false);
+  const [showCheckout,     setShowCheckout]     = useState(false);
   const [isCharity,        setIsCharity]        = useState(false);
   const [selectedCharity,  setSelectedCharity]  = useState(null);
 
@@ -462,7 +463,7 @@ function CustomerApp({ user, onSignOut }) {
                 <span style={{ fontSize:15, fontWeight:800, color:C.text }}>Total Amount</span>
                 <span style={{ fontSize:26, fontWeight:800, color:C.text, letterSpacing:"-0.02em" }}>${total.toFixed(2)}</span>
               </div>
-              <button onClick={()=>setShowCart(true)} style={{ width:"100%", padding:"14px", background:C.primary, color:"#fff", border:"none", borderRadius:10, fontSize:14, fontWeight:700, cursor:"pointer", letterSpacing:"0.01em" }}>
+              <button onClick={()=>{ setShowCheckout(true); setSidebarCart(false); }} style={{ width:"100%", padding:"14px", background:C.primary, color:"#fff", border:"none", borderRadius:10, fontSize:14, fontWeight:700, cursor:"pointer", letterSpacing:"0.01em" }}>
                 Proceed to Checkout
               </button>
             </div>
@@ -725,14 +726,74 @@ function CustomerApp({ user, onSignOut }) {
     );
   };
 
-  // ── CART DRAWER ──
+  // ── CART MINI OVERLAY (top-right button) ──
   const CartDrawer = () => {
-    const [delType, setDelType] = useState("delivery");
-    const [delTime, setDelTime] = useState("next-day-am");
-    const [step, setStep] = useState("review");
-    const [done, setDone] = useState(false);
-    const [proc, setProc] = useState(false);
-    // Uncontrolled refs — prevent focus loss from parent re-renders
+    if (showCart!==true) return null;
+    return (
+      <div style={{ position:"fixed", inset:0, zIndex:200, display:"flex" }}>
+        <div onClick={()=>setShowCart(false)} style={{ flex:1, background:"rgba(0,0,0,0.5)" }}/>
+        <div style={{ width:380, background:C.surface, boxShadow:"-8px 0 40px rgba(23,49,36,0.12)", display:"flex", flexDirection:"column", fontFamily:"'Plus Jakarta Sans', system-ui, sans-serif", overflowY:"auto" }}>
+          {/* Header */}
+          <div style={{ padding:"1.25rem 1.5rem", display:"flex", justifyContent:"space-between", alignItems:"center", borderBottom:`1px solid ${C.border}` }}>
+            <div>
+              <h2 style={{ fontSize:18, fontWeight:800, color:C.text, margin:"0 0 2px", letterSpacing:"-0.02em" }}>Your Cart</h2>
+              <p style={{ fontSize:11, color:C.textMuted, margin:0 }}>{cartCount} item{cartCount!==1?"s":""} · {cartStoreObj?.business||cartStoreObj?.name||""}</p>
+            </div>
+            <button onClick={()=>setShowCart(false)} style={{ width:30, height:30, borderRadius:"50%", background:C.surfaceHigh, border:"none", cursor:"pointer", fontSize:15, color:C.textMuted, display:"flex", alignItems:"center", justifyContent:"center" }}>✕</button>
+          </div>
+
+          {/* Items */}
+          <div style={{ flex:1, padding:"1rem 1.5rem", overflowY:"auto" }}>
+            {cartProducts.length===0 ? (
+              <div style={{ textAlign:"center", padding:"3rem 0", color:C.textMuted }}>
+                <p style={{ fontSize:32, margin:"0 0 8px" }}>🧺</p>
+                <p style={{ fontSize:14 }}>Your cart is empty</p>
+              </div>
+            ) : cartProducts.map(p=>(
+              <div key={p.id} style={{ display:"flex", gap:12, alignItems:"center", padding:"10px 0", borderBottom:`1px solid ${C.border}` }}>
+                <div style={{ width:56, height:56, borderRadius:8, overflow:"hidden", background:C.surfaceHigh, flexShrink:0 }}>
+                  {p.image_url ? <img src={p.image_url} alt={p.name} style={{ width:"100%", height:"100%", objectFit:"cover" }}/> : <div style={{ width:"100%", height:"100%", display:"flex", alignItems:"center", justifyContent:"center", fontSize:24 }}>🍞</div>}
+                </div>
+                <div style={{ flex:1, minWidth:0 }}>
+                  <p style={{ fontSize:13, fontWeight:700, color:C.text, margin:"0 0 2px", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{p.name}</p>
+                  <p style={{ fontSize:12, color:C.textMuted, margin:0 }}>× {p.qty} · ${(p.price*p.qty).toFixed(2)}</p>
+                </div>
+                <button onClick={()=>decCart(p.id)} style={{ background:"transparent", border:"none", cursor:"pointer", color:C.textMuted, fontSize:18, padding:"0 4px" }}>−</button>
+              </div>
+            ))}
+          </div>
+
+          {/* Summary + CTA */}
+          {cartProducts.length>0 && (
+            <div style={{ padding:"1.25rem 1.5rem", borderTop:`1px solid ${C.border}` }}>
+              {[["Subtotal",`$${subtotal.toFixed(2)}`],["Delivery",`$${delivFee.toFixed(2)}`]].map(([k,v])=>(
+                <div key={k} style={{ display:"flex", justifyContent:"space-between", fontSize:13, color:C.textMuted, marginBottom:6 }}>
+                  <span>{k}</span><span>{v}</span>
+                </div>
+              ))}
+              <div style={{ display:"flex", justifyContent:"space-between", fontWeight:800, fontSize:16, margin:"10px 0 16px", paddingTop:10, borderTop:`1px solid ${C.border}` }}>
+                <span style={{ color:C.text }}>Total</span>
+                <span style={{ color:C.text }}>${total.toFixed(2)}</span>
+              </div>
+              <button onClick={()=>{ setShowCart(false); setShowCheckout(true); setSidebarCart(false); }} style={{ width:"100%", padding:"13px", background:C.primary, color:"#fff", border:"none", borderRadius:10, fontSize:14, fontWeight:700, cursor:"pointer", letterSpacing:"0.01em" }}>
+                Continue to Checkout →
+              </button>
+              <button onClick={()=>{ setShowCart(false); setSidebarCart(true); }} style={{ width:"100%", padding:"10px", background:"transparent", border:"none", cursor:"pointer", fontSize:12, color:C.textMuted, marginTop:6 }}>
+                ← Back to full cart
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  // ── CHECKOUT — full screen split: delivery left, payment right ──
+  const Checkout = () => {
+    const [delType,  setDelType]  = useState("delivery");
+    const [delTime,  setDelTime]  = useState("next-day-am");
+    const [done,     setDone]     = useState(false);
+    const [proc,     setProc]     = useState(false);
     const nameRef    = useRef(null);
     const phoneRef   = useRef(null);
     const addressRef = useRef(null);
@@ -742,8 +803,6 @@ function CustomerApp({ user, onSignOut }) {
       // eslint-disable-next-line no-unused-vars
       const itemsSummary = cartProducts.map(p=>`${p.name} x${p.qty}`).join(", ");
       const itemsJson = JSON.stringify(cartProducts.map(p=>({ product_id:p.id, name:p.name, quantity:p.qty, price:p.price })));
-      // Debug: log what we're inserting
-      console.log("Placing order - customer:", user.id, "seller:", cartStoreObj?.id, "cartStore:", cartStore);
       const { error } = await supabase.from("orders").insert({
         customer_id:  user.id,
         seller_id:    cartStoreObj?.id || cartStore,
@@ -761,137 +820,168 @@ function CustomerApp({ user, onSignOut }) {
       if (error) { alert("Order failed: "+error.message); setProc(false); return; }
       await new Promise(r=>setTimeout(r,800));
       setProc(false); setDone(true);
-      // Clear cart after successful order
       setCart({}); setCartStore(null);
     };
 
-    if (showCart!==true) return null;
-    const inputStyle = { width:"100%", padding:"10px 12px", border:`1px solid ${C.border}`, borderRadius:5, fontSize:13, color:C.text, background:C.surfaceHigh, outline:"none", boxSizing:"border-box" };
-    const LabelEl = ({label}) => <label style={{ fontSize:10, fontWeight:600, color:C.textMuted, display:"block", marginBottom:5, textTransform:"uppercase", letterSpacing:"0.08em" }}>{label}</label>;
+    if (!showCheckout) return null;
+
+    const Field = ({ label, refProp, placeholder, type="text" }) => (
+      <div style={{ marginBottom:16 }}>
+        <label style={{ fontSize:11, fontWeight:700, color:C.textMuted, display:"block", marginBottom:6, textTransform:"uppercase", letterSpacing:"0.08em" }}>{label}</label>
+        <input ref={refProp} type={type} placeholder={placeholder} defaultValue=""
+          style={{ width:"100%", padding:"12px 14px", border:`1px solid ${C.border}`, borderRadius:10, fontSize:14, color:C.text, background:C.surface, outline:"none", boxSizing:"border-box", fontFamily:"inherit" }}
+          onFocus={e=>e.target.style.borderColor=C.primary}
+          onBlur={e=>e.target.style.borderColor=C.border}/>
+      </div>
+    );
+
+    if (done) return (
+      <div style={{ position:"fixed", inset:0, background:C.bg, zIndex:300, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"'Plus Jakarta Sans', system-ui, sans-serif" }}>
+        <div style={{ textAlign:"center", padding:"2rem", maxWidth:440 }}>
+          <div style={{ width:80, height:80, background:isCharity?C.charityBg:C.primaryBg, borderRadius:20, display:"flex", alignItems:"center", justifyContent:"center", fontSize:36, margin:"0 auto 1.5rem" }}>{isCharity?"💜":"✓"}</div>
+          <h1 style={{ fontSize:32, fontWeight:800, color:C.text, margin:"0 0 10px", letterSpacing:"-0.03em" }}>{isCharity?"Donation Confirmed!":"Order Confirmed!"}</h1>
+          <p style={{ fontSize:15, color:C.textMuted, margin:"0 0 2.5rem", lineHeight:1.7 }}>
+            {isCharity?`Your donation to ${selectedCharity?.name||"the charity"} has been confirmed. Thank you for giving back 💜`:`Your order has been sent to ${cartStoreObj?.business||cartStoreObj?.name||"the baker"}. They'll start preparing soon.`}
+          </p>
+          <button onClick={()=>{ setShowCheckout(false); setSidebarCart(false); setIsCharity(false); setSelectedCharity(null); setView("marketplace"); }}
+            style={{ background:C.primary, color:"#fff", border:"none", borderRadius:9999, padding:"13px 36px", fontSize:14, fontWeight:700, cursor:"pointer" }}>
+            Back to Explore
+          </button>
+        </div>
+      </div>
+    );
 
     return (
-      <div style={{ position:"fixed", inset:0, zIndex:100, display:"flex" }}>
-        <div onClick={()=>setShowCart(false)} style={{ flex:1, background:"rgba(0,0,0,0.7)" }} />
-        <div style={{ width:420, background:C.surface, borderLeft:`1px solid ${C.border}`, overflowY:"auto", display:"flex", flexDirection:"column", fontFamily:"'Plus Jakarta Sans', system-ui, sans-serif" }}>
-          {done ? (
-            <div style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:"2.5rem", textAlign:"center" }}>
-              <div style={{ width:64, height:64, background:isCharity?C.charityBg:C.accentBg, borderRadius:12, display:"flex", alignItems:"center", justifyContent:"center", fontSize:28, marginBottom:16 }}>{isCharity?"💜":"✓"}</div>
-              <h2 style={{ fontSize:22, fontWeight:700, color:C.text, margin:"0 0 8px", letterSpacing:"-0.02em" }}>{isCharity?"Donation Confirmed!":"Order Confirmed!"}</h2>
-              <p style={{ color:C.textMuted, fontSize:13, margin:"0 0 2rem", lineHeight:1.6 }}>
-                {isCharity?`Your donation to ${selectedCharity?.name||"the charity"} is confirmed. Thank you! 💜`:`${cartStoreObj?.name} has been notified and will start baking soon.`}
-              </p>
-              <button onClick={()=>{ setShowCart(false); setCart({}); setCartStore(null); setIsCharity(false); setSelectedCharity(null); }} style={{ background:C.primary, color:"#fff", border:"none", borderRadius:8, padding:"12px 28px", fontSize:13, fontWeight:700, cursor:"pointer" }}>Done</button>
-            </div>
-          ) : (
-            <>
-              <div style={{ padding:"1rem 1.25rem", borderBottom:`1px solid ${C.border}`, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-                <div>
-                  <p style={{ fontWeight:700, fontSize:14, color:C.text, margin:0, letterSpacing:"-0.01em" }}>
-                    {step==="review"?"Your Cart":"Delivery Details"}
-                  </p>
+      <div style={{ position:"fixed", inset:0, background:C.bg, zIndex:300, display:"flex", flexDirection:"column", fontFamily:"'Plus Jakarta Sans', system-ui, sans-serif", overflowY:"auto" }}>
+        {/* Top bar */}
+        <div style={{ padding:"1rem 2.5rem", display:"flex", alignItems:"center", gap:12, borderBottom:`1px solid ${C.border}`, background:C.surface, flexShrink:0 }}>
+          <button onClick={()=>setShowCheckout(false)} style={{ background:"transparent", border:"none", cursor:"pointer", fontSize:13, color:C.textMuted, display:"flex", alignItems:"center", gap:6, fontFamily:"inherit" }}>← Back</button>
+          <span style={{ fontSize:16, fontWeight:800, color:C.text, letterSpacing:"-0.02em" }}>Checkout</span>
+          {/* Step indicator */}
+          <div style={{ display:"flex", alignItems:"center", gap:8, marginLeft:"auto" }}>
+            {["Delivery","Payment"].map((s,i)=>(
+              <div key={s} style={{ display:"flex", alignItems:"center", gap:8 }}>
+                {i>0 && <div style={{ width:32, height:1, background:C.border }}/>}
+                <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                  <div style={{ width:22, height:22, borderRadius:"50%", background:C.primary, color:"#fff", fontSize:11, fontWeight:700, display:"flex", alignItems:"center", justifyContent:"center" }}>{i+1}</div>
+                  <span style={{ fontSize:13, fontWeight:600, color:C.text }}>{s}</span>
                 </div>
-                <button onClick={()=>setShowCart(false)} style={{ background:C.surfaceHigh, border:"none", width:28, height:28, borderRadius:4, fontSize:14, cursor:"pointer", color:C.textMuted }}>✕</button>
               </div>
+            ))}
+          </div>
+        </div>
 
-              {step==="review" && (
-                <div style={{ margin:"0.75rem 1.25rem 0", background:C.charityBg, border:`1px solid ${C.charityBorder}`, borderRadius:6, padding:"10px 12px" }}>
-                  <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:isCharity?10:0 }}>
-                    <div>
-                      <p style={{ fontSize:12, fontWeight:600, color:C.charity, margin:"0 0 1px" }}>💜 Donate this order to charity</p>
-                      <p style={{ fontSize:11, color:C.textMuted, margin:0 }}>Your cart goes to people in need</p>
-                    </div>
-                    <Toggle val={isCharity} onChange={()=>setIsCharity(p=>!p)}/>
-                  </div>
-                  {isCharity && (
-                    <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:6, marginTop:10 }}>
-                      {CHARITIES.map(ch=>(
-                        <button key={ch.id} onClick={()=>setSelectedCharity(ch)} style={{
-                          padding:"8px 10px", border:`1px solid ${selectedCharity?.id===ch.id?C.charity:C.border}`,
-                          borderRadius:5, background:selectedCharity?.id===ch.id?C.charityBg:"transparent", cursor:"pointer", textAlign:"left"
-                        }}>
-                          <p style={{ fontSize:13, margin:"0 0 2px" }}>{ch.emoji}</p>
-                          <p style={{ fontSize:11, fontWeight:600, color:selectedCharity?.id===ch.id?C.charity:C.text, margin:0 }}>{ch.name}</p>
-                        </button>
-                      ))}
-                    </div>
-                  )}
+        {/* Split layout */}
+        <div style={{ flex:1, display:"grid", gridTemplateColumns:"1fr 1fr", minHeight:0 }}>
+
+          {/* Left — Delivery Details */}
+          <div style={{ padding:"2.5rem 3rem", borderRight:`1px solid ${C.border}`, overflowY:"auto" }}>
+            <h2 style={{ fontSize:24, fontWeight:800, color:C.text, margin:"0 0 4px", letterSpacing:"-0.02em" }}>Delivery Details</h2>
+            <p style={{ fontSize:13, color:C.textMuted, margin:"0 0 2rem", lineHeight:1.6 }}>Tell us where and when to bring your artisan order.</p>
+
+            {/* Delivery type */}
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:20 }}>
+              {[{ v:"delivery", label:"🚗 Delivery", sub:`+$${delivFee.toFixed(2)}` },{ v:"pickup", label:"🛍 Pickup", sub:"Free" }].map(o=>(
+                <button key={o.v} onClick={()=>setDelType(o.v)} style={{
+                  padding:"14px", border:`2px solid ${delType===o.v?C.primary:C.border}`,
+                  borderRadius:12, background:delType===o.v?C.primaryBg:"transparent", cursor:"pointer", textAlign:"left", transition:"all 0.15s"
+                }}>
+                  <p style={{ fontSize:14, fontWeight:700, color:delType===o.v?C.primary:C.text, margin:"0 0 3px" }}>{o.label}</p>
+                  <p style={{ fontSize:12, color:C.textMuted, margin:0 }}>{o.sub}</p>
+                </button>
+              ))}
+            </div>
+
+            <Field label="Full Name" refProp={nameRef} placeholder="Maria Santos"/>
+            <Field label="Phone Number" refProp={phoneRef} placeholder="+1 (416) 555-0100"/>
+            {delType==="delivery" && <Field label="Delivery Address" refProp={addressRef} placeholder="123 Main St, Toronto, ON"/>}
+
+            <div style={{ marginBottom:16 }}>
+              <label style={{ fontSize:11, fontWeight:700, color:C.textMuted, display:"block", marginBottom:6, textTransform:"uppercase", letterSpacing:"0.08em" }}>Time Slot</label>
+              <select value={delTime} onChange={e=>setDelTime(e.target.value)}
+                style={{ width:"100%", padding:"12px 14px", border:`1px solid ${C.border}`, borderRadius:10, fontSize:14, color:C.text, background:C.surface, outline:"none", fontFamily:"inherit" }}>
+                {TIME_SLOTS.map(t=><option key={t.value} value={t.value}>{t.label}</option>)}
+              </select>
+            </div>
+
+            {/* Charity toggle */}
+            <div style={{ background:C.charityBg, border:`1px solid ${C.charityBorder}`, borderRadius:12, padding:"14px 16px", marginTop:8 }}>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:isCharity?12:0 }}>
+                <div>
+                  <p style={{ fontSize:13, fontWeight:700, color:C.charity, margin:"0 0 2px" }}>💜 Donate this order to charity</p>
+                  <p style={{ fontSize:12, color:C.textMuted, margin:0 }}>Your order goes to people in need</p>
+                </div>
+                <Toggle val={isCharity} onChange={()=>setIsCharity(p=>!p)}/>
+              </div>
+              {isCharity && (
+                <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
+                  {CHARITIES.map(ch=>(
+                    <button key={ch.id} onClick={()=>setSelectedCharity(ch)} style={{
+                      padding:"10px 12px", border:`1px solid ${selectedCharity?.id===ch.id?C.charity:C.border}`,
+                      borderRadius:8, background:selectedCharity?.id===ch.id?C.charityBg:"transparent", cursor:"pointer", textAlign:"left"
+                    }}>
+                      <p style={{ fontSize:14, margin:"0 0 3px" }}>{ch.emoji}</p>
+                      <p style={{ fontSize:12, fontWeight:600, color:selectedCharity?.id===ch.id?C.charity:C.text, margin:0 }}>{ch.name}</p>
+                    </button>
+                  ))}
                 </div>
               )}
+            </div>
+          </div>
 
-              <div style={{ flex:1, padding:"0.75rem 1.25rem", overflowY:"auto" }}>
-                {step==="review" && <>
-                  {cartProducts.map(p=>(
-                    <div key={p.id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"10px 0", borderBottom:`1px solid ${C.border}` }}>
-                      <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-                        <div style={{ width:44, height:44, background:C.surfaceHigh, borderRadius:6, overflow:"hidden", flexShrink:0 }}>
-                          {p.image_url
-                            ? <img src={p.image_url} alt={p.name} style={{ width:"100%", height:"100%", objectFit:"cover" }}/>
-                            : <div style={{ width:"100%", height:"100%", display:"flex", alignItems:"center", justifyContent:"center", fontSize:20 }}>🍞</div>
-                          }
-                        </div>
-                        <div>
-                          <p style={{ fontSize:13, color:C.text, fontWeight:500, margin:0 }}>{p.name}</p>
-                          <p style={{ fontSize:11, color:C.textMuted, margin:0 }}>× {p.qty} · ${(p.price*p.qty).toFixed(2)}</p>
-                        </div>
-                      </div>
-                      <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                        <span style={{ fontSize:13, fontWeight:600, color:C.text }}>${(p.price*p.qty).toFixed(2)}</span>
-                        <button onClick={()=>decCart(p.id)} style={{ width:22, height:22, border:`1px solid ${C.border}`, borderRadius:3, background:"transparent", cursor:"pointer", fontSize:12, color:C.textMuted }}>−</button>
-                      </div>
-                    </div>
-                  ))}
-                  <div style={{ paddingTop:12 }}>
-                    {[["Subtotal",`$${subtotal.toFixed(2)}`],["Delivery",`$${delivFee.toFixed(2)}`]].map(([k,v])=>(
-                      <div key={k} style={{ display:"flex", justifyContent:"space-between", fontSize:12, color:C.textMuted, marginBottom:5 }}>
-                        <span>{k}</span><span>{v}</span>
-                      </div>
-                    ))}
-                    <div style={{ display:"flex", justifyContent:"space-between", fontWeight:700, fontSize:16, marginTop:8, paddingTop:8, borderTop:`1px solid ${C.border}` }}>
-                      <span style={{ color:C.text }}>Total</span>
-                      <span style={{ color:C.accent }}>${total.toFixed(2)}</span>
-                    </div>
-                  </div>
-                </>}
+          {/* Right — Order Summary & Payment */}
+          <div style={{ padding:"2.5rem 3rem", overflowY:"auto", background:C.surfaceHigh }}>
+            <h2 style={{ fontSize:24, fontWeight:800, color:C.text, margin:"0 0 4px", letterSpacing:"-0.02em" }}>Order Summary</h2>
+            <p style={{ fontSize:13, color:C.textMuted, margin:"0 0 1.5rem" }}>From {cartStoreObj?.business||cartStoreObj?.name||"your local baker"}</p>
 
-                {step==="delivery" && <>
-                  <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:12 }}>
-                    {[{ v:"delivery", label:"Delivery", sub:`+$${delivFee}` },{ v:"pickup", label:"Pickup", sub:"Free" }].map(o=>(
-                      <button key={o.v} onClick={()=>setDelType(o.v)} style={{
-                        padding:"12px", border:`1px solid ${delType===o.v?C.accent:C.border}`,
-                        borderRadius:6, background:delType===o.v?C.accentBg:"transparent", cursor:"pointer", textAlign:"left"
-                      }}>
-                        <p style={{ fontSize:13, fontWeight:600, color:delType===o.v?C.accent:C.text, margin:"0 0 2px" }}>{o.label}</p>
-                        <p style={{ fontSize:11, color:C.textMuted, margin:0 }}>{o.sub}</p>
-                      </button>
-                    ))}
+            {/* Items */}
+            <div style={{ background:C.surface, borderRadius:12, padding:"0 1rem", marginBottom:16 }}>
+              {cartProducts.map((p,i)=>(
+                <div key={p.id} style={{ display:"flex", alignItems:"center", gap:12, padding:"12px 0", borderBottom:i<cartProducts.length-1?`1px solid ${C.border}`:"none" }}>
+                  <div style={{ width:48, height:48, borderRadius:8, overflow:"hidden", background:C.surfaceHigh, flexShrink:0 }}>
+                    {p.image_url ? <img src={p.image_url} alt={p.name} style={{ width:"100%", height:"100%", objectFit:"cover" }}/> : <div style={{ width:"100%", height:"100%", display:"flex", alignItems:"center", justifyContent:"center", fontSize:20 }}>🍞</div>}
                   </div>
-                  <div style={{ marginBottom:10 }}><LabelEl label="Your Name"/><input ref={nameRef} defaultValue="" placeholder="Full name" style={inputStyle}/></div>
-                  <div style={{ marginBottom:10 }}><LabelEl label="Phone"/><input ref={phoneRef} defaultValue="" placeholder="+1 (416) 555-0100" style={inputStyle}/></div>
-                  {delType==="delivery" && <div style={{ marginBottom:10 }}><LabelEl label="Address"/><input ref={addressRef} defaultValue="" placeholder="123 Main St, Toronto, ON" style={inputStyle}/></div>}
-                  <div style={{ marginBottom:10 }}>
-                    <LabelEl label="Time Slot"/>
-                    <select value={delTime} onChange={e=>setDelTime(e.target.value)}
-                      style={{ width:"100%", padding:"10px 12px", border:`1px solid ${C.border}`, borderRadius:5, fontSize:13, color:C.text, background:C.surfaceHigh, outline:"none" }}>
-                      {TIME_SLOTS.map(t=><option key={t.value} value={t.value}>{t.label}</option>)}
-                    </select>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <p style={{ fontSize:13, fontWeight:700, color:C.text, margin:"0 0 2px", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{p.name}</p>
+                    <p style={{ fontSize:12, color:C.textMuted, margin:0 }}>× {p.qty}</p>
                   </div>
-                </>}
+                  <span style={{ fontSize:14, fontWeight:700, color:C.text, flexShrink:0 }}>${(p.price*p.qty).toFixed(2)}</span>
+                </div>
+              ))}
+            </div>
 
+            {/* Totals */}
+            <div style={{ background:C.surface, borderRadius:12, padding:"1rem 1.25rem", marginBottom:16 }}>
+              {[["Subtotal", `$${subtotal.toFixed(2)}`], [delType==="delivery"?"Delivery Fee":"Pickup", delType==="delivery"?`$${delivFee.toFixed(2)}`:"Free"]].map(([k,v])=>(
+                <div key={k} style={{ display:"flex", justifyContent:"space-between", marginBottom:10 }}>
+                  <span style={{ fontSize:14, color:C.textMuted }}>{k}</span>
+                  <span style={{ fontSize:14, color:C.text }}>{v}</span>
+                </div>
+              ))}
+              <div style={{ height:1, background:C.surfaceHigh, margin:"4px 0 12px" }}/>
+              <div style={{ display:"flex", justifyContent:"space-between" }}>
+                <span style={{ fontSize:15, fontWeight:800, color:C.text }}>Total</span>
+                <span style={{ fontSize:22, fontWeight:800, color:C.text, letterSpacing:"-0.02em" }}>${total.toFixed(2)}</span>
               </div>
+            </div>
 
-              <div style={{ padding:"0.75rem 1.25rem", borderTop:`1px solid ${C.border}` }}>
-                {step==="review" && <button onClick={()=>setStep("delivery")} style={{ width:"100%", padding:"12px", background:C.primary, color:"#fff", border:"none", borderRadius:8, fontSize:13, fontWeight:700, cursor:"pointer" }}>Continue →</button>}
-                {step==="delivery" && (
-                  <div style={{ display:"flex", gap:8 }}>
-                    <button onClick={()=>setStep("review")} style={{ flex:1, padding:"12px", border:`1px solid ${C.border}`, borderRadius:5, background:"transparent", color:C.textMuted, cursor:"pointer", fontSize:13 }}>Back</button>
-                    <button onClick={place} disabled={proc} style={{ flex:2, padding:"12px", background:isCharity?C.charity:C.accent, color:isCharity?"#FFF":"#000", border:"none", borderRadius:5, fontSize:13, fontWeight:700, cursor:"pointer" }}>
-                      {proc?"Processing...":isCharity?`💜 Donate $${total.toFixed(2)}`:`Place Order · $${total.toFixed(2)}`}
-                    </button>
-                  </div>
-                )}
-              </div>
-            </>
-          )}
+            {/* Place order */}
+            <button onClick={place} disabled={proc} style={{
+              width:"100%", padding:"15px", background:proc?C.surfaceTop:isCharity?C.charity:C.primary,
+              color:proc?C.textMuted:"#fff", border:"none", borderRadius:12, fontSize:15, fontWeight:800,
+              cursor:proc?"default":"pointer", letterSpacing:"0.01em", transition:"background 0.15s"
+            }}>
+              {proc?"Processing..."
+                :isCharity?`💜 Donate · $${total.toFixed(2)}`
+                :`Place Order · $${total.toFixed(2)}`}
+            </button>
+
+            {/* Chef's note */}
+            <div style={{ background:C.surface, borderRadius:"40px 12px 12px 12px", padding:"14px 18px", marginTop:14 }}>
+              <p style={{ fontSize:9, fontWeight:700, color:C.accent, margin:"0 0 4px", textTransform:"uppercase", letterSpacing:"0.1em" }}>🌿 Chef's Note</p>
+              <p style={{ fontSize:12, color:C.textMuted, margin:0, lineHeight:1.65 }}>Every order supports a home kitchen in your neighbourhood. Thank you for choosing local. 🧡</p>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -1171,6 +1261,7 @@ function CustomerApp({ user, onSignOut }) {
         {/* Main content */}
         <main style={{ flex:1, overflowY:"auto", minWidth:0 }}>
           <CartDrawer/>
+          <Checkout/>
           {activeStore ? <StoreDetail/> : sidebarCart ? <CartView/> : (
             <>
               {view==="marketplace" && <Marketplace/>}
