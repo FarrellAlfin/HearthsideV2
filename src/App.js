@@ -419,7 +419,8 @@ function CustomerApp({ user, onSignOut }) {
   );
 
   // ── STORE DETAIL ──
-  const [lightbox, setLightbox] = useState(null);
+  const [lightbox,    setLightbox]    = useState(null);
+  const [cardSlides,  setCardSlides]  = useState({}); // { productId: slideIndex }
   if (activeStore) {
     const store    = sellers.find(s=>s.id===activeStore);
     const products = sellerProds[activeStore]||[];
@@ -536,7 +537,8 @@ function CustomerApp({ user, onSignOut }) {
               <div style={{ display:"grid", gridTemplateColumns:"repeat(3,minmax(0,1fr))", gap:8 }}>
                 {products.map(p=>{
                   const imgs = (() => { try { const a=JSON.parse(p.images||"[]"); return a.length>0?a:(p.image_url?[p.image_url]:[]); } catch(e){ return p.image_url?[p.image_url]:[]; } })();
-                  const [cardSlide, setCardSlide] = useState(0);
+                  const cardSlide = cardSlides[p.id]||0;
+                  const setCardSlide = (fn) => setCardSlides(s=>({...s,[p.id]:typeof fn==="function"?fn(s[p.id]||0):fn}));
                   return (
                     <div key={p.id} style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:8, overflow:"hidden", cursor:"pointer" }}
                       onClick={()=>setLightbox({ product:p, slide:cardSlide, qty: cart[p.id]||1 })}>
