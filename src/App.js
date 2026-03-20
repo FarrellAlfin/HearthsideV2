@@ -235,7 +235,7 @@ function AuthScreen({ onAuth }) {
       {/* Right panel — form */}
       <div style={{ width:460, display:"flex", flexDirection:"column", justifyContent:"center", padding:"3rem 3.5rem", background:C.surface }}>
         <h2 style={{ fontSize:22, fontWeight:700, color:C.text, margin:"0 0 6px", letterSpacing:"-0.02em" }}>
-          {mode==="login"?"Welcome back":"Create your account"}
+          {mode==="login"?"Welcome":"Create your account"}
         </h2>
         <p style={{ fontSize:13, color:C.textMuted, margin:"0 0 2rem" }}>
           {mode==="login"?"Sign in to continue":"Join thousands of home bakers and food lovers"}
@@ -2966,6 +2966,15 @@ export default function App() {
     link.rel = "stylesheet";
     link.href = "https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap";
     document.head.appendChild(link);
+
+    // Mobile font scaling fix
+    const mobileStyle = document.createElement("style");
+    mobileStyle.textContent = [
+      "* { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; box-sizing: border-box; }",
+      "input, select, textarea { font-size: 16px !important; }",
+      "body { margin: 0; overflow-x: hidden; }",
+    ].join(" ");
+    document.head.appendChild(mobileStyle);
 
     // Validate that the stored user matches the active Supabase session
     // If session user ID doesn't match stored user ID → clear stored user
