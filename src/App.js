@@ -424,7 +424,18 @@ function CustomerApp({ user, onSignOut }) {
   if (activeStore) {
     const store    = sellers.find(s=>s.id===activeStore);
     const products = sellerProds[activeStore]||[];
-    if (!store) return null;
+    if (!store) return (
+      <div style={{ minHeight:"100vh", background:C.bg, fontFamily:"'DM Sans', system-ui, sans-serif", paddingBottom:80 }}>
+        <TopBar/>
+        <CartDrawer/>
+        <div style={{ padding:"2rem", textAlign:"center" }}>
+          <button onClick={()=>setActiveStore(null)} style={{ background:"transparent", border:"none", fontSize:13, color:C.textMuted, cursor:"pointer", marginBottom:"1.5rem", display:"flex", alignItems:"center", gap:5 }}>← Back</button>
+          <p style={{ fontSize:24, margin:"0 0 10px" }}>🍞</p>
+          <p style={{ fontSize:14, color:C.textMuted }}>Loading store...</p>
+        </div>
+        <BottomNav/>
+      </div>
+    );
     return (
       <div style={{ minHeight:"100vh", background:C.bg, fontFamily:"'DM Sans', system-ui, sans-serif", paddingBottom:80 }}>
         <TopBar/>
@@ -1086,7 +1097,9 @@ function SellerApp({ user, onSignOut }) {
 
   // Custom categories — loaded from profiles, editable in Storefront
   const DEFAULT_CATS = ["Bread","Pastry","Cake","Cookie","Savoury","Dumpling","Condiment","Drink","Other"];
-  const [sellerCats, setSellerCats] = useState(DEFAULT_CATS);
+  const [sellerCats,   setSellerCats]   = useState(DEFAULT_CATS);
+  const [showCatMgr,   setShowCatMgr]   = useState(false);
+  const [newCatInput,  setNewCatInput]   = useState("");
 
   const saveSellerCats = async (cats) => {
     setSellerCats(cats);
@@ -1535,8 +1548,6 @@ function SellerApp({ user, onSignOut }) {
   const Storefront = () => {
     const PRODUCT_CATS = sellerCats; // uses SellerApp-level custom categories
     const [showModal,    setShowModal]    = useState(false);
-    const [showCatMgr,   setShowCatMgr]  = useState(false);
-    const [newCatInput,  setNewCatInput]  = useState("");
     const [catFilter,    setCatFilter]    = useState("All");
     const [form,         setForm]         = useState({ name:"", price:"", category:sellerCats[0]||"Other", desc:"", stock:"10" });
     const [imageFile,    setImageFile]    = useState(null);
