@@ -428,6 +428,7 @@ function CustomerApp({ user, onSignOut }) {
     return (
       <div style={{ minHeight:"100vh", background:C.bg, fontFamily:"'DM Sans', system-ui, sans-serif", paddingBottom:80 }}>
         <TopBar/>
+        <CartDrawer/>
         <div style={{ padding:"1.25rem 1.5rem 1rem", borderBottom:`1px solid ${C.border}`, background:C.surface }}>
           <button onClick={()=>setActiveStore(null)} style={{ background:"transparent", border:"none", fontSize:13, color:C.textMuted, cursor:"pointer", fontWeight:500, marginBottom:12, padding:0, display:"flex", alignItems:"center", gap:5 }}>← Back</button>
           <div style={{ display:"flex", alignItems:"flex-start", gap:14 }}>
@@ -1083,6 +1084,15 @@ function SellerApp({ user, onSignOut }) {
       .then(({ data })=>{ if (data) setProducts(data); });
   };
 
+  // Custom categories — loaded from profiles, editable in Storefront
+  const DEFAULT_CATS = ["Bread","Pastry","Cake","Cookie","Savoury","Dumpling","Condiment","Drink","Other"];
+  const [sellerCats, setSellerCats] = useState(DEFAULT_CATS);
+
+  const saveSellerCats = async (cats) => {
+    setSellerCats(cats);
+    if (user?.id) await supabase.from("profiles").update({ categories: cats }).eq("id", user.id);
+  };
+
   useEffect(()=>{
     if (!user?.id) { setProducts([]); setLoadingProducts(false); return; }
     // Load products
@@ -1091,8 +1101,8 @@ function SellerApp({ user, onSignOut }) {
     // Load delivery settings (stored as jsonb in profiles.delivery_settings)
     // Delivery component reads from its own useState — we store as profile column
     // and reload on mount via a separate effect below
-    // Load profile data (desc, instagram, whatsapp, logo)
-    supabase.from("profiles").select("desc,instagram,whatsapp,logo_url,business,hood").eq("id", user.id).single()
+    // Load profile data (desc, instagram, whatsapp, logo, categories)
+    supabase.from("profiles").select("desc,instagram,whatsapp,logo_url,business,hood,categories").eq("id", user.id).single()
       .then(({ data })=>{
         if (data) {
           setProfileData(p=>({ ...p,
@@ -1103,6 +1113,8 @@ function SellerApp({ user, onSignOut }) {
             hood:       data.hood||p.hood,
           }));
           if (data.logo_url) setLogoPreview(data.logo_url);
+          if (data.categories && Array.isArray(data.categories) && data.categories.length>0)
+            setSellerCats(data.categories);
         }
       });
     // Load current month finances
@@ -1521,10 +1533,12 @@ function SellerApp({ user, onSignOut }) {
 
   // ── SELLER STOREFRONT ──
   const Storefront = () => {
-    const PRODUCT_CATS = ["Bread","Pastry","Cake","Cookie","Savoury","Dumpling","Condiment","Drink","Other"];
+    const PRODUCT_CATS = sellerCats; // uses SellerApp-level custom categories
     const [showModal,    setShowModal]    = useState(false);
+    const [showCatMgr,   setShowCatMgr]  = useState(false);
+    const [newCatInput,  setNewCatInput]  = useState("");
     const [catFilter,    setCatFilter]    = useState("All");
-    const [form,         setForm]         = useState({ name:"", price:"", category:"Bread", desc:"", stock:"10" });
+    const [form,         setForm]         = useState({ name:"", price:"", category:sellerCats[0]||"Other", desc:"", stock:"10" });
     const [imageFile,    setImageFile]    = useState(null);
     const [imagePreview, setImagePreview] = useState(null);
     const [uploading,    setUploading]    = useState(false);
@@ -1631,7 +1645,10 @@ function SellerApp({ user, onSignOut }) {
             <h1 style={{ fontSize:24, fontWeight:700, color:C.text, margin:"0 0 4px", letterSpacing:"-0.02em" }}>Storefront</h1>
             <p style={{ color:C.textMuted, fontSize:13, margin:0 }}>Manage your listings</p>
           </div>
-          <button onClick={()=>setShowModal(true)} style={{ background:C.accent, color:"#000", border:"none", borderRadius:5, padding:"9px 16px", fontSize:13, fontWeight:700, cursor:"pointer" }}>+ Add Product</button>
+          <div style={{ display:"flex", gap:8 }}>
+            <button onClick={()=>setShowCatMgr(true)} style={{ background:"transparent", border:`1px solid ${C.border}`, borderRadius:5, padding:"9px 14px", fontSize:13, fontWeight:600, color:C.textMuted, cursor:"pointer" }}>⚙ Categories</button>
+            <button onClick={()=>setShowModal(true)} style={{ background:C.accent, color:"#000", border:"none", borderRadius:5, padding:"9px 16px", fontSize:13, fontWeight:700, cursor:"pointer" }}>+ Add Product</button>
+          </div>
         </div>
         {products.length===0 && (
           <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:8, padding:"3rem", textAlign:"center", marginBottom:14 }}>
@@ -1886,6 +1903,62 @@ function SellerApp({ user, onSignOut }) {
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* ── CATEGORY MANAGER MODAL ── */}
+        {showCatMgr && (
+          <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.65)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:200 }}>
+            <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:12, width:420, maxWidth:"95vw", maxHeight:"85vh", overflowY:"auto", boxShadow:"0 24px 60px rgba(0,0,0,0.3)" }}>
+              <div style={{ padding:"1.25rem 1.5rem", borderBottom:`1px solid ${C.border}`, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                <div>
+                  <h2 style={{ fontSize:17, fontWeight:700, color:C.text, margin:"0 0 2px" }}>Manage Categories</h2>
+                  <p style={{ fontSize:12, color:C.textMuted, margin:0 }}>Add, remove or reorder your product categories</p>
+                </div>
+                <button onClick={()=>setShowCatMgr(false)} style={{ background:C.surfaceHigh, border:"none", width:28, height:28, borderRadius:4, fontSize:14, cursor:"pointer", color:C.textMuted }}>✕</button>
+              </div>
+              <div style={{ padding:"1.25rem 1.5rem" }}>
+                {/* Existing categories */}
+                <div style={{ marginBottom:14 }}>
+                  {PRODUCT_CATS.map((cat,i)=>(
+                    <div key={cat} style={{ display:"flex", alignItems:"center", gap:8, padding:"8px 10px", background:C.surfaceHigh, borderRadius:6, marginBottom:6 }}>
+                      <span style={{ fontSize:13, fontWeight:500, color:C.text, flex:1 }}>{cat}</span>
+                      {/* Move up */}
+                      {i>0 && (
+                        <button onClick={()=>{
+                          const n=[...PRODUCT_CATS]; [n[i-1],n[i]]=[n[i],n[i-1]]; saveSellerCats(n);
+                        }} style={{ background:"transparent", border:"none", cursor:"pointer", color:C.textMuted, fontSize:14, padding:"0 4px" }}>↑</button>
+                      )}
+                      {/* Move down */}
+                      {i<PRODUCT_CATS.length-1 && (
+                        <button onClick={()=>{
+                          const n=[...PRODUCT_CATS]; [n[i],n[i+1]]=[n[i+1],n[i]]; saveSellerCats(n);
+                        }} style={{ background:"transparent", border:"none", cursor:"pointer", color:C.textMuted, fontSize:14, padding:"0 4px" }}>↓</button>
+                      )}
+                      {/* Delete — only if more than 1 cat */}
+                      {PRODUCT_CATS.length>1 && (
+                        <button onClick={()=>saveSellerCats(PRODUCT_CATS.filter((_,j)=>j!==i))}
+                          style={{ background:C.dangerBg, border:`1px solid ${C.danger}`, borderRadius:4, padding:"2px 8px", fontSize:11, color:C.danger, cursor:"pointer" }}>✕</button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                {/* Add new category */}
+                <div style={{ display:"flex", gap:8, marginBottom:16 }}>
+                  <input value={newCatInput} onChange={e=>setNewCatInput(e.target.value)}
+                    onKeyDown={e=>{ if(e.key==="Enter"&&newCatInput.trim()){ saveSellerCats([...PRODUCT_CATS, newCatInput.trim()]); setNewCatInput(""); }}}
+                    placeholder="New category name..."
+                    style={{ flex:1, padding:"9px 12px", border:`1px solid ${C.border}`, borderRadius:5, fontSize:13, color:C.text, background:C.surfaceHigh, outline:"none" }}/>
+                  <button onClick={()=>{ if(!newCatInput.trim()) return; saveSellerCats([...PRODUCT_CATS, newCatInput.trim()]); setNewCatInput(""); }}
+                    style={{ background:C.accent, color:"#FFF", border:"none", borderRadius:5, padding:"9px 16px", fontSize:13, fontWeight:700, cursor:"pointer" }}>Add</button>
+                </div>
+                {/* Reset to defaults */}
+                <button onClick={()=>saveSellerCats(["Bread","Pastry","Cake","Cookie","Savoury","Dumpling","Condiment","Drink","Other"])}
+                  style={{ width:"100%", padding:"9px", border:`1px solid ${C.border}`, borderRadius:5, background:"transparent", color:C.textMuted, cursor:"pointer", fontSize:12 }}>
+                  Reset to defaults
+                </button>
+              </div>
             </div>
           </div>
         )}
