@@ -419,9 +419,10 @@ function CustomerApp({ user, onSignOut }) {
   );
 
   // ── STORE DETAIL ──
-  const [lightbox,    setLightbox]    = useState(null);
-  const [cardSlides,  setCardSlides]  = useState({}); // { productId: slideIndex }
-  if (activeStore) {
+  const [lightbox,   setLightbox]   = useState(null);
+  const [cardSlides, setCardSlides] = useState({});
+
+  const StoreDetail = () => {
     const store    = sellers.find(s=>s.id===activeStore);
     const products = sellerProds[activeStore]||[];
     if (!store) return (
@@ -606,7 +607,7 @@ function CustomerApp({ user, onSignOut }) {
         <BottomNav/>
       </div>
     );
-  }
+  };
 
   // ── CART DRAWER ──
   const CartDrawer = () => {
@@ -1046,13 +1047,17 @@ function CustomerApp({ user, onSignOut }) {
 
   return (
     <div style={{ minHeight:"100vh", background:C.bg, fontFamily:"'DM Sans', system-ui, sans-serif", paddingBottom:64 }} onClick={e=>{ if (showCart==="mini") setShowCart(false); }}>
-      <TopBar/>
-      <CartDrawer/>
-      {view==="marketplace" && <Marketplace/>}
-      {view==="chat"        && <CommunityChat/>}
-      {view==="charity"     && <CharityPage/>}
-      {view==="orders"      && <MyOrders/>}
-      <BottomNav/>
+      {activeStore ? <StoreDetail/> : (
+        <>
+          <TopBar/>
+          <CartDrawer/>
+          {view==="marketplace" && <Marketplace/>}
+          {view==="chat"        && <CommunityChat/>}
+          {view==="charity"     && <CharityPage/>}
+          {view==="orders"      && <MyOrders/>}
+          <BottomNav/>
+        </>
+      )}
     </div>
   );
 }
