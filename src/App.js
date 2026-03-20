@@ -366,7 +366,7 @@ function CustomerApp({ user, onSignOut }) {
       <div style={{ display:"flex", gap:8, alignItems:"center" }}>
         {cartCount>0 && (
           <div style={{ position:"relative" }}>
-            <button onClick={()=>setShowCart(s=>s==="mini"?false:"mini")} style={{ display:"flex", alignItems:"center", gap:8, background:C.accent, color:"#000", border:"none", borderRadius:5, padding:"7px 14px", fontSize:13, fontWeight:700, cursor:"pointer" }}>
+            <button onClick={()=>setShowCart(true)} style={{ display:"flex", alignItems:"center", gap:8, background:C.accent, color:"#000", border:"none", borderRadius:5, padding:"7px 14px", fontSize:13, fontWeight:700, cursor:"pointer" }}>
               <span>🛒 {cartCount}</span><span>·</span><span>${total.toFixed(2)}</span>
             </button>
             {showCart==="mini" && (
