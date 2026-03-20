@@ -182,6 +182,17 @@ function Inp({ label, value, onChange, ph }) {
   );
 }
 
+// ─── RESPONSIVE HOOK ─────────────────────────────────────────────────────────
+function useIsMobile() {
+  const [mobile, setMobile] = useState(()=>window.innerWidth < 768);
+  useEffect(()=>{
+    const fn = () => setMobile(window.innerWidth < 768);
+    window.addEventListener("resize", fn);
+    return ()=>window.removeEventListener("resize", fn);
+  }, []);
+  return mobile;
+}
+
 // ─── SVG ICON COMPONENT — global, works in both CustomerApp and SellerApp ────
 function Icon({ name, size=20, color="currentColor" }) {
   const icons = {
@@ -314,6 +325,7 @@ function AuthScreen({ onAuth }) {
 
 // ─── CUSTOMER APP ─────────────────────────────────────────────────────────────
 function CustomerApp({ user, onSignOut }) {
+  const isMobile = useIsMobile();
   const [view,             setView]            = useState("marketplace");
   const [activeStore,      setActiveStore]      = useState(null);
   const [cart,             setCart]             = useState({});
@@ -382,17 +394,20 @@ function CustomerApp({ user, onSignOut }) {
   const [sidebarCart, setSidebarCart] = useState(false);
 
   const TopBar = () => (
-    <div style={{ background:"rgba(251,249,245,0.92)", backdropFilter:"blur(16px)", WebkitBackdropFilter:"blur(16px)", borderBottom:`1px solid ${C.border}`, paddingLeft:"1rem", paddingRight:"1rem", paddingBottom:10, paddingTop:"calc(max(env(safe-area-inset-top, 0px), 44px) + 4px)", display:"flex", justifyContent:"space-between", alignItems:"center", position:"sticky", top:0, zIndex:50 }}>
-      <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-        <div style={{ width:26, height:26, background:C.primary, borderRadius:6, display:"flex", alignItems:"center", justifyContent:"center", fontSize:12, color:"#fff", fontWeight:800 }}>H</div>
-        <span style={{ fontSize:15, fontWeight:800, color:C.text, letterSpacing:"-0.02em" }}>Hearthside</span>
+    <div style={{ background:"rgba(251,249,245,0.92)", backdropFilter:"blur(16px)", WebkitBackdropFilter:"blur(16px)", borderBottom:`1px solid ${C.border}`, paddingLeft:isMobile?"1rem":"1.5rem", paddingRight:isMobile?"1rem":"1.5rem", paddingBottom:isMobile?10:0, paddingTop:isMobile?"calc(max(env(safe-area-inset-top, 0px), 44px) + 4px)":0, height:isMobile?undefined:56, display:"flex", justifyContent:"space-between", alignItems:"center", position:"sticky", top:0, zIndex:50 }}>
+      <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+        {!isMobile && <div style={{ width:26, height:26, background:C.primary, borderRadius:5, display:"flex", alignItems:"center", justifyContent:"center", fontSize:12, color:"#fff", fontWeight:800 }}>H</div>}
+        {isMobile && <div style={{ width:26, height:26, background:C.primary, borderRadius:6, display:"flex", alignItems:"center", justifyContent:"center", fontSize:12, color:"#fff", fontWeight:800 }}>H</div>}
+        <span style={{ fontSize:isMobile?15:14, fontWeight:800, color:C.text, letterSpacing:"-0.02em" }}>Hearthside</span>
+        {!isMobile && <span style={{ fontSize:11, color:C.textMuted }}>· {user.hood}</span>}
       </div>
       <div style={{ display:"flex", gap:8, alignItems:"center" }}>
         {cartCount>0 && (
-          <button onClick={()=>setShowCart(true)} style={{ display:"flex", alignItems:"center", gap:6, background:C.primary, color:"#fff", border:"none", borderRadius:9999, padding:"6px 14px", fontSize:13, fontWeight:700, cursor:"pointer" }}>
+          <button onClick={()=>setShowCart(true)} style={{ display:"flex", alignItems:"center", gap:isMobile?6:8, background:C.primary, color:"#fff", border:"none", borderRadius:9999, padding:isMobile?"6px 14px":"7px 16px", fontSize:13, fontWeight:700, cursor:"pointer", boxShadow:`0 4px 16px ${C.shadow}` }}>
             <span>🛒 {cartCount}</span><span>·</span><span>${total.toFixed(2)}</span>
           </button>
         )}
+        {!isMobile && <span style={{ fontSize:12, color:C.textMuted }}>{user.name.split(" ")[0]}</span>}
         <button onClick={onSignOut} style={{ background:"transparent", border:`1px solid ${C.border}`, borderRadius:9999, padding:"5px 10px", fontSize:11, color:C.textMuted, cursor:"pointer" }}>Out</button>
       </div>
     </div>
@@ -400,9 +415,9 @@ function CustomerApp({ user, onSignOut }) {
 
   // Cart — single column mobile-first layout
   const CartView = () => (
-    <div style={{ padding:"1.25rem 1rem 1.5rem" }}>
-      <h1 style={{ fontSize:22, fontWeight:800, color:C.text, margin:"0 0 2px", letterSpacing:"-0.03em" }}>Your Cart</h1>
-      <p style={{ fontSize:12, color:C.textMuted, margin:"0 0 1rem" }}>Review your selection before checkout.</p>
+    <div style={{ padding:isMobile?"1.25rem 1rem 1.5rem":"2rem 2.5rem" }}>
+      <h1 style={{ fontSize:isMobile?22:32, fontWeight:800, color:C.text, margin:"0 0 4px", letterSpacing:"-0.03em" }}>Your Cart</h1>
+      <p style={{ fontSize:isMobile?12:14, color:C.textMuted, margin:isMobile?"0 0 1rem":"0 0 1.5rem" }}>Review your artisan selection before we prepare the hearth.</p>
 
       {cartProducts.length===0 ? (
         <div style={{ textAlign:"center", padding:"3rem 0", color:C.textMuted }}>
@@ -470,8 +485,47 @@ function CustomerApp({ user, onSignOut }) {
       )}
     </div>
   )
-  // ── BOTTOM NAV ──
+  // ── SIDEBAR (desktop) + BOTTOM NAV (mobile) ──
+  const CustSidebar = () => {
+    if (isMobile) return null;
+    const DESK_TABS = [...CUST_NAV, { id:"cart", icon:"cart", label:"Cart" }];
+    return (
+      <div style={{ width:220, flexShrink:0, background:C.primary, display:"flex", flexDirection:"column" }}>
+        <div style={{ padding:"1.25rem 1rem", borderBottom:`1px solid rgba(255,255,255,0.08)`, display:"flex", alignItems:"center", gap:10 }}>
+          <div style={{ width:30, height:30, background:C.accent, borderRadius:7, display:"flex", alignItems:"center", justifyContent:"center", fontSize:13, color:"#fff", fontWeight:800 }}>H</div>
+          <span style={{ fontSize:15, fontWeight:800, color:"#fff", letterSpacing:"-0.02em" }}>Hearthside</span>
+        </div>
+        <nav style={{ flex:1, padding:"0.625rem" }}>
+          {DESK_TABS.map(n=>{
+            const active = n.id==="cart" ? sidebarCart : (view===n.id && !sidebarCart);
+            return (
+              <button key={n.id} onClick={()=>{
+                if (n.id==="cart") { setActiveStore(null); setSidebarCart(v=>!v); }
+                else { setView(n.id); setActiveStore(null); setSidebarCart(false); }
+              }} title={n.label} style={{
+                display:"flex", alignItems:"center", gap:10, width:"100%", padding:"9px 12px",
+                background:active?"rgba(255,255,255,0.12)":"transparent", border:"none", borderRadius:8,
+                cursor:"pointer", marginBottom:2, transition:"background 0.15s"
+              }}>
+                <Icon name={n.icon} size={16} color={active?"#fff":"rgba(255,255,255,0.5)"}/>
+                <span style={{ fontSize:13, color:active?"#fff":"rgba(255,255,255,0.65)", fontWeight:active?700:400, whiteSpace:"nowrap" }}>{n.label}</span>
+                {n.id==="cart" && cartCount>0 && <span style={{ marginLeft:"auto", background:C.accent, color:"#fff", fontSize:9, fontWeight:700, width:16, height:16, borderRadius:"50%", display:"flex", alignItems:"center", justifyContent:"center" }}>{cartCount}</span>}
+              </button>
+            );
+          })}
+        </nav>
+        <div style={{ padding:"0.75rem", borderTop:`1px solid rgba(255,255,255,0.08)` }}>
+          <p style={{ fontSize:11, color:"rgba(255,255,255,0.4)", margin:"0 0 6px", paddingLeft:4, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{user.name}</p>
+          <button onClick={onSignOut} style={{ display:"flex", alignItems:"center", gap:8, width:"100%", padding:"8px 10px", background:"transparent", border:"1px solid rgba(255,255,255,0.12)", borderRadius:8, cursor:"pointer" }}>
+            <span style={{ fontSize:13, color:"rgba(255,255,255,0.55)" }}>Sign out</span>
+          </button>
+        </div>
+      </div>
+    );
+  };
+
   const BottomNav = () => {
+    if (!isMobile) return null;
     const allTabs = [
       ...CUST_NAV,
       { id:"cart", icon:"cart", label:"Cart" },
@@ -702,11 +756,11 @@ function CustomerApp({ user, onSignOut }) {
   const CartDrawer = () => {
     if (showCart!==true) return null;
     return (
-      <div style={{ position:"fixed", inset:0, zIndex:200, display:"flex", flexDirection:"column", justifyContent:"flex-end" }}>
+      <div style={{ position:"fixed", inset:0, zIndex:200, display:"flex", flexDirection:isMobile?"column":"row", justifyContent:isMobile?"flex-end":"flex-end" }}>
         <div onClick={()=>setShowCart(false)} style={{ flex:1, background:"rgba(0,0,0,0.5)" }}/>
-        <div style={{ width:"100%", maxHeight:"80vh", background:C.surface, borderRadius:"16px 16px 0 0", boxShadow:"0 -8px 40px rgba(23,49,36,0.15)", display:"flex", flexDirection:"column", fontFamily:"'Plus Jakarta Sans', system-ui, sans-serif", overflowY:"auto" }}>
-          {/* Handle bar */}
-          <div style={{ width:36, height:4, background:C.border, borderRadius:2, margin:"10px auto 0" }}/>
+        <div style={{ width:isMobile?"100%":400, maxHeight:isMobile?"80vh":"100%", background:C.surface, borderRadius:isMobile?"16px 16px 0 0":"0", boxShadow:isMobile?"0 -8px 40px rgba(23,49,36,0.15)":"-8px 0 40px rgba(23,49,36,0.12)", display:"flex", flexDirection:"column", fontFamily:"'Plus Jakarta Sans', system-ui, sans-serif", overflowY:"auto" }}>
+          {/* Handle bar — mobile only */}
+          {isMobile && <div style={{ width:36, height:4, background:C.border, borderRadius:2, margin:"10px auto 0" }}/>}
           {/* Header */}
           <div style={{ padding:"12px 1.25rem 12px", display:"flex", justifyContent:"space-between", alignItems:"center", borderBottom:`1px solid ${C.border}` }}>
             <div>
@@ -802,6 +856,99 @@ function CustomerApp({ user, onSignOut }) {
     };
 
     if (!showCheckout) return null;
+
+    // ── Desktop checkout — two column side by side ──
+    if (!isMobile) return (
+      <div style={{ position:"fixed", inset:0, background:C.bg, zIndex:300, display:"flex", flexDirection:"column", fontFamily:"'Plus Jakarta Sans', system-ui, sans-serif", overflowY:"auto" }}>
+        <div style={{ padding:"1rem 2rem", display:"flex", alignItems:"center", gap:12, borderBottom:`1px solid ${C.border}`, background:C.surface, flexShrink:0 }}>
+          <button onClick={()=>setShowCheckout(false)} style={{ background:"transparent", border:"none", cursor:"pointer", fontSize:13, color:C.textMuted, fontFamily:"inherit" }}>← Back</button>
+          <span style={{ fontSize:16, fontWeight:800, color:C.text }}>Checkout</span>
+        </div>
+        <div style={{ flex:1, display:"grid", gridTemplateColumns:"1fr 1fr", minHeight:0 }}>
+          {/* Left — Delivery */}
+          <div style={{ padding:"2rem 2.5rem", borderRight:`1px solid ${C.border}`, overflowY:"auto" }}>
+            <h2 style={{ fontSize:22, fontWeight:800, color:C.text, margin:"0 0 1.5rem" }}>Delivery Details</h2>
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:18 }}>
+              {[{ v:"delivery", label:"Delivery", sub:`+$${delivFee.toFixed(2)}` },{ v:"pickup", label:"Pickup", sub:"Free" }].map(o=>(
+                <button key={o.v} onClick={()=>setDelType(o.v)} style={{ padding:"14px", border:`2px solid ${delType===o.v?C.primary:C.border}`, borderRadius:12, background:delType===o.v?C.primaryBg:"transparent", cursor:"pointer", textAlign:"left" }}>
+                  <p style={{ fontSize:14, fontWeight:700, color:delType===o.v?C.primary:C.text, margin:"0 0 2px" }}>{o.label}</p>
+                  <p style={{ fontSize:12, color:C.textMuted, margin:0 }}>{o.sub}</p>
+                </button>
+              ))}
+            </div>
+            {[["Full Name", nameRef, "Maria Santos"], ["Phone Number", phoneRef, "+1 (416) 555-0100"]].map(([lbl,ref,ph])=>(
+              <div key={lbl} style={{ marginBottom:14 }}>
+                <label style={{ fontSize:11, fontWeight:700, color:C.textMuted, display:"block", marginBottom:5, textTransform:"uppercase", letterSpacing:"0.08em" }}>{lbl}</label>
+                <input ref={ref} defaultValue={lbl==="Full Name"?delName:delPhone} placeholder={ph} onBlur={e=>lbl==="Full Name"?setDelName(e.target.value):setDelPhone(e.target.value)}
+                  style={{ width:"100%", padding:"11px 14px", border:`1px solid ${C.border}`, borderRadius:8, fontSize:14, color:C.text, background:C.surface, outline:"none", boxSizing:"border-box", fontFamily:"inherit" }}
+                  onFocus={e=>e.target.style.borderColor=C.primary} />
+              </div>
+            ))}
+            {delType==="delivery" && (
+              <div style={{ marginBottom:14 }}>
+                <label style={{ fontSize:11, fontWeight:700, color:C.textMuted, display:"block", marginBottom:5, textTransform:"uppercase", letterSpacing:"0.08em" }}>Delivery Address</label>
+                <input ref={addressRef} defaultValue={delAddress} placeholder="123 Main St, Toronto, ON" onBlur={e=>setDelAddress(e.target.value)}
+                  style={{ width:"100%", padding:"11px 14px", border:`1px solid ${C.border}`, borderRadius:8, fontSize:14, color:C.text, background:C.surface, outline:"none", boxSizing:"border-box", fontFamily:"inherit" }}
+                  onFocus={e=>e.target.style.borderColor=C.primary}/>
+              </div>
+            )}
+            <div style={{ marginBottom:14 }}>
+              <label style={{ fontSize:11, fontWeight:700, color:C.textMuted, display:"block", marginBottom:5, textTransform:"uppercase", letterSpacing:"0.08em" }}>Time Slot</label>
+              <select value={delTime} onChange={e=>setDelTime(e.target.value)} style={{ width:"100%", padding:"11px 14px", border:`1px solid ${C.border}`, borderRadius:8, fontSize:14, color:C.text, background:C.surface, outline:"none", fontFamily:"inherit" }}>
+                {TIME_SLOTS.map(t=><option key={t.value} value={t.value}>{t.label}</option>)}
+              </select>
+            </div>
+            <div style={{ background:C.charityBg, border:`1px solid ${C.charityBorder}`, borderRadius:10, padding:"12px 14px" }}>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:isCharity?10:0 }}>
+                <p style={{ fontSize:13, fontWeight:700, color:C.charity, margin:0 }}>Donate this order to charity</p>
+                <Toggle val={isCharity} onChange={()=>setIsCharity(p=>!p)}/>
+              </div>
+              {isCharity && <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginTop:8 }}>
+                {CHARITIES.map(ch=>(
+                  <button key={ch.id} onClick={()=>setSelectedCharity(ch)} style={{ padding:"8px", border:`1px solid ${selectedCharity?.id===ch.id?C.charity:C.border}`, borderRadius:7, background:selectedCharity?.id===ch.id?C.charityBg:"transparent", cursor:"pointer", textAlign:"left" }}>
+                    <p style={{ fontSize:12, fontWeight:600, color:selectedCharity?.id===ch.id?C.charity:C.text, margin:0 }}>{ch.name}</p>
+                  </button>
+                ))}
+              </div>}
+            </div>
+          </div>
+          {/* Right — Summary + Place Order */}
+          <div style={{ padding:"2rem 2.5rem", overflowY:"auto", background:C.surfaceHigh }}>
+            <h2 style={{ fontSize:22, fontWeight:800, color:C.text, margin:"0 0 4px" }}>Order Summary</h2>
+            <p style={{ fontSize:13, color:C.textMuted, margin:"0 0 1.25rem" }}>From {cartStoreObj?.business||cartStoreObj?.name||"your local baker"}</p>
+            <div style={{ background:C.surface, borderRadius:12, padding:"0 1rem", marginBottom:12 }}>
+              {cartProducts.map((p,i)=>(
+                <div key={p.id} style={{ display:"flex", alignItems:"center", gap:12, padding:"11px 0", borderBottom:i<cartProducts.length-1?`1px solid ${C.border}`:"none" }}>
+                  <div style={{ width:46, height:46, borderRadius:8, overflow:"hidden", background:C.surfaceHigh, flexShrink:0 }}>
+                    {p.image_url ? <img src={p.image_url} alt={p.name} style={{ width:"100%", height:"100%", objectFit:"cover" }}/> : <div style={{ width:"100%", height:"100%", background:C.surfaceHigh }}/>}
+                  </div>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <p style={{ fontSize:13, fontWeight:700, color:C.text, margin:"0 0 1px", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{p.name}</p>
+                    <p style={{ fontSize:12, color:C.textMuted, margin:0 }}>× {p.qty}</p>
+                  </div>
+                  <span style={{ fontSize:14, fontWeight:700, color:C.text }}>${(p.price*p.qty).toFixed(2)}</span>
+                </div>
+              ))}
+            </div>
+            <div style={{ background:C.surface, borderRadius:12, padding:"1rem", marginBottom:14 }}>
+              {[["Subtotal",`$${subtotal.toFixed(2)}`],[delType==="delivery"?"Delivery":"Pickup",delType==="delivery"?`$${delivFee.toFixed(2)}`:"Free"]].map(([k,v])=>(
+                <div key={k} style={{ display:"flex", justifyContent:"space-between", marginBottom:8 }}>
+                  <span style={{ fontSize:13, color:C.textMuted }}>{k}</span><span style={{ fontSize:13, color:C.text }}>{v}</span>
+                </div>
+              ))}
+              <div style={{ height:1, background:C.surfaceHigh, margin:"8px 0 10px" }}/>
+              <div style={{ display:"flex", justifyContent:"space-between" }}>
+                <span style={{ fontSize:14, fontWeight:800, color:C.text }}>Total</span>
+                <span style={{ fontSize:20, fontWeight:800, color:C.text }}>${total.toFixed(2)}</span>
+              </div>
+            </div>
+            <button onClick={place} disabled={proc} style={{ width:"100%", padding:"14px", background:proc?C.surfaceTop:isCharity?C.charity:C.primary, color:proc?C.textMuted:"#fff", border:"none", borderRadius:10, fontSize:14, fontWeight:800, cursor:proc?"default":"pointer" }}>
+              {proc?"Processing...":isCharity?`Donate · $${total.toFixed(2)}`:`Place Order · $${total.toFixed(2)}`}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
 
     // ── Order Confirmed ──
     if (done) return (
@@ -1352,19 +1499,22 @@ function CustomerApp({ user, onSignOut }) {
   return (
     <div style={{ height:"100dvh", background:C.bg, fontFamily:"'Plus Jakarta Sans', system-ui, sans-serif", display:"flex", flexDirection:"column", overflow:"hidden" }}>
       <TopBar/>
-      <main style={{ flex:1, overflowY:"auto", paddingBottom:72 }}>
-        <CartDrawer/>
-        <Checkout/>
-        {activeStore ? <StoreDetail/> : sidebarCart ? <CartView/> : (
-          <>
-            {view==="marketplace" && <Marketplace/>}
-            {view==="chat"        && <CommunityChat/>}
-            {view==="charity"     && <CharityPage/>}
-            {view==="orders"      && <MyOrders/>}
-          </>
-        )}
-      </main>
-      <BottomNav/>
+      <div style={{ flex:1, display:"flex", overflow:"hidden" }}>
+        {!isMobile && <CustSidebar/>}
+        <main style={{ flex:1, overflowY:"auto", paddingBottom:isMobile?72:0 }}>
+          <CartDrawer/>
+          <Checkout/>
+          {activeStore ? <StoreDetail/> : sidebarCart ? <CartView/> : (
+            <>
+              {view==="marketplace" && <Marketplace/>}
+              {view==="chat"        && <CommunityChat/>}
+              {view==="charity"     && <CharityPage/>}
+              {view==="orders"      && <MyOrders/>}
+            </>
+          )}
+        </main>
+      </div>
+      {isMobile && <BottomNav/>}
     </div>
   );
 }
