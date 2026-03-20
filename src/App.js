@@ -365,9 +365,34 @@ function CustomerApp({ user, onSignOut }) {
       </div>
       <div style={{ display:"flex", gap:8, alignItems:"center" }}>
         {cartCount>0 && (
-          <button onClick={()=>setShowCart(true)} style={{ display:"flex", alignItems:"center", gap:8, background:C.accent, color:"#000", border:"none", borderRadius:5, padding:"7px 14px", fontSize:13, fontWeight:700, cursor:"pointer" }}>
-            <span>Cart ({cartCount})</span><span>·</span><span>${total.toFixed(2)}</span>
-          </button>
+          <div style={{ position:"relative" }}>
+            <button onClick={()=>setShowCart(s=>s==="mini"?false:"mini")} style={{ display:"flex", alignItems:"center", gap:8, background:C.accent, color:"#000", border:"none", borderRadius:5, padding:"7px 14px", fontSize:13, fontWeight:700, cursor:"pointer" }}>
+              <span>🛒 {cartCount}</span><span>·</span><span>${total.toFixed(2)}</span>
+            </button>
+            {showCart==="mini" && (
+              <div style={{ position:"absolute", top:"calc(100% + 8px)", right:0, background:C.surface, border:`1px solid ${C.border}`, borderRadius:10, width:280, boxShadow:"0 8px 30px rgba(0,0,0,0.15)", zIndex:200, padding:"0.75rem" }}>
+                {cartProducts.map(p=>(
+                  <div key={p.id} style={{ display:"flex", alignItems:"center", gap:8, padding:"6px 0", borderBottom:`1px solid ${C.border}` }}>
+                    <div style={{ width:36, height:36, borderRadius:5, overflow:"hidden", background:C.surfaceHigh, flexShrink:0 }}>
+                      {p.image_url?<img src={p.image_url} alt={p.name} style={{ width:"100%", height:"100%", objectFit:"cover" }}/>:<div style={{ width:"100%", height:"100%", display:"flex", alignItems:"center", justifyContent:"center", fontSize:16 }}>🍞</div>}
+                    </div>
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <p style={{ fontSize:12, fontWeight:600, color:C.text, margin:0, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{p.name}</p>
+                      <p style={{ fontSize:11, color:C.textMuted, margin:0 }}>×{p.qty} · ${(p.price*p.qty).toFixed(2)}</p>
+                    </div>
+                    <button onClick={()=>decCart(p.id)} style={{ background:"transparent", border:"none", cursor:"pointer", fontSize:14, color:C.textMuted, padding:"0 3px" }}>✕</button>
+                  </div>
+                ))}
+                <div style={{ display:"flex", justifyContent:"space-between", padding:"8px 0 4px", fontWeight:700, fontSize:13 }}>
+                  <span style={{ color:C.text }}>Total</span>
+                  <span style={{ color:C.accent }}>${total.toFixed(2)}</span>
+                </div>
+                <button onClick={()=>setShowCart(true)} style={{ width:"100%", padding:"9px", background:C.accent, color:"#000", border:"none", borderRadius:5, fontSize:13, fontWeight:700, cursor:"pointer", marginTop:4 }}>
+                  Checkout →
+                </button>
+              </div>
+            )}
+          </div>
         )}
         <span style={{ fontSize:12, color:C.textMuted }}>{user.name.split(" ")[0]}</span>
         <button onClick={onSignOut} style={{ background:"transparent", border:`1px solid ${C.border}`, borderRadius:5, padding:"5px 11px", fontSize:11, color:C.textMuted, cursor:"pointer" }}>Out</button>
@@ -440,77 +465,117 @@ function CustomerApp({ user, onSignOut }) {
           );
           return (
             <>
-              {/* Lightbox modal */}
+              {/* Product detail lightbox */}
               {lightbox && (
                 <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.85)", zIndex:300, display:"flex", alignItems:"center", justifyContent:"center", padding:"1rem" }}
                   onClick={()=>setLightbox(null)}>
-                  <div style={{ background:C.surface, borderRadius:12, width:360, maxWidth:"95vw", overflow:"hidden" }} onClick={e=>e.stopPropagation()}>
+                  <div style={{ background:C.surface, borderRadius:16, width:480, maxWidth:"96vw", maxHeight:"92vh", overflowY:"auto", boxShadow:"0 24px 60px rgba(0,0,0,0.5)" }} onClick={e=>e.stopPropagation()}>
                     {(() => {
                       const imgs = (() => { try { const a=JSON.parse(lightbox.product.images||"[]"); return a.length>0?a:(lightbox.product.image_url?[lightbox.product.image_url]:[]); } catch(e){ return lightbox.product.image_url?[lightbox.product.image_url]:[]; } })();
-                      const slide = Math.min(lightbox.slide, imgs.length-1);
-                      return imgs.length>0 ? (
-                        <div style={{ position:"relative" }}>
-                          <img src={imgs[slide]} alt={lightbox.product.name} style={{ width:"100%", height:260, objectFit:"cover", display:"block" }}/>
-                          {imgs.length>1 && (
-                            <>
-                              <button onClick={()=>setLightbox(l=>({...l,slide:Math.max(0,l.slide-1)}))} disabled={slide===0}
-                                style={{ position:"absolute", left:8, top:"50%", transform:"translateY(-50%)", background:"rgba(0,0,0,0.5)", color:"#FFF", border:"none", borderRadius:"50%", width:32, height:32, cursor:"pointer", fontSize:16 }}>‹</button>
-                              <button onClick={()=>setLightbox(l=>({...l,slide:Math.min(imgs.length-1,l.slide+1)}))} disabled={slide===imgs.length-1}
-                                style={{ position:"absolute", right:8, top:"50%", transform:"translateY(-50%)", background:"rgba(0,0,0,0.5)", color:"#FFF", border:"none", borderRadius:"50%", width:32, height:32, cursor:"pointer", fontSize:16 }}>›</button>
-                              <span style={{ position:"absolute", top:8, right:8, background:"rgba(0,0,0,0.6)", color:"#FFF", fontSize:11, padding:"2px 8px", borderRadius:8 }}>{slide+1}/{imgs.length}</span>
-                              <div style={{ position:"absolute", bottom:8, left:"50%", transform:"translateX(-50%)", display:"flex", gap:5 }}>
-                                {imgs.map((_,i)=><div key={i} onClick={()=>setLightbox(l=>({...l,slide:i}))} style={{ width:6, height:6, borderRadius:"50%", background:i===slide?"#FFF":"rgba(255,255,255,0.5)", cursor:"pointer" }}/>)}
-                              </div>
-                            </>
+                      const slide = Math.min(lightbox.slide||0, Math.max(0,imgs.length-1));
+                      return (
+                        <>
+                          {imgs.length>0 ? (
+                            <div style={{ position:"relative" }}>
+                              <img src={imgs[slide]} alt={lightbox.product.name} style={{ width:"100%", height:320, objectFit:"cover", borderRadius:"16px 16px 0 0", display:"block" }}/>
+                              {imgs.length>1 && (
+                                <>
+                                  <button onClick={()=>setLightbox(l=>({...l,slide:Math.max(0,(l.slide||0)-1)}))} disabled={slide===0}
+                                    style={{ position:"absolute", left:10, top:"50%", transform:"translateY(-50%)", background:"rgba(0,0,0,0.5)", color:"#FFF", border:"none", borderRadius:"50%", width:34, height:34, cursor:"pointer", fontSize:18 }}>‹</button>
+                                  <button onClick={()=>setLightbox(l=>({...l,slide:Math.min(imgs.length-1,(l.slide||0)+1)}))} disabled={slide===imgs.length-1}
+                                    style={{ position:"absolute", right:10, top:"50%", transform:"translateY(-50%)", background:"rgba(0,0,0,0.5)", color:"#FFF", border:"none", borderRadius:"50%", width:34, height:34, cursor:"pointer", fontSize:18 }}>›</button>
+                                  <div style={{ position:"absolute", bottom:10, left:"50%", transform:"translateX(-50%)", display:"flex", gap:6 }}>
+                                    {imgs.map((_,i)=><div key={i} onClick={()=>setLightbox(l=>({...l,slide:i}))} style={{ width:8, height:8, borderRadius:"50%", background:i===slide?"#FFF":"rgba(255,255,255,0.45)", cursor:"pointer", transition:"background 0.2s" }}/>)}
+                                  </div>
+                                  <span style={{ position:"absolute", top:10, left:10, background:"rgba(0,0,0,0.6)", color:"#FFF", fontSize:11, padding:"3px 9px", borderRadius:8, fontWeight:600 }}>{slide+1}/{imgs.length}</span>
+                                </>
+                              )}
+                            </div>
+                          ) : (
+                            <div style={{ height:220, background:C.surfaceHigh, borderRadius:"16px 16px 0 0", display:"flex", alignItems:"center", justifyContent:"center", fontSize:56 }}>🍞</div>
                           )}
-                        </div>
-                      ) : <div style={{ height:180, background:C.surfaceHigh, display:"flex", alignItems:"center", justifyContent:"center", fontSize:48 }}>🍞</div>;
-                    })()}
-                    <div style={{ padding:"1rem" }}>
-                      <p style={{ fontSize:16, fontWeight:700, color:C.text, margin:"0 0 3px" }}>{lightbox.product.name}</p>
-                      {lightbox.product.category && <p style={{ fontSize:11, color:C.textMuted, margin:"0 0 6px" }}>{lightbox.product.category}</p>}
-                      <p style={{ fontSize:13, color:C.textSub, margin:"0 0 12px", lineHeight:1.6 }}>{lightbox.product.desc}</p>
-                      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-                        <span style={{ fontSize:18, fontWeight:700, color:C.accent }}>${parseFloat(lightbox.product.price||0).toFixed(2)}</span>
-                        {cart[lightbox.product.id] ? (
-                          <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                            <button onClick={()=>decCart(lightbox.product.id)} style={{ width:30, height:30, border:`1px solid ${C.border}`, borderRadius:5, background:"transparent", cursor:"pointer", fontSize:16 }}>−</button>
-                            <span style={{ fontSize:15, fontWeight:700, color:C.text, minWidth:20, textAlign:"center" }}>{cart[lightbox.product.id]}</span>
-                            <button onClick={()=>addToCart(activeStore,lightbox.product.id)} style={{ width:30, height:30, border:"none", borderRadius:5, background:C.accent, cursor:"pointer", fontSize:16, color:"#000" }}>+</button>
+                          <div style={{ padding:"1.25rem 1.5rem" }}>
+                            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:8 }}>
+                              <div>
+                                <p style={{ fontSize:20, fontWeight:700, color:C.text, margin:"0 0 3px", letterSpacing:"-0.01em" }}>{lightbox.product.name}</p>
+                                {lightbox.product.category && <span style={{ fontSize:11, color:C.textMuted, background:C.surfaceHigh, padding:"2px 8px", borderRadius:3 }}>{lightbox.product.category}</span>}
+                              </div>
+                              <p style={{ fontSize:22, fontWeight:700, color:C.accent, margin:0, flexShrink:0, marginLeft:12 }}>${parseFloat(lightbox.product.price||0).toFixed(2)}</p>
+                            </div>
+                            {lightbox.product.desc && <p style={{ fontSize:13, color:C.textSub, margin:"10px 0 16px", lineHeight:1.7 }}>{lightbox.product.desc}</p>}
+
+                            {/* Quantity selector + Add to cart */}
+                            <div style={{ display:"flex", alignItems:"center", gap:12, marginTop:16 }}>
+                              <div style={{ display:"flex", alignItems:"center", gap:0, border:`1px solid ${C.border}`, borderRadius:7, overflow:"hidden" }}>
+                                <button onClick={()=>setLightbox(l=>({...l,qty:Math.max(1,(l.qty||1)-1)}))}
+                                  style={{ width:38, height:42, border:"none", background:C.surfaceHigh, cursor:"pointer", fontSize:18, color:C.text, display:"flex", alignItems:"center", justifyContent:"center" }}>−</button>
+                                <span style={{ width:42, textAlign:"center", fontSize:16, fontWeight:700, color:C.text, lineHeight:"42px" }}>{lightbox.qty||1}</span>
+                                <button onClick={()=>setLightbox(l=>({...l,qty:(l.qty||1)+1}))}
+                                  style={{ width:38, height:42, border:"none", background:C.surfaceHigh, cursor:"pointer", fontSize:18, color:C.text, display:"flex", alignItems:"center", justifyContent:"center" }}>+</button>
+                              </div>
+                              <button onClick={()=>{
+                                const qty = lightbox.qty||1;
+                                for (let i=0; i<qty; i++) addToCart(activeStore, lightbox.product.id);
+                                setLightbox(null);
+                              }} style={{ flex:1, height:42, background:C.accent, color:"#000", border:"none", borderRadius:7, fontSize:14, fontWeight:700, cursor:"pointer" }}>
+                                Add {lightbox.qty||1} to Cart · ${((lightbox.qty||1)*parseFloat(lightbox.product.price||0)).toFixed(2)}
+                              </button>
+                            </div>
+                            {cart[lightbox.product.id] && (
+                              <p style={{ fontSize:11, color:C.textMuted, margin:"8px 0 0", textAlign:"center" }}>Already {cart[lightbox.product.id]} in cart</p>
+                            )}
                           </div>
-                        ) : (
-                          <button onClick={()=>{ addToCart(activeStore,lightbox.product.id); }} style={{ background:C.accent, color:"#000", border:"none", borderRadius:5, padding:"8px 20px", fontSize:13, fontWeight:700, cursor:"pointer" }}>Add to Cart</button>
-                        )}
-                      </div>
-                    </div>
-                    <button onClick={()=>setLightbox(null)} style={{ position:"absolute", top:10, right:10, background:"rgba(0,0,0,0.5)", color:"#FFF", border:"none", borderRadius:"50%", width:28, height:28, cursor:"pointer", fontSize:14, display:"flex", alignItems:"center", justifyContent:"center" }}>✕</button>
+                        </>
+                      );
+                    })()}
+                    <button onClick={()=>setLightbox(null)} style={{ position:"absolute", top:12, right:12, background:"rgba(0,0,0,0.55)", color:"#FFF", border:"none", borderRadius:"50%", width:30, height:30, cursor:"pointer", fontSize:15, display:"flex", alignItems:"center", justifyContent:"center", zIndex:10 }}>✕</button>
                   </div>
                 </div>
               )}
-              {/* Compact product grid — 3 columns */}
-              <div style={{ display:"grid", gridTemplateColumns:"repeat(3,minmax(0,1fr))", gap:8 }}>
-                {products.map(p=>(
-                  <div key={p.id} style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:8, overflow:"hidden", cursor:"pointer" }}
-                    onClick={()=>setLightbox({ product:p, slide:0 })}>
-                    {/* Square image */}
-                    <div style={{ position:"relative", paddingBottom:"75%", background:C.surfaceHigh }}>
-                      {p.image_url
-                        ? <img src={p.image_url} alt={p.name} style={{ position:"absolute", inset:0, width:"100%", height:"100%", objectFit:"cover" }}/>
-                        : <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", fontSize:28 }}>🍞</div>
-                      }
-                      {cart[p.id] && (
-                        <span style={{ position:"absolute", top:5, right:5, background:C.accent, color:"#FFF", fontSize:10, fontWeight:700, width:18, height:18, borderRadius:"50%", display:"flex", alignItems:"center", justifyContent:"center" }}>{cart[p.id]}</span>
-                      )}
-                    </div>
-                    <div style={{ padding:"7px 8px 8px" }}>
-                      <p style={{ fontSize:12, fontWeight:600, color:C.text, margin:"0 0 2px", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{p.name}</p>
-                      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-                        <span style={{ fontSize:13, fontWeight:700, color:C.accent }}>${parseFloat(p.price||0).toFixed(2)}</span>
-                        <button onClick={e=>{ e.stopPropagation(); addToCart(activeStore,p.id); }} style={{ background:C.accent, color:"#000", border:"none", borderRadius:3, padding:"3px 9px", fontSize:11, fontWeight:700, cursor:"pointer" }}>+</button>
+              {/* Product grid — 2 columns, taller cards with carousel */}
+              <div style={{ display:"grid", gridTemplateColumns:"repeat(2,minmax(0,1fr))", gap:10 }}>
+                {products.map(p=>{
+                  const imgs = (() => { try { const a=JSON.parse(p.images||"[]"); return a.length>0?a:(p.image_url?[p.image_url]:[]); } catch(e){ return p.image_url?[p.image_url]:[]; } })();
+                  const [slide, setSlide] = [lightbox?.product?.id===p.id?lightbox.slide:0, ()=>{}];
+                  return (
+                    <div key={p.id} style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:10, overflow:"hidden", cursor:"pointer" }}
+                      onClick={()=>setLightbox({ product:p, slide:0, qty: cart[p.id]||1 })}>
+                      {/* Image area */}
+                      <div style={{ position:"relative", paddingBottom:"100%", background:C.surfaceHigh }}>
+                        {imgs.length>0
+                          ? <img src={imgs[0]} alt={p.name} style={{ position:"absolute", inset:0, width:"100%", height:"100%", objectFit:"cover" }}/>
+                          : <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", fontSize:36 }}>🍞</div>
+                        }
+                        {/* Availability badge */}
+                        {p.availability==="out_of_stock" && (
+                          <div style={{ position:"absolute", inset:0, background:"rgba(0,0,0,0.45)", display:"flex", alignItems:"center", justifyContent:"center" }}>
+                            <span style={{ background:"rgba(181,32,32,0.9)", color:"#FFF", fontSize:11, fontWeight:700, padding:"4px 10px", borderRadius:4 }}>Out of Stock</span>
+                          </div>
+                        )}
+                        {p.availability==="out_till_eod" && (
+                          <span style={{ position:"absolute", top:7, left:7, background:"rgba(160,112,16,0.92)", color:"#FFF", fontSize:10, fontWeight:700, padding:"2px 7px", borderRadius:3 }}>⏱ Back Tomorrow</span>
+                        )}
+                        {cart[p.id] && (
+                          <span style={{ position:"absolute", top:7, right:7, background:C.accent, color:"#FFF", fontSize:10, fontWeight:700, width:20, height:20, borderRadius:"50%", display:"flex", alignItems:"center", justifyContent:"center" }}>{cart[p.id]}</span>
+                        )}
+                        {/* Carousel dots */}
+                        {imgs.length>1 && (
+                          <div style={{ position:"absolute", bottom:6, left:"50%", transform:"translateX(-50%)", display:"flex", gap:4 }}>
+                            {imgs.map((_,i)=><div key={i} style={{ width:5, height:5, borderRadius:"50%", background:i===0?"#FFF":"rgba(255,255,255,0.5)" }}/>)}
+                          </div>
+                        )}
+                      </div>
+                      <div style={{ padding:"8px 10px 10px" }}>
+                        <p style={{ fontSize:13, fontWeight:700, color:C.text, margin:"0 0 2px", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{p.name}</p>
+                        {p.desc && <p style={{ fontSize:11, color:C.textMuted, margin:"0 0 6px", lineHeight:1.4, display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical", overflow:"hidden" }}>{p.desc}</p>}
+                        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                          <span style={{ fontSize:14, fontWeight:700, color:C.accent }}>${parseFloat(p.price||0).toFixed(2)}</span>
+                          <button onClick={e=>{ e.stopPropagation(); setLightbox({ product:p, slide:0, qty: cart[p.id]||1 }); }} style={{ background:C.accent, color:"#000", border:"none", borderRadius:4, padding:"5px 12px", fontSize:11, fontWeight:700, cursor:"pointer" }}>Add</button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </>
           );
@@ -561,13 +626,13 @@ function CustomerApp({ user, onSignOut }) {
       setCart({}); setCartStore(null);
     };
 
-    if (!showCart) return null;
+    if (showCart!==true) return null;
     const inputStyle = { width:"100%", padding:"10px 12px", border:`1px solid ${C.border}`, borderRadius:5, fontSize:13, color:C.text, background:C.surfaceHigh, outline:"none", boxSizing:"border-box" };
     const LabelEl = ({label}) => <label style={{ fontSize:10, fontWeight:600, color:C.textMuted, display:"block", marginBottom:5, textTransform:"uppercase", letterSpacing:"0.08em" }}>{label}</label>;
 
     return (
       <div style={{ position:"fixed", inset:0, zIndex:100, display:"flex" }}>
-        <div onClick={()=>setShowCart(false)} style={{ flex:1, background:"rgba(0,0,0,0.7)" }}/>
+        <div onClick={()=>setShowCart(false)} style={{ flex:1, background:"rgba(0,0,0,0.7)" }} />
         <div style={{ width:420, background:C.surface, borderLeft:`1px solid ${C.border}`, overflowY:"auto", display:"flex", flexDirection:"column", fontFamily:"'DM Sans', system-ui, sans-serif" }}>
           {done ? (
             <div style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:"2.5rem", textAlign:"center" }}>
@@ -958,7 +1023,7 @@ function CustomerApp({ user, onSignOut }) {
   };
 
   return (
-    <div style={{ minHeight:"100vh", background:C.bg, fontFamily:"'DM Sans', system-ui, sans-serif", paddingBottom:64 }}>
+    <div style={{ minHeight:"100vh", background:C.bg, fontFamily:"'DM Sans', system-ui, sans-serif", paddingBottom:64 }} onClick={e=>{ if (showCart==="mini") setShowCart(false); }}>
       <TopBar/>
       <CartDrawer/>
       {view==="marketplace" && <Marketplace/>}
@@ -1594,9 +1659,7 @@ function SellerApp({ user, onSignOut }) {
                 {p.availability==="out_till_eod" && (
                   <span style={{ position:"absolute", top:8, left:8, background:"rgba(160,112,16,0.92)", color:"#FFF", fontSize:10, fontWeight:700, padding:"3px 8px", borderRadius:4 }}>⏱ Back Tomorrow</span>
                 )}
-                {(!p.availability||p.availability==="available") && p.stock<5 && (
-                  <span style={{ position:"absolute", top:8, right:8, background:C.danger, color:"#FFF", fontSize:10, fontWeight:700, padding:"2px 7px", borderRadius:4 }}>⚠ Low stock</span>
-                )}
+
               </div>
               <div style={{ padding:"0.75rem 0.875rem 0.875rem" }}>
                 <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:3 }}>
@@ -1651,7 +1714,7 @@ function SellerApp({ user, onSignOut }) {
                         <p style={{ fontSize:24, fontWeight:700, color:C.text, margin:"0 0 5px", letterSpacing:"-0.02em" }}>{editProduct.name}</p>
                         <div style={{ display:"flex", alignItems:"center", gap:7, flexWrap:"wrap" }}>
                           <span style={{ fontSize:11, color:C.textMuted, background:C.surfaceHigh, padding:"2px 8px", borderRadius:3 }}>{editProduct.category||editProduct.emoji||"—"}</span>
-                          <span style={{ fontSize:11, color:C.textMuted }}>{editProduct.stock} in stock</span>
+                          
                           {editProduct.availability==="out_of_stock" && <span style={{ background:C.dangerBg, color:C.danger, fontSize:10, fontWeight:700, padding:"2px 8px", borderRadius:4 }}>Out of Stock</span>}
                           {editProduct.availability==="out_till_eod" && <span style={{ background:C.warningBg, color:C.warning, fontSize:10, fontWeight:700, padding:"2px 8px", borderRadius:4 }}>⏱ Out Till EOD</span>}
                           {(!editProduct.availability||editProduct.availability==="available") && <span style={{ background:C.successBg, color:C.success, fontSize:10, fontWeight:700, padding:"2px 8px", borderRadius:4 }}>✓ Available</span>}
@@ -1661,7 +1724,7 @@ function SellerApp({ user, onSignOut }) {
                     </div>
                     <p style={{ fontSize:14, color:C.textSub, margin:"12px 0 1.5rem", lineHeight:1.75 }}>{editProduct.desc||"No description added yet."}</p>
                     <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, marginBottom:"1.5rem" }}>
-                      {[["Price",`$${editProduct.price?.toFixed(2)||"0.00"}`],["Stock",`${editProduct.stock||0} units`],["Category",editProduct.category||editProduct.emoji||"–"]].map(([k,v])=>(
+                      {[["Price",`$${editProduct.price?.toFixed(2)||"0.00"}`],["Category",editProduct.category||editProduct.emoji||"–"],["Status",editProduct.availability||"available"]].map(([k,v])=>(
                         <div key={k} style={{ background:C.surfaceHigh, borderRadius:6, padding:"10px 12px" }}>
                           <p style={{ fontSize:10, color:C.textMuted, margin:"0 0 3px", textTransform:"uppercase", letterSpacing:"0.07em" }}>{k}</p>
                           <p style={{ fontSize:13, fontWeight:600, color:C.text, margin:0 }}>{v}</p>
@@ -1716,11 +1779,7 @@ function SellerApp({ user, onSignOut }) {
                       <input ref={editPriceRef} defaultValue={editForm.price} placeholder="16.00" inputMode="decimal"
                         style={{ width:"100%", padding:"9px 12px", border:`1px solid ${C.border}`, borderRadius:6, fontSize:13, color:C.text, background:C.surfaceHigh, outline:"none", boxSizing:"border-box" }}/>
                     </div>
-                    <div style={{ marginBottom:12, flex:1 }}>
-                      <label style={{ fontSize:10, fontWeight:600, color:C.textMuted, display:"block", marginBottom:5, textTransform:"uppercase", letterSpacing:"0.08em" }}>Stock</label>
-                      <input ref={editStockRef} defaultValue={editForm.stock} placeholder="10" inputMode="numeric"
-                        style={{ width:"100%", padding:"9px 12px", border:`1px solid ${C.border}`, borderRadius:6, fontSize:13, color:C.text, background:C.surfaceHigh, outline:"none", boxSizing:"border-box" }}/>
-                    </div>
+
                   </div>
                   <div style={{ marginBottom:10 }}>
                     <label style={{ fontSize:10, fontWeight:600, color:C.textMuted, display:"block", marginBottom:6, textTransform:"uppercase", letterSpacing:"0.08em" }}>Category</label>
@@ -1855,7 +1914,7 @@ function SellerApp({ user, onSignOut }) {
                 <Inp label="Product Name" value={form.name} onChange={v=>setForm({...form,name:v})} ph="e.g. Blueberry Scones"/>
                 <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
                   <Inp label="Price ($)" value={form.price} onChange={v=>setForm({...form,price:v})} ph="16.00"/>
-                  <Inp label="Stock Available" value={form.stock} onChange={v=>setForm({...form,stock:v})} ph="10"/>
+
                 </div>
                 <div style={{ marginBottom:12 }}>
                   <label style={{ fontSize:10, fontWeight:600, color:C.textMuted, display:"block", marginBottom:6, textTransform:"uppercase", letterSpacing:"0.08em" }}>Category</label>
