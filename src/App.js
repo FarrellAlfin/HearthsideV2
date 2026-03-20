@@ -127,10 +127,10 @@ function Badge({ status }) {
 }
 function KPI({ label, value, sub, color }) {
   return (
-    <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:8, padding:"1rem 1.25rem" }}>
-      <p style={{ fontSize:10, color:C.textMuted, margin:"0 0 8px", textTransform:"uppercase", letterSpacing:"0.1em", fontWeight:600 }}>{label}</p>
-      <p style={{ fontSize:28, fontWeight:700, margin:"0 0 4px", color:color||C.text, letterSpacing:"-0.02em" }}>{value}</p>
-      {sub && <p style={{ fontSize:11, color:C.textMuted, margin:0 }}>{sub}</p>}
+    <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:8, padding:"0.875rem 1rem", minWidth:0, overflow:"hidden" }}>
+      <p style={{ fontSize:10, color:C.textMuted, margin:"0 0 6px", textTransform:"uppercase", letterSpacing:"0.08em", fontWeight:600, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{label}</p>
+      <p style={{ fontSize:"clamp(18px, 3vw, 26px)", fontWeight:700, margin:"0 0 4px", color:color||C.text, letterSpacing:"-0.02em", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{value}</p>
+      {sub && <p style={{ fontSize:11, color:C.textMuted, margin:0, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{sub}</p>}
     </div>
   );
 }
@@ -1073,6 +1073,10 @@ const COST_CATS_DEF = [
 
 function SellerApp({ user, onSignOut }) {
   const [view,            setView]            = useState("dashboard");
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(()=>{
+    try { return localStorage.getItem('hearthside_sidebar_collapsed')==="true"; } catch(e) { return false; }
+  });
+  const toggleSidebar = () => setSidebarCollapsed(v=>{ const n=!v; try { localStorage.setItem('hearthside_sidebar_collapsed',String(n)); } catch(e){} return n; });
   const [products,        setProducts]        = useState([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
   // Shared finances state — read by Dashboard, written by Finances
@@ -1289,43 +1293,53 @@ function SellerApp({ user, onSignOut }) {
   );
 
   const Sidebar = () => (
-    <div style={{ width:220, background:C.sidebar, display:"flex", flexDirection:"column", flexShrink:0, borderRight:`1px solid rgba(255,255,255,0.06)` }}>
-      <button onClick={()=>setShowProfilePanel(true)} style={{
-        padding:"1.25rem 1rem", borderBottom:`1px solid rgba(255,255,255,0.06)`,
-        display:"flex", alignItems:"center", gap:10, background:"transparent", border:"none",
-        cursor:"pointer", textAlign:"left", width:"100%",
-      }}
-        onMouseEnter={e=>e.currentTarget.style.background="rgba(255,255,255,0.04)"}
-        onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-        <div style={{ width:34, height:34, borderRadius:7, background:logoPreview?"transparent":C.accent, overflow:"hidden", display:"flex", alignItems:"center", justifyContent:"center", fontSize:16, flexShrink:0 }}>
-          {logoPreview
-            ? <img src={logoPreview} alt="logo" style={{ width:"100%", height:"100%", objectFit:"cover" }}/>
-            : <span>🍞</span>
-          }
-        </div>
-        <div style={{ minWidth:0, flex:1 }}>
-          <p style={{ color:C.sidebarText, fontSize:15, fontWeight:700, margin:0, letterSpacing:"-0.01em", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{profileData.business||user.business}</p>
-          <p style={{ color:C.sidebarMuted, fontSize:12, margin:0 }}>Edit store profile →</p>
-        </div>
-      </button>
+    <div style={{ width:sidebarCollapsed?60:220, background:C.sidebar, display:"flex", flexDirection:"column", flexShrink:0, borderRight:`1px solid rgba(255,255,255,0.06)`, transition:"width 0.2s ease", overflow:"hidden" }}>
+      {/* Toggle button + logo */}
+      <div style={{ padding:"0.875rem 0.75rem", borderBottom:`1px solid rgba(255,255,255,0.06)`, display:"flex", alignItems:"center", gap:8 }}>
+        <button onClick={()=>setShowProfilePanel(true)} style={{
+          display:"flex", alignItems:"center", gap:8, background:"transparent", border:"none",
+          cursor:"pointer", textAlign:"left", flex:1, minWidth:0, padding:0
+        }}
+          onMouseEnter={e=>e.currentTarget.style.opacity="0.8"}
+          onMouseLeave={e=>e.currentTarget.style.opacity="1"}>
+          <div style={{ width:34, height:34, borderRadius:7, background:logoPreview?"transparent":C.accent, overflow:"hidden", display:"flex", alignItems:"center", justifyContent:"center", fontSize:16, flexShrink:0 }}>
+            {logoPreview
+              ? <img src={logoPreview} alt="logo" style={{ width:"100%", height:"100%", objectFit:"cover" }}/>
+              : <span>🍞</span>
+            }
+          </div>
+          {!sidebarCollapsed && (
+            <div style={{ minWidth:0, flex:1 }}>
+              <p style={{ color:C.sidebarText, fontSize:14, fontWeight:700, margin:0, letterSpacing:"-0.01em", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{profileData.business||user.business}</p>
+              <p style={{ color:C.sidebarMuted, fontSize:11, margin:0 }}>Edit store profile →</p>
+            </div>
+          )}
+        </button>
+        <button onClick={toggleSidebar} style={{ background:"transparent", border:"none", cursor:"pointer", padding:"4px", color:C.sidebarMuted, fontSize:16, flexShrink:0, lineHeight:1 }}
+          title={sidebarCollapsed?"Expand sidebar":"Collapse sidebar"}>
+          {sidebarCollapsed?"→":"←"}
+        </button>
+      </div>
       <nav style={{ flex:1, padding:"0.5rem" }}>
         {SELLER_NAV.map(item=>{
           const active = view===item.id;
           return (
-            <button key={item.id} onClick={()=>setView(item.id)} style={{
-              display:"flex", alignItems:"center", gap:10, width:"100%", padding:"8px 10px",
+            <button key={item.id} onClick={()=>setView(item.id)} title={item.label} style={{
+              display:"flex", alignItems:"center", gap:10, width:"100%",
+              padding:sidebarCollapsed?"10px 0":"8px 10px", justifyContent:sidebarCollapsed?"center":"flex-start",
               background:active?"rgba(196,98,45,0.15)":"transparent", border:"none",
               borderRadius:5, cursor:"pointer", marginBottom:1, textAlign:"left"
             }}>
-              <span style={{ fontSize:15, color:active?C.accent:C.sidebarMuted, width:18, textAlign:"center" }}>{item.icon}</span>
-              <span style={{ fontSize:15, color:active?C.accent:C.sidebarText, fontWeight:active?600:400 }}>{item.label}</span>
+              <span style={{ fontSize:16, color:active?C.accent:C.sidebarMuted, flexShrink:0 }}>{item.icon}</span>
+              {!sidebarCollapsed && <span style={{ fontSize:14, color:active?C.accent:C.sidebarText, fontWeight:active?600:400, whiteSpace:"nowrap" }}>{item.label}</span>}
             </button>
           );
         })}
       </nav>
       <div style={{ padding:"0.75rem" }}>
-        <button onClick={onSignOut} style={{ display:"flex", alignItems:"center", gap:8, width:"100%", padding:"8px 10px", background:"transparent", border:"1px solid rgba(255,255,255,0.1)", borderRadius:5, cursor:"pointer" }}>
-          <span style={{ fontSize:14, color:C.sidebarMuted }}>Sign out</span>
+        <button onClick={onSignOut} title="Sign out" style={{ display:"flex", alignItems:"center", justifyContent:sidebarCollapsed?"center":"flex-start", gap:8, width:"100%", padding:"8px 10px", background:"transparent", border:"1px solid rgba(255,255,255,0.1)", borderRadius:5, cursor:"pointer" }}>
+          <span style={{ fontSize:14 }}>🚪</span>
+          {!sidebarCollapsed && <span style={{ fontSize:13, color:C.sidebarMuted }}>Sign out</span>}
         </button>
       </div>
     </div>
