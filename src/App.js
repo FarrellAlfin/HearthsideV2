@@ -7,43 +7,50 @@ const supabase = createClient(
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt4YWpqbHJqZ3JhYnRteWtzcXJxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3NjIyMzMsImV4cCI6MjA4OTMzODIzM30.UCUOnwpyP4oBJyHhaCEM4kym_UlDY32a2SWP3x8atQU'
 );
 
-// ─── DESIGN TOKENS — Hearthside warm palette ─────────────────────────────────
+// ─── DESIGN TOKENS — Artisan Kitchen Editorial ───────────────────────────────
 const C = {
-  // Base — warm cream + dark contrast
-  bg:          "#F7F0E6",
-  surface:     "#FFFFFF",
-  surfaceHigh: "#F0E8DB",
-  surfaceTop:  "#E8DDD0",
-  border:      "rgba(164,98,60,0.14)",
-  borderMid:   "rgba(164,98,60,0.25)",
-  // Text
-  text:        "#1C0E07",
-  textSub:     "#5C3D2A",
-  textMuted:   "#9C7A66",
-  // Accent — logo burnt orange
-  accent:      "#C4622D",
-  accentDark:  "#A05025",
-  accentBg:    "rgba(196,98,45,0.08)",
-  accentBorder:"rgba(196,98,45,0.22)",
-  // Sidebar — deep espresso
-  sidebar:     "#1C0E07",
-  sidebarText: "#F5DCC8",
-  sidebarMuted:"rgba(245,220,200,0.45)",
+  // Surface hierarchy — tonal layering ("stacked linen sheets")
+  bg:          "#fbf9f5",   // Level 0: base cream surface
+  surface:     "#ffffff",   // Level 2: raised card / highest
+  surfaceHigh: "#f3ede4",   // Level 1: recessed / container-low
+  surfaceTop:  "#e8e0d5",   // Level 1b: slightly deeper recess
+  // "No-Line" rule — ghost borders only for inputs, never for sections
+  border:      "rgba(23,49,36,0.1)",
+  borderMid:   "rgba(23,49,36,0.18)",
+  // Text — warm near-black, never pure #000
+  text:        "#1b1c1a",
+  textSub:     "#3d4a3e",
+  textMuted:   "#7a8c7b",
+  // Accent — Terracotta (secondary/flavor)
+  accent:      "#9a4527",
+  accentDark:  "#7a3318",
+  accentBg:    "rgba(154,69,39,0.08)",
+  accentBorder:"rgba(154,69,39,0.2)",
+  // Sidebar — Deep Forest Green (primary)
+  sidebar:     "#173124",
+  sidebarText: "#f0f4f1",
+  sidebarMuted:"rgba(240,244,241,0.45)",
+  // Primary green — for buttons, headers, high-authority moments
+  primary:     "#173124",
+  primaryHover:"#1f4232",
+  primaryBg:   "rgba(23,49,36,0.07)",
   // Semantic
   success:     "#1E7A48",
-  successBg:   "rgba(30,122,72,0.1)",
+  successBg:   "rgba(30,122,72,0.08)",
   warning:     "#A07010",
-  warningBg:   "rgba(160,112,16,0.1)",
+  warningBg:   "rgba(160,112,16,0.08)",
   danger:      "#B52020",
-  dangerBg:    "rgba(181,32,32,0.1)",
+  dangerBg:    "rgba(181,32,32,0.08)",
   info:        "#1A6B9C",
-  infoBg:      "rgba(26,107,156,0.1)",
+  infoBg:      "rgba(26,107,156,0.08)",
   // Feature colors
   charity:     "#7C3AED",
-  charityBg:   "rgba(124,58,237,0.08)",
-  charityBorder:"rgba(124,58,237,0.2)",
-  chat:        "#0D6E5C",
-  chatBg:      "rgba(13,110,92,0.1)",
+  charityBg:   "rgba(124,58,237,0.07)",
+  charityBorder:"rgba(124,58,237,0.18)",
+  chat:        "#173124",
+  chatBg:      "rgba(23,49,36,0.08)",
+  // Ambient shadow — green-tinted, never black
+  shadow:      "rgba(23,49,36,0.06)",
 };
 
 // ─── MOCK DATA ────────────────────────────────────────────────────────────────
@@ -146,7 +153,7 @@ function AuthInput({ label, ph, type="text", value, onChange, onEnter }) {
     <div style={{ marginBottom:14 }}>
       <label style={{ fontSize:11, fontWeight:600, color:C.textMuted, display:"block", marginBottom:6, textTransform:"uppercase", letterSpacing:"0.08em" }}>{label}</label>
       <input type={type} value={value} onChange={onChange} placeholder={ph} onKeyDown={e=>e.key==="Enter"&&onEnter()}
-        style={{ width:"100%", padding:"11px 14px", border:`1px solid ${C.border}`, borderRadius:6, fontSize:14, color:C.text, background:C.surfaceHigh, outline:"none", boxSizing:"border-box", transition:"border-color 0.15s" }}
+        style={{ width:"100%", padding:"12px 14px", border:`1px solid ${C.border}`, borderRadius:8, fontSize:14, color:C.text, background:C.surfaceHigh, outline:"none", boxSizing:"border-box", transition:"border-color 0.15s", fontFamily:"inherit" }}
         onFocus={e=>e.target.style.borderColor=C.accent}
         onBlur={e=>e.target.style.borderColor=C.border}/>
     </div>
@@ -155,10 +162,12 @@ function AuthInput({ label, ph, type="text", value, onChange, onEnter }) {
 function Pill({ label, active, onClick, color }) {
   return (
     <button onClick={onClick} style={{
-      padding:"6px 14px", borderRadius:4, border:`1px solid ${active?(color||C.accent):C.border}`,
-      background:active?(color?`rgba(${color},0.1)`:C.accentBg):"transparent",
-      color:active?(color||C.accent):C.textMuted, fontSize:12, fontWeight:500,
-      cursor:"pointer", whiteSpace:"nowrap", flexShrink:0, letterSpacing:"0.01em"
+      padding:"6px 16px", borderRadius:9999,
+      border:`1px solid ${active?(color||C.accent):C.border}`,
+      background:active?(color?`rgba(${color},0.12)`:C.accentBg):"transparent",
+      color:active?(color||C.accent):C.textMuted, fontSize:12, fontWeight:600,
+      cursor:"pointer", whiteSpace:"nowrap", flexShrink:0,
+      letterSpacing:"0.03em", transition:"all 0.15s",
     }}>{label}</button>
   );
 }
@@ -206,7 +215,7 @@ function AuthScreen({ onAuth }) {
   };
 
   return (
-    <div style={{ minHeight:"100vh", background:C.bg, display:"flex", fontFamily:"'DM Sans', system-ui, sans-serif" }}>
+    <div style={{ minHeight:"100vh", background:C.bg, display:"flex", fontFamily:"'Plus Jakarta Sans', system-ui, sans-serif" }}>
       {/* Left panel */}
       <div style={{ flex:1, display:"flex", flexDirection:"column", justifyContent:"center", padding:"4rem", background:C.sidebar, borderRight:`1px solid ${C.border}` }}>
         <div style={{ maxWidth:400 }}>
@@ -245,10 +254,11 @@ function AuthScreen({ onAuth }) {
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:"1.5rem" }}>
           {[{ v:"customer", label:"Customer", sub:"Browse & order" },{ v:"seller", label:"Seller", sub:"Manage my bakery" }].map(r=>(
             <button key={r.v} onClick={()=>setRole(r.v)} style={{
-              padding:"12px 14px", border:`1px solid ${role===r.v?C.accent:C.border}`,
-              borderRadius:6, background:role===r.v?C.accentBg:"transparent", cursor:"pointer", textAlign:"left"
+              padding:"13px 14px", border:`1px solid ${role===r.v?C.primary:C.border}`,
+              borderRadius:10, background:role===r.v?C.primaryBg:"transparent", cursor:"pointer", textAlign:"left",
+              transition:"all 0.15s",
             }}>
-              <p style={{ fontSize:13, fontWeight:600, color:role===r.v?C.accent:C.text, margin:"0 0 1px" }}>{r.label}</p>
+              <p style={{ fontSize:13, fontWeight:700, color:role===r.v?C.primary:C.text, margin:"0 0 2px" }}>{r.label}</p>
               <p style={{ fontSize:11, color:C.textMuted, margin:0 }}>{r.sub}</p>
             </button>
           ))}
@@ -279,7 +289,7 @@ function AuthScreen({ onAuth }) {
         <AuthInput label="Password" ph="••••••••" type="password" value={form.password} onChange={e=>setForm({...form,password:e.target.value})} onEnter={submit}/>
         {err && <p style={{ color:C.danger, fontSize:12, margin:"0 0 12px", background:C.dangerBg, padding:"8px 12px", borderRadius:4 }}>{err}</p>}
 
-        <button onClick={submit} disabled={loading} style={{ width:"100%", padding:"13px", background:loading?"rgba(200,240,74,0.5)":C.accent, color:"#000", border:"none", borderRadius:6, fontSize:14, fontWeight:700, cursor:loading?"default":"pointer", letterSpacing:"0.01em" }}>
+        <button onClick={submit} disabled={loading} style={{ width:"100%", padding:"13px", background:loading?C.surfaceHigh:C.primary, color:loading?C.textMuted:"#ffffff", border:"none", borderRadius:8, fontSize:14, fontWeight:700, cursor:loading?"default":"pointer", letterSpacing:"0.01em", transition:"background 0.15s", fontFamily:"inherit" }}>
           {loading?"..." : mode==="login"?"Sign In →":"Create Account →"}
         </button>
 
@@ -355,7 +365,7 @@ function CustomerApp({ user, onSignOut }) {
   ];
 
   const TopBar = () => (
-    <div style={{ background:C.surface, borderBottom:`1px solid ${C.border}`, padding:"0 1.5rem", height:56, display:"flex", justifyContent:"space-between", alignItems:"center", position:"sticky", top:0, zIndex:50 }}>
+    <div style={{ background:"rgba(251,249,245,0.85)", backdropFilter:"blur(16px)", WebkitBackdropFilter:"blur(16px)", borderBottom:`1px solid ${C.border}`, padding:"0 1.5rem", height:56, display:"flex", justifyContent:"space-between", alignItems:"center", position:"sticky", top:0, zIndex:50 }}>
       <div style={{ display:"flex", alignItems:"center", gap:10 }}>
         <div style={{ width:26, height:26, background:C.accent, borderRadius:5, display:"flex", alignItems:"center", justifyContent:"center", fontSize:13 }}>🍞</div>
         <div>
@@ -366,7 +376,7 @@ function CustomerApp({ user, onSignOut }) {
       <div style={{ display:"flex", gap:8, alignItems:"center" }}>
         {cartCount>0 && (
           <div style={{ position:"relative" }}>
-            <button onClick={()=>setShowCart(true)} style={{ display:"flex", alignItems:"center", gap:8, background:C.accent, color:"#000", border:"none", borderRadius:5, padding:"7px 14px", fontSize:13, fontWeight:700, cursor:"pointer" }}>
+            <button onClick={()=>setShowCart(true)} style={{ display:"flex", alignItems:"center", gap:8, background:C.primary, color:"#fff", border:"none", borderRadius:9999, padding:"7px 16px", fontSize:13, fontWeight:700, cursor:"pointer", boxShadow:`0 4px 16px ${C.shadow}` }}>
               <span>🛒 {cartCount}</span><span>·</span><span>${total.toFixed(2)}</span>
             </button>
             {showCart==="mini" && (
@@ -401,7 +411,7 @@ function CustomerApp({ user, onSignOut }) {
   );
 
   const BottomNav = () => (
-    <div style={{ position:"fixed", bottom:0, left:0, right:0, background:C.surface, borderTop:`1px solid ${C.border}`, display:"flex", zIndex:40, height:58 }}>
+    <div style={{ position:"fixed", bottom:0, left:0, right:0, background:"rgba(251,249,245,0.9)", backdropFilter:"blur(16px)", WebkitBackdropFilter:"blur(16px)", borderTop:`1px solid ${C.border}`, display:"flex", zIndex:40, height:60 }}>
       {CUST_NAV.map(n=>{
         const active = view===n.id;
         return (
@@ -426,7 +436,7 @@ function CustomerApp({ user, onSignOut }) {
     const store    = sellers.find(s=>s.id===activeStore);
     const products = sellerProds[activeStore]||[];
     if (!store) return (
-      <div style={{ minHeight:"100vh", background:C.bg, fontFamily:"'DM Sans', system-ui, sans-serif", paddingBottom:80 }}>
+      <div style={{ minHeight:"100vh", background:C.bg, fontFamily:"'Plus Jakarta Sans', system-ui, sans-serif", paddingBottom:80 }}>
         <TopBar/>
         <CartDrawer/>
         <div style={{ padding:"2rem", textAlign:"center" }}>
@@ -438,7 +448,7 @@ function CustomerApp({ user, onSignOut }) {
       </div>
     );
     return (
-      <div style={{ minHeight:"100vh", background:C.bg, fontFamily:"'DM Sans', system-ui, sans-serif", paddingBottom:80 }}>
+      <div style={{ minHeight:"100vh", background:C.bg, fontFamily:"'Plus Jakarta Sans', system-ui, sans-serif", paddingBottom:80 }}>
         <TopBar/>
         <CartDrawer/>
         <div style={{ padding:"1.25rem 1.5rem 1rem", borderBottom:`1px solid ${C.border}`, background:C.surface }}>
@@ -483,7 +493,7 @@ function CustomerApp({ user, onSignOut }) {
               {lightbox && (
                 <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.85)", zIndex:300, display:"flex", alignItems:"center", justifyContent:"center", padding:"1rem" }}
                   onClick={()=>setLightbox(null)}>
-                  <div style={{ background:C.surface, borderRadius:16, width:480, maxWidth:"96vw", maxHeight:"92vh", overflowY:"auto", boxShadow:"0 24px 60px rgba(0,0,0,0.5)" }} onClick={e=>e.stopPropagation()}>
+                  <div style={{ background:C.surface, borderRadius:16, width:480, maxWidth:"96vw", maxHeight:"92vh", overflowY:"auto", boxShadow:"0 32px 80px rgba(23,49,36,0.18)" }} onClick={e=>e.stopPropagation()}>
                     {(() => {
                       const imgs = (() => { try { const a=JSON.parse(lightbox.product.images||"[]"); return a.length>0?a:(lightbox.product.image_url?[lightbox.product.image_url]:[]); } catch(e){ return lightbox.product.image_url?[lightbox.product.image_url]:[]; } })();
                       const slide = Math.min(lightbox.slide||0, Math.max(0,imgs.length-1));
@@ -531,7 +541,7 @@ function CustomerApp({ user, onSignOut }) {
                                 const qty = lightbox.qty||1;
                                 for (let i=0; i<qty; i++) addToCart(activeStore, lightbox.product.id);
                                 setLightbox(null);
-                              }} style={{ flex:1, height:42, background:C.accent, color:"#000", border:"none", borderRadius:7, fontSize:14, fontWeight:700, cursor:"pointer" }}>
+                              }} style={{ flex:1, height:42, background:C.primary, color:"#fff", border:"none", borderRadius:8, fontSize:14, fontWeight:700, cursor:"pointer" }}>
                                 Add {lightbox.qty||1} to Cart · ${((lightbox.qty||1)*parseFloat(lightbox.product.price||0)).toFixed(2)}
                               </button>
                             </div>
@@ -553,8 +563,10 @@ function CustomerApp({ user, onSignOut }) {
                   const cardSlide = cardSlides[p.id]||0;
                   const setCardSlide = (fn) => setCardSlides(s=>({...s,[p.id]:typeof fn==="function"?fn(s[p.id]||0):fn}));
                   return (
-                    <div key={p.id} style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:8, overflow:"hidden", cursor:"pointer" }}
-                      onClick={()=>setLightbox({ product:p, slide:cardSlide, qty: cart[p.id]||1 })}>
+                    <div key={p.id} style={{ background:C.surface, borderRadius:12, overflow:"hidden", cursor:"pointer", boxShadow:`0 2px 12px ${C.shadow}`, transition:"transform 0.15s" }}
+                      onClick={()=>setLightbox({ product:p, slide:cardSlide, qty: cart[p.id]||1 })}
+                      onMouseEnter={e=>e.currentTarget.style.transform="translateY(-2px)"}
+                      onMouseLeave={e=>e.currentTarget.style.transform="translateY(0)"}>
                       {/* Slideable image area */}
                       <div style={{ position:"relative", paddingBottom:"100%", background:C.surfaceHigh }}>
                         {imgs.length>0
@@ -656,7 +668,7 @@ function CustomerApp({ user, onSignOut }) {
     return (
       <div style={{ position:"fixed", inset:0, zIndex:100, display:"flex" }}>
         <div onClick={()=>setShowCart(false)} style={{ flex:1, background:"rgba(0,0,0,0.7)" }} />
-        <div style={{ width:420, background:C.surface, borderLeft:`1px solid ${C.border}`, overflowY:"auto", display:"flex", flexDirection:"column", fontFamily:"'DM Sans', system-ui, sans-serif" }}>
+        <div style={{ width:420, background:C.surface, borderLeft:`1px solid ${C.border}`, overflowY:"auto", display:"flex", flexDirection:"column", fontFamily:"'Plus Jakarta Sans', system-ui, sans-serif" }}>
           {done ? (
             <div style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:"2.5rem", textAlign:"center" }}>
               <div style={{ width:64, height:64, background:isCharity?C.charityBg:C.accentBg, borderRadius:12, display:"flex", alignItems:"center", justifyContent:"center", fontSize:28, marginBottom:16 }}>{isCharity?"💜":"✓"}</div>
@@ -664,7 +676,7 @@ function CustomerApp({ user, onSignOut }) {
               <p style={{ color:C.textMuted, fontSize:13, margin:"0 0 2rem", lineHeight:1.6 }}>
                 {isCharity?`Your donation to ${selectedCharity?.name||"the charity"} is confirmed. Thank you! 💜`:`${cartStoreObj?.name} has been notified and will start baking soon.`}
               </p>
-              <button onClick={()=>{ setShowCart(false); setCart({}); setCartStore(null); setIsCharity(false); setSelectedCharity(null); }} style={{ background:C.accent, color:"#000", border:"none", borderRadius:5, padding:"12px 28px", fontSize:13, fontWeight:700, cursor:"pointer" }}>Done</button>
+              <button onClick={()=>{ setShowCart(false); setCart({}); setCartStore(null); setIsCharity(false); setSelectedCharity(null); }} style={{ background:C.primary, color:"#fff", border:"none", borderRadius:8, padding:"12px 28px", fontSize:13, fontWeight:700, cursor:"pointer" }}>Done</button>
             </div>
           ) : (
             <>
@@ -764,7 +776,7 @@ function CustomerApp({ user, onSignOut }) {
               </div>
 
               <div style={{ padding:"0.75rem 1.25rem", borderTop:`1px solid ${C.border}` }}>
-                {step==="review" && <button onClick={()=>setStep("delivery")} style={{ width:"100%", padding:"12px", background:C.accent, color:"#000", border:"none", borderRadius:5, fontSize:13, fontWeight:700, cursor:"pointer" }}>Continue →</button>}
+                {step==="review" && <button onClick={()=>setStep("delivery")} style={{ width:"100%", padding:"12px", background:C.primary, color:"#fff", border:"none", borderRadius:8, fontSize:13, fontWeight:700, cursor:"pointer" }}>Continue →</button>}
                 {step==="delivery" && (
                   <div style={{ display:"flex", gap:8 }}>
                     <button onClick={()=>setStep("review")} style={{ flex:1, padding:"12px", border:`1px solid ${C.border}`, borderRadius:5, background:"transparent", color:C.textMuted, cursor:"pointer", fontSize:13 }}>Back</button>
@@ -799,9 +811,10 @@ function CustomerApp({ user, onSignOut }) {
           <p style={{ fontSize:13, color:C.textMuted, margin:0 }}>Fresh home-baked goods from your neighbourhood</p>
         </div>
         {/* Search */}
-        <div style={{ marginBottom:10 }}>
+        <div style={{ marginBottom:12 }}>
           <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search bakers by name or neighbourhood..."
-            style={{ width:"100%", padding:"10px 14px", border:`1px solid ${C.border}`, borderRadius:6, fontSize:13, color:C.text, background:C.surface, outline:"none", boxSizing:"border-box" }}/>
+            style={{ width:"100%", padding:"11px 18px", border:`1px solid ${C.border}`, borderRadius:9999, fontSize:13, color:C.text, background:C.surfaceHigh, outline:"none", boxSizing:"border-box", fontFamily:"inherit" }}
+            onFocus={e=>e.target.style.borderColor=C.primary} onBlur={e=>e.target.style.borderColor=C.border}/>
         </div>
         {/* Hood filter */}
         <div style={{ display:"flex", gap:7, marginBottom:"1rem", overflowX:"auto", paddingBottom:4 }}>
@@ -818,9 +831,9 @@ function CustomerApp({ user, onSignOut }) {
         ) : (
           <div style={{ display:"grid", gridTemplateColumns:"repeat(2,minmax(0,1fr))", gap:10 }}>
             {filtered.map(store=>(
-              <div key={store.id} onClick={()=>{ setActiveStore(store.id); loadSellerProducts(store.id); }} style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:8, padding:"1rem", cursor:"pointer", transition:"border-color 0.15s" }}
-                onMouseEnter={e=>e.currentTarget.style.borderColor=C.borderMid}
-                onMouseLeave={e=>e.currentTarget.style.borderColor=C.border}>
+              <div key={store.id} onClick={()=>{ setActiveStore(store.id); loadSellerProducts(store.id); }} style={{ background:C.surface, borderRadius:12, padding:"1.125rem", cursor:"pointer", boxShadow:`0 2px 16px ${C.shadow}`, transition:"transform 0.15s, box-shadow 0.15s" }}
+                onMouseEnter={e=>{ e.currentTarget.style.transform="translateY(-2px)"; e.currentTarget.style.boxShadow=`0 8px 28px ${C.shadow}`; }}
+                onMouseLeave={e=>{ e.currentTarget.style.transform="translateY(0)"; e.currentTarget.style.boxShadow=`0 2px 16px ${C.shadow}`; }}>
                 <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:10 }}>
                   <div style={{ width:44, height:44, background:C.surfaceHigh, borderRadius:7, overflow:"hidden", display:"flex", alignItems:"center", justifyContent:"center", fontSize:22 }}>
                     {store.logo_url ? <img src={store.logo_url} alt={store.business} style={{ width:"100%", height:"100%", objectFit:"cover" }}/> : <span>🍞</span>}
@@ -829,7 +842,7 @@ function CustomerApp({ user, onSignOut }) {
                 <p style={{ fontSize:14, fontWeight:600, color:C.text, margin:"0 0 3px", letterSpacing:"-0.01em" }}>{store.business||store.name}</p>
                 <p style={{ fontSize:11, color:C.textMuted, margin:"0 0 5px" }}>📍 {store.hood||"Toronto"}</p>
                 <p style={{ fontSize:11, color:C.textSub, margin:"0 0 10px", lineHeight:1.5 }}>{store.desc||"Home baker"}</p>
-                <span style={{ fontSize:11, color:C.accent, fontWeight:600 }}>Browse →</span>
+                <span style={{ fontSize:11, color:C.accent, fontWeight:700, letterSpacing:"0.02em" }}>Browse →</span>
               </div>
             ))}
           </div>
@@ -1046,7 +1059,7 @@ function CustomerApp({ user, onSignOut }) {
   };
 
   return (
-    <div style={{ minHeight:"100vh", background:C.bg, fontFamily:"'DM Sans', system-ui, sans-serif", paddingBottom:64 }} onClick={e=>{ if (showCart==="mini") setShowCart(false); }}>
+    <div style={{ minHeight:"100vh", background:C.bg, fontFamily:"'Plus Jakarta Sans', system-ui, sans-serif", paddingBottom:64 }} onClick={e=>{ if (showCart==="mini") setShowCart(false); }}>
       {activeStore ? <StoreDetail/> : (
         <>
           <TopBar/>
@@ -1064,7 +1077,7 @@ function CustomerApp({ user, onSignOut }) {
 
 // ─── SELLER APP ───────────────────────────────────────────────────────────────
 const COST_CATS_DEF = [
-  { value:"ingredients", label:"Ingredients", color:"#C4622D" },
+  { value:"ingredients", label:"Ingredients", color:"#9a4527" },
   { value:"packaging",   label:"Packaging",   color:"#A07010" },
   { value:"delivery",    label:"Delivery",    color:"#1A6B9C" },
   { value:"equipment",   label:"Equipment",   color:"#1E7A48" },
@@ -1220,7 +1233,7 @@ function SellerApp({ user, onSignOut }) {
     showProfilePanel ? (
       <div style={{ position:"fixed", inset:0, zIndex:300, display:"flex", alignItems:"center", justifyContent:"center" }}>
         <div onClick={()=>setShowProfilePanel(false)} style={{ position:"absolute", inset:0, background:"rgba(0,0,0,0.6)" }}/>
-        <div style={{ position:"relative", width:600, maxWidth:"92vw", maxHeight:"88vh", background:C.surface, borderRadius:16, border:`1px solid ${C.border}`, overflowY:"auto", fontFamily:"'DM Sans', system-ui, sans-serif", boxShadow:"0 24px 60px rgba(0,0,0,0.35)" }}>
+        <div style={{ position:"relative", width:600, maxWidth:"92vw", maxHeight:"88vh", background:C.surface, borderRadius:16, border:`1px solid ${C.border}`, overflowY:"auto", fontFamily:"'Plus Jakarta Sans', system-ui, sans-serif", boxShadow:"0 24px 60px rgba(0,0,0,0.35)" }}>
           <div style={{ padding:"1.5rem 2rem", borderBottom:`1px solid ${C.border}`, display:"flex", justifyContent:"space-between", alignItems:"center", position:"sticky", top:0, background:C.surface, zIndex:10 }}>
             <div>
               <p style={{ fontSize:20, fontWeight:700, color:C.text, margin:"0 0 2px", letterSpacing:"-0.02em" }}>Store Profile</p>
@@ -1326,12 +1339,12 @@ function SellerApp({ user, onSignOut }) {
           return (
             <button key={item.id} onClick={()=>setView(item.id)} title={item.label} style={{
               display:"flex", alignItems:"center", gap:10, width:"100%",
-              padding:sidebarCollapsed?"10px 0":"8px 10px", justifyContent:sidebarCollapsed?"center":"flex-start",
-              background:active?"rgba(196,98,45,0.15)":"transparent", border:"none",
-              borderRadius:5, cursor:"pointer", marginBottom:1, textAlign:"left"
+              padding:sidebarCollapsed?"10px 0":"9px 12px", justifyContent:sidebarCollapsed?"center":"flex-start",
+              background:active?"rgba(154,69,39,0.18)":"transparent", border:"none",
+              borderRadius:8, cursor:"pointer", marginBottom:2, textAlign:"left", transition:"background 0.15s"
             }}>
-              <span style={{ fontSize:16, color:active?C.accent:C.sidebarMuted, flexShrink:0 }}>{item.icon}</span>
-              {!sidebarCollapsed && <span style={{ fontSize:14, color:active?C.accent:C.sidebarText, fontWeight:active?600:400, whiteSpace:"nowrap" }}>{item.label}</span>}
+              <span style={{ fontSize:15, color:active?"#f0c4a8":C.sidebarMuted, flexShrink:0 }}>{item.icon}</span>
+              {!sidebarCollapsed && <span style={{ fontSize:13, color:active?"#f0c4a8":C.sidebarText, fontWeight:active?700:400, whiteSpace:"nowrap", letterSpacing:"0.01em" }}>{item.label}</span>}
             </button>
           );
         })}
@@ -1381,7 +1394,7 @@ function SellerApp({ user, onSignOut }) {
 
     // Channel list view
     if (!activeChannel) return (
-      <div style={{ display:"flex", flexDirection:"column", height:"calc(100vh - 56px)", fontFamily:"'DM Sans', system-ui, sans-serif" }}>
+      <div style={{ display:"flex", flexDirection:"column", height:"calc(100vh - 56px)", fontFamily:"'Plus Jakarta Sans', system-ui, sans-serif" }}>
         <div style={{ padding:"1rem 1.5rem", borderBottom:`1px solid ${C.border}`, background:C.surface }}>
           <h1 style={{ fontSize:20, fontWeight:700, color:C.text, margin:"0 0 2px", letterSpacing:"-0.02em" }}>Community</h1>
           <p style={{ fontSize:12, color:C.textMuted, margin:0 }}>Broadcast to neighbourhoods near you</p>
@@ -1672,12 +1685,12 @@ function SellerApp({ user, onSignOut }) {
       <div style={{ padding:"2rem" }}>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"1.5rem" }}>
           <div>
-            <h1 style={{ fontSize:24, fontWeight:700, color:C.text, margin:"0 0 4px", letterSpacing:"-0.02em" }}>Storefront</h1>
+            <h1 style={{ fontSize:26, fontWeight:800, color:C.text, margin:"0 0 4px", letterSpacing:"-0.03em" }}>Storefront</h1>
             <p style={{ color:C.textMuted, fontSize:13, margin:0 }}>Manage your listings</p>
           </div>
           <div style={{ display:"flex", gap:8 }}>
             <button onClick={()=>setShowCatMgr(true)} style={{ background:"transparent", border:`1px solid ${C.border}`, borderRadius:5, padding:"9px 14px", fontSize:13, fontWeight:600, color:C.textMuted, cursor:"pointer" }}>⚙ Categories</button>
-            <button onClick={()=>setShowModal(true)} style={{ background:C.accent, color:"#000", border:"none", borderRadius:5, padding:"9px 16px", fontSize:13, fontWeight:700, cursor:"pointer" }}>+ Add Product</button>
+            <button onClick={()=>setShowModal(true)} style={{ background:C.primary, color:"#ffffff", border:"none", borderRadius:8, padding:"9px 16px", fontSize:13, fontWeight:700, cursor:"pointer" }}>+ Add Product</button>
           </div>
         </div>
         {products.length===0 && (
@@ -1927,7 +1940,7 @@ function SellerApp({ user, onSignOut }) {
                   <div style={{ display:"flex", gap:8 }}>
                     <button onClick={deleteProduct} style={{ padding:"10px 14px", border:`1px solid ${C.danger}`, borderRadius:5, background:C.dangerBg, color:C.danger, cursor:"pointer", fontSize:13, fontWeight:600 }}>Delete</button>
                     <button onClick={()=>setEditForm(null)} style={{ flex:1, padding:"10px", border:`1px solid ${C.border}`, borderRadius:5, background:"transparent", color:C.textMuted, cursor:"pointer", fontSize:13 }}>← Back</button>
-                    <button onClick={saveEdit} disabled={saving} style={{ flex:2, padding:"10px", background:saving?"rgba(196,98,45,0.4)":C.accent, color:"#FFF", border:"none", borderRadius:5, cursor:saving?"default":"pointer", fontSize:13, fontWeight:700 }}>
+                    <button onClick={saveEdit} disabled={saving} style={{ flex:2, padding:"10px", background:saving?"rgba(154,69,39,0.4)":C.accent, color:"#FFF", border:"none", borderRadius:5, cursor:saving?"default":"pointer", fontSize:13, fontWeight:700 }}>
                       {saving?"Saving...":"Save Changes"}
                     </button>
                   </div>
@@ -2048,7 +2061,7 @@ function SellerApp({ user, onSignOut }) {
                 </div>
                 <div style={{ display:"flex", gap:8 }}>
                   <button onClick={()=>{ setShowModal(false); setImageFile(null); setImagePreview(null); }} style={{ flex:1, padding:"11px", border:`1px solid ${C.border}`, borderRadius:5, background:"transparent", color:C.textMuted, cursor:"pointer", fontSize:13 }}>Cancel</button>
-                  <button onClick={add} disabled={uploading} style={{ flex:2, padding:"11px", background:uploading?"rgba(196,98,45,0.4)":C.accent, color:"#FFF", border:"none", borderRadius:5, cursor:uploading?"default":"pointer", fontSize:13, fontWeight:700 }}>
+                  <button onClick={add} disabled={uploading} style={{ flex:2, padding:"11px", background:uploading?C.surfaceHigh:C.primary, color:uploading?C.textMuted:"#FFF", border:"none", borderRadius:8, cursor:uploading?"default":"pointer", fontSize:13, fontWeight:700 }}>
                     {uploading?"Uploading...":"Add Product"}
                   </button>
                 </div>
@@ -2100,7 +2113,7 @@ function SellerApp({ user, onSignOut }) {
     if (loadingOrders) return <div style={{ padding:"2rem", textAlign:"center", color:C.textMuted, fontSize:13 }}>Loading orders...</div>;
     return (
       <div style={{ padding:"2rem" }}>
-        <h1 style={{ fontSize:24, fontWeight:700, color:C.text, margin:"0 0 1.25rem", letterSpacing:"-0.02em" }}>Orders</h1>
+        <h1 style={{ fontSize:26, fontWeight:800, color:C.text, margin:"0 0 1.25rem", letterSpacing:"-0.03em" }}>Orders</h1>
 
         {/* KPIs */}
         {liveOrders.length>0 && (
@@ -2576,7 +2589,7 @@ function SellerApp({ user, onSignOut }) {
               <input value={newLabel} onChange={e=>setNewLabel(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addCost()} placeholder="e.g. Flour from wholesale"
                 style={{ width:"100%", padding:"9px 10px", border:`1px solid ${C.border}`, borderRadius:5, fontSize:13, color:C.text, background:C.surfaceHigh, outline:"none", boxSizing:"border-box" }}/>
             </div>
-            <button onClick={addCost} disabled={!newAmt||parseFloat(newAmt)<=0} style={{ width:"100%", padding:"10px", background:newAmt&&parseFloat(newAmt)>0?C.accent:"rgba(196,98,45,0.3)", color:"#FFF", border:"none", borderRadius:5, fontSize:13, fontWeight:700, cursor:"pointer" }}>
+            <button onClick={addCost} disabled={!newAmt||parseFloat(newAmt)<=0} style={{ width:"100%", padding:"10px", background:newAmt&&parseFloat(newAmt)>0?C.accent:"rgba(154,69,39,0.3)", color:"#FFF", border:"none", borderRadius:5, fontSize:13, fontWeight:700, cursor:"pointer" }}>
               + Add Cost
             </button>
           </div>
@@ -2766,7 +2779,7 @@ function SellerApp({ user, onSignOut }) {
     const [form, setForm] = useState({ name:"", phone:"", email:"", notes:"", tag:"regular" });
 
     const TAGS = [
-      { v:"regular",   label:"Regular",     bg:"rgba(196,98,45,0.1)",  color:"#C4622D" },
+      { v:"regular",   label:"Regular",     bg:"rgba(154,69,39,0.1)",  color:"#9a4527" },
       { v:"vip",       label:"VIP",         bg:"rgba(160,112,16,0.1)", color:"#A07010" },
       { v:"wholesale", label:"Wholesale",   bg:"rgba(26,107,156,0.1)", color:"#1A6B9C" },
       { v:"new",       label:"New",         bg:"rgba(30,122,72,0.1)",  color:"#1E7A48" },
@@ -2916,7 +2929,7 @@ function SellerApp({ user, onSignOut }) {
               </div>
               <div style={{ display:"flex", gap:8 }}>
                 <button onClick={()=>setShowAdd(false)} style={{ flex:1, padding:"10px", border:`1px solid ${C.border}`, borderRadius:5, background:"transparent", color:C.textMuted, cursor:"pointer", fontSize:13 }}>Cancel</button>
-                <button onClick={addCustomer} disabled={!form.name.trim()} style={{ flex:2, padding:"10px", background:form.name.trim()?C.accent:"rgba(196,98,45,0.3)", color:"#FFF", border:"none", borderRadius:5, cursor:"pointer", fontSize:13, fontWeight:700 }}>
+                <button onClick={addCustomer} disabled={!form.name.trim()} style={{ flex:2, padding:"10px", background:form.name.trim()?C.accent:"rgba(154,69,39,0.3)", color:"#FFF", border:"none", borderRadius:5, cursor:"pointer", fontSize:13, fontWeight:700 }}>
                   Add Customer
                 </button>
               </div>
@@ -2928,7 +2941,7 @@ function SellerApp({ user, onSignOut }) {
   };
 
   return (
-    <div style={{ display:"flex", height:"100vh", fontFamily:"'DM Sans', system-ui, sans-serif", background:C.bg, overflow:"hidden" }}>
+    <div style={{ display:"flex", height:"100vh", fontFamily:"'Plus Jakarta Sans', system-ui, sans-serif", background:C.bg, overflow:"hidden" }}>
       <ProfilePanel/>
       <Sidebar/>
       <main style={{ flex:1, overflowY:"auto" }}>
@@ -2978,7 +2991,7 @@ export default function App() {
   useEffect(()=>{
     const link = document.createElement("link");
     link.rel = "stylesheet";
-    link.href = "https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap";
+    link.href = "https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap";
     document.head.appendChild(link);
 
     // Mobile font scaling fix
