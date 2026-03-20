@@ -321,7 +321,13 @@ function CustomerApp({ user, onSignOut }) {
   const [hoodFilter,       setHoodFilter]       = useState("All");
   const [showCart,         setShowCart]         = useState(false);
   const [showCheckout,     setShowCheckout]     = useState(false);
-  const [checkoutStep,     setCheckoutStep]     = useState("delivery"); // "delivery" | "payment"
+  const [checkoutStep,     setCheckoutStep]     = useState("delivery");
+  // Delivery fields lifted to CustomerApp so they survive step transitions
+  const [delType,    setDelType]    = useState("delivery");
+  const [delTime,    setDelTime]    = useState("next-day-am");
+  const [delName,    setDelName]    = useState("");
+  const [delPhone,   setDelPhone]   = useState("");
+  const [delAddress, setDelAddress] = useState("");
   const [isCharity,        setIsCharity]        = useState(false);
   const [selectedCharity,  setSelectedCharity]  = useState(null);
 
@@ -743,7 +749,7 @@ function CustomerApp({ user, onSignOut }) {
                 <span style={{ color:C.text }}>Total</span>
                 <span style={{ color:C.text }}>${total.toFixed(2)}</span>
               </div>
-              <button onClick={()=>{ setShowCart(false); setShowCheckout(true); setCheckoutStep("delivery"); setSidebarCart(false); }} style={{ width:"100%", padding:"13px", background:C.primary, color:"#fff", border:"none", borderRadius:10, fontSize:14, fontWeight:700, cursor:"pointer", letterSpacing:"0.01em" }}>
+              <button onClick={()=>{ setShowCart(false); setShowCheckout(true); setCheckoutStep("delivery"); setDelName(""); setDelPhone(""); setDelAddress(""); setSidebarCart(false); }} style={{ width:"100%", padding:"13px", background:C.primary, color:"#fff", border:"none", borderRadius:10, fontSize:14, fontWeight:700, cursor:"pointer", letterSpacing:"0.01em" }}>
                 Continue to Checkout →
               </button>
               <button onClick={()=>{ setShowCart(false); setSidebarCart(true); }} style={{ width:"100%", padding:"10px", background:"transparent", border:"none", cursor:"pointer", fontSize:12, color:C.textMuted, marginTop:6 }}>
@@ -758,14 +764,9 @@ function CustomerApp({ user, onSignOut }) {
 
   // ── CHECKOUT — full screen split: delivery left, payment right ──
   const Checkout = () => {
-    const [delType,    setDelType]    = useState("delivery");
-    const [delTime,    setDelTime]    = useState("next-day-am");
-    const [done,       setDone]       = useState(false);
-    const [proc,       setProc]       = useState(false);
-    // Use state (not refs) so values persist when switching between steps
-    const [delName,    setDelName]    = useState("");
-    const [delPhone,   setDelPhone]   = useState("");
-    const [delAddress, setDelAddress] = useState("");
+    const [done, setDone] = useState(false);
+    const [proc, setProc] = useState(false);
+    // refs for uncontrolled inputs — prevent focus loss
     const nameRef    = useRef(null);
     const phoneRef   = useRef(null);
     const addressRef = useRef(null);
