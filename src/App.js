@@ -393,71 +393,91 @@ function CustomerApp({ user, onSignOut }) {
     </div>
   );
 
-  // Kitchen Basket panel — shown inside sidebar when sidebarCart is true
-  const KitchenBasket = () => (
-    <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden" }}>
-      <div style={{ padding:"1rem 1.25rem 0.75rem", borderBottom:`1px solid ${C.border}` }}>
-        <p style={{ fontSize:16, fontWeight:800, color:C.text, margin:"0 0 2px", letterSpacing:"-0.02em" }}>Your Kitchen Basket</p>
-        <p style={{ fontSize:11, color:C.textMuted, margin:0 }}>Review your artisan selection</p>
+  // Cart — full page view matching Kitchen Basket design
+  const CartView = () => (
+    <div style={{ padding:"2.5rem 3rem", maxWidth:1100, margin:"0 auto" }}>
+      {/* Header */}
+      <div style={{ marginBottom:"2rem" }}>
+        <h1 style={{ fontSize:36, fontWeight:800, color:C.text, margin:"0 0 6px", letterSpacing:"-0.03em" }}>Your Cart</h1>
+        <p style={{ fontSize:14, color:C.textMuted, margin:0 }}>Review your artisan selection before we prepare the hearth.</p>
       </div>
-      <div style={{ flex:1, overflowY:"auto", padding:"0.75rem 1.25rem" }}>
-        {cartProducts.length===0 ? (
-          <div style={{ textAlign:"center", padding:"2rem 0", color:C.textMuted }}>
-            <p style={{ fontSize:28, margin:"0 0 8px" }}>🧺</p>
-            <p style={{ fontSize:13, fontWeight:500 }}>Your basket is empty</p>
-            <p style={{ fontSize:12, margin:"4px 0 0" }}>Browse a store to add items</p>
-          </div>
-        ) : (
-          <>
-            {cartProducts.map(p=>(
-              <div key={p.id} style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 0", borderBottom:`1px solid ${C.border}` }}>
-                <div style={{ width:52, height:52, borderRadius:8, overflow:"hidden", background:C.surfaceHigh, flexShrink:0 }}>
-                  {p.image_url ? <img src={p.image_url} alt={p.name} style={{ width:"100%", height:"100%", objectFit:"cover" }}/> : <div style={{ width:"100%", height:"100%", display:"flex", alignItems:"center", justifyContent:"center", fontSize:22 }}>🍞</div>}
+
+      {cartProducts.length===0 ? (
+        <div style={{ textAlign:"center", padding:"5rem 0", color:C.textMuted }}>
+          <p style={{ fontSize:48, margin:"0 0 12px" }}>🧺</p>
+          <p style={{ fontSize:18, fontWeight:700, color:C.text, margin:"0 0 6px" }}>Your cart is empty</p>
+          <p style={{ fontSize:14, margin:"0 0 1.5rem" }}>Browse a store to start adding items</p>
+          <button onClick={()=>{ setSidebarCart(false); setView("marketplace"); }} style={{ background:C.primary, color:"#fff", border:"none", borderRadius:9999, padding:"11px 28px", fontSize:14, fontWeight:700, cursor:"pointer" }}>Browse Stores</button>
+        </div>
+      ) : (
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 340px", gap:"2rem", alignItems:"start" }}>
+
+          {/* Left — cart items */}
+          <div>
+            {cartProducts.map((p,i)=>(
+              <div key={p.id} style={{ display:"flex", gap:"1.25rem", alignItems:"flex-start", background:C.surface, borderRadius:14, padding:"1.25rem", marginBottom:"1rem", boxShadow:`0 2px 16px ${C.shadow}` }}>
+                {/* Thumbnail */}
+                <div style={{ width:112, height:112, borderRadius:10, overflow:"hidden", background:C.surfaceHigh, flexShrink:0 }}>
+                  {p.image_url
+                    ? <img src={p.image_url} alt={p.name} style={{ width:"100%", height:"100%", objectFit:"cover" }}/>
+                    : <div style={{ width:"100%", height:"100%", display:"flex", alignItems:"center", justifyContent:"center", fontSize:36 }}>🍞</div>
+                  }
                 </div>
+                {/* Info */}
                 <div style={{ flex:1, minWidth:0 }}>
-                  <p style={{ fontSize:12, fontWeight:700, color:C.text, margin:"0 0 2px", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{p.name}</p>
-                  <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-                    <button onClick={()=>decCart(p.id)} style={{ width:20, height:20, border:`1px solid ${C.border}`, borderRadius:"50%", background:"transparent", cursor:"pointer", fontSize:12, color:C.textMuted, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>−</button>
-                    <span style={{ fontSize:12, fontWeight:600, color:C.text, minWidth:14, textAlign:"center" }}>{p.qty}</span>
-                    <button onClick={()=>addToCart(cartStore, p.id)} style={{ width:20, height:20, border:`1px solid ${C.border}`, borderRadius:"50%", background:"transparent", cursor:"pointer", fontSize:12, color:C.textMuted, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>+</button>
+                  {p.category && <p style={{ fontSize:10, fontWeight:700, color:C.accent, margin:"0 0 4px", textTransform:"uppercase", letterSpacing:"0.1em" }}>{p.category}</p>}
+                  <p style={{ fontSize:17, fontWeight:800, color:C.text, margin:"0 0 4px", letterSpacing:"-0.01em" }}>{p.name}</p>
+                  {p.desc && <p style={{ fontSize:13, color:C.textMuted, margin:"0 0 14px", lineHeight:1.5 }}>{p.desc}</p>}
+                  {/* Qty controls */}
+                  <div style={{ display:"flex", alignItems:"center", gap:0, border:`1px solid ${C.border}`, borderRadius:9999, overflow:"hidden", width:"fit-content" }}>
+                    <button onClick={()=>decCart(p.id)} style={{ width:36, height:36, border:"none", background:C.surfaceHigh, cursor:"pointer", fontSize:16, color:C.text, fontWeight:500 }}>−</button>
+                    <span style={{ width:36, textAlign:"center", fontSize:14, fontWeight:700, color:C.text }}>{p.qty}</span>
+                    <button onClick={()=>addToCart(cartStore, p.id)} style={{ width:36, height:36, border:"none", background:C.surfaceHigh, cursor:"pointer", fontSize:16, color:C.text, fontWeight:500 }}>+</button>
                   </div>
                 </div>
-                <span style={{ fontSize:13, fontWeight:700, color:C.text, flexShrink:0 }}>${(p.price*p.qty).toFixed(2)}</span>
+                {/* Price + remove */}
+                <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:12, flexShrink:0 }}>
+                  <span style={{ fontSize:17, fontWeight:800, color:C.text }}>${(p.price*p.qty).toFixed(2)}</span>
+                  <button onClick={()=>{ const n={...cart}; delete n[p.id]; setCart(n); if(Object.keys(n).length===0) setCartStore(null); }}
+                    style={{ background:"transparent", border:"none", cursor:"pointer", fontSize:10, fontWeight:700, color:C.textMuted, textTransform:"uppercase", letterSpacing:"0.1em" }}>
+                    Remove
+                  </button>
+                </div>
               </div>
             ))}
+          </div>
 
-            {/* Order summary */}
-            <div style={{ marginTop:12, background:C.surfaceHigh, borderRadius:10, padding:"12px 14px" }}>
-              <p style={{ fontSize:11, fontWeight:700, color:C.text, margin:"0 0 10px", textTransform:"uppercase", letterSpacing:"0.08em" }}>Order Summary</p>
+          {/* Right — order summary */}
+          <div style={{ position:"sticky", top:"1.5rem" }}>
+            <div style={{ background:C.surface, borderRadius:14, padding:"1.5rem", boxShadow:`0 2px 16px ${C.shadow}`, marginBottom:"1rem" }}>
+              <h2 style={{ fontSize:20, fontWeight:800, color:C.text, margin:"0 0 1.25rem", letterSpacing:"-0.02em" }}>Order Summary</h2>
               {[["Subtotal", `$${subtotal.toFixed(2)}`], ["Delivery Fee", `$${delivFee.toFixed(2)}`]].map(([k,v])=>(
-                <div key={k} style={{ display:"flex", justifyContent:"space-between", marginBottom:6 }}>
-                  <span style={{ fontSize:12, color:C.textMuted }}>{k}</span>
-                  <span style={{ fontSize:12, color:C.text }}>{v}</span>
+                <div key={k} style={{ display:"flex", justifyContent:"space-between", marginBottom:"0.75rem" }}>
+                  <span style={{ fontSize:14, color:C.textMuted }}>{k}</span>
+                  <span style={{ fontSize:14, color:C.text }}>{v}</span>
                 </div>
               ))}
-              <div style={{ display:"flex", justifyContent:"space-between", paddingTop:8, borderTop:`1px solid ${C.border}`, marginTop:4 }}>
-                <span style={{ fontSize:13, fontWeight:800, color:C.text }}>Total Amount</span>
-                <span style={{ fontSize:16, fontWeight:800, color:C.text }}>${total.toFixed(2)}</span>
+              <div style={{ height:1, background:C.surfaceHigh, margin:"1rem 0" }}/>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"baseline", marginBottom:"1.5rem" }}>
+                <span style={{ fontSize:15, fontWeight:800, color:C.text }}>Total Amount</span>
+                <span style={{ fontSize:26, fontWeight:800, color:C.text, letterSpacing:"-0.02em" }}>${total.toFixed(2)}</span>
               </div>
+              <button onClick={()=>setShowCart(true)} style={{ width:"100%", padding:"14px", background:C.primary, color:"#fff", border:"none", borderRadius:10, fontSize:14, fontWeight:700, cursor:"pointer", letterSpacing:"0.01em" }}>
+                Proceed to Checkout
+              </button>
             </div>
 
-            {/* Chef's Note callout — per design spec */}
-            <div style={{ marginTop:10, background:C.surfaceHigh, borderRadius:"24px 8px 8px 8px", padding:"10px 14px", border:`1px solid ${C.border}` }}>
-              <p style={{ fontSize:9, fontWeight:700, color:C.accent, margin:"0 0 3px", textTransform:"uppercase", letterSpacing:"0.1em" }}>🌿 Chef's Note</p>
-              <p style={{ fontSize:11, color:C.textMuted, margin:0, lineHeight:1.6 }}>Support your local baker — every order goes directly to a home kitchen near you.</p>
+            {/* Chef's Note — asymmetric corner per design spec */}
+            <div style={{ background:C.surfaceHigh, borderRadius:"48px 12px 12px 12px", padding:"14px 18px" }}>
+              <p style={{ fontSize:9, fontWeight:700, color:C.accent, margin:"0 0 5px", textTransform:"uppercase", letterSpacing:"0.1em" }}>🌿 Chef's Note</p>
+              <p style={{ fontSize:12, color:C.textMuted, margin:0, lineHeight:1.65 }}>Support your local baker — every order goes directly to a home kitchen near you.</p>
             </div>
-          </>
-        )}
-      </div>
-      {cartProducts.length>0 && (
-        <div style={{ padding:"0.875rem 1.25rem", borderTop:`1px solid ${C.border}` }}>
-          <button onClick={()=>{ setShowCart(true); setSidebarCart(false); }} style={{ width:"100%", padding:"12px", background:C.primary, color:"#fff", border:"none", borderRadius:9999, fontSize:13, fontWeight:700, cursor:"pointer", letterSpacing:"0.01em" }}>
-            Proceed to Checkout →
-          </button>
-          <p style={{ textAlign:"center", fontSize:11, color:C.textMuted, margin:"8px 0 0" }}>
-            Adding more to the table?{" "}
-            <span onClick={()=>setSidebarCart(false)} style={{ color:C.accent, cursor:"pointer", fontWeight:600 }}>Continue Shopping</span>
-          </p>
+
+            <p style={{ textAlign:"center", fontSize:12, color:C.textMuted, margin:"1rem 0 0", fontStyle:"italic" }}>
+              Adding more to the table?{" "}
+              <span onClick={()=>{ setSidebarCart(false); setView("marketplace"); }} style={{ color:C.accent, cursor:"pointer", fontWeight:700, fontStyle:"normal" }}>Continue Shopping</span>
+            </p>
+          </div>
         </div>
       )}
     </div>
@@ -488,15 +508,15 @@ function CustomerApp({ user, onSignOut }) {
           );
         })}
 
-        {/* Kitchen Basket nav item */}
-        <button onClick={()=>setSidebarCart(v=>!v)} title="Kitchen Basket" style={{
+        {/* Cart nav item */}
+        <button onClick={()=>setSidebarCart(v=>!v)} title="Cart" style={{
           display:"flex", alignItems:"center", gap:10, width:"100%",
           padding:sidebarOpen?"10px 12px":"10px 0", justifyContent:sidebarOpen?"flex-start":"center",
           background:sidebarCart?"rgba(255,255,255,0.12)":"transparent",
           border:"none", borderRadius:8, cursor:"pointer", marginTop:4, position:"relative", transition:"background 0.15s"
         }}>
           <span style={{ fontSize:15, color:sidebarCart?"#fff":"rgba(255,255,255,0.5)", flexShrink:0 }}>🧺</span>
-          {sidebarOpen && <span style={{ fontSize:13, color:sidebarCart?"#fff":"rgba(255,255,255,0.65)", fontWeight:sidebarCart?700:400, whiteSpace:"nowrap" }}>Kitchen Basket</span>}
+          {sidebarOpen && <span style={{ fontSize:13, color:sidebarCart?"#fff":"rgba(255,255,255,0.65)", fontWeight:sidebarCart?700:400, whiteSpace:"nowrap" }}>Cart</span>}
           {cartCount>0 && (
             <span style={{ position:"absolute", top:6, left:sidebarOpen?32:30, background:C.accent, color:"#fff", fontSize:9, fontWeight:700, width:16, height:16, borderRadius:"50%", display:"flex", alignItems:"center", justifyContent:"center" }}>{cartCount}</span>
           )}
@@ -1148,16 +1168,10 @@ function CustomerApp({ user, onSignOut }) {
       <div style={{ flex:1, display:"flex", overflow:"hidden" }}>
         {/* Left sidebar */}
         <CustSidebar/>
-        {/* Sidebar cart panel */}
-        {sidebarCart && (
-          <div style={{ width:300, flexShrink:0, background:C.surface, borderRight:`1px solid ${C.border}`, display:"flex", flexDirection:"column", overflow:"hidden" }}>
-            <KitchenBasket/>
-          </div>
-        )}
         {/* Main content */}
         <main style={{ flex:1, overflowY:"auto", minWidth:0 }}>
           <CartDrawer/>
-          {activeStore ? <StoreDetail/> : (
+          {activeStore ? <StoreDetail/> : sidebarCart ? <CartView/> : (
             <>
               {view==="marketplace" && <Marketplace/>}
               {view==="chat"        && <CommunityChat/>}
