@@ -215,61 +215,50 @@ function AuthScreen({ onAuth }) {
   };
 
   return (
-    <div style={{ minHeight:"100vh", background:C.bg, display:"flex", fontFamily:"'Plus Jakarta Sans', system-ui, sans-serif" }}>
-      {/* Left panel */}
-      <div style={{ flex:1, display:"flex", flexDirection:"column", justifyContent:"center", padding:"4rem", background:C.sidebar, borderRight:`1px solid ${C.border}` }}>
-        <div style={{ maxWidth:400 }}>
-          <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:"3rem" }}>
-            <div style={{ width:32, height:32, background:C.accent, borderRadius:6, display:"flex", alignItems:"center", justifyContent:"center", fontSize:16 }}>🍞</div>
-            <span style={{ fontSize:18, fontWeight:700, color:C.sidebarText, letterSpacing:"-0.02em" }}>Hearthside</span>
-          </div>
-          <h1 style={{ fontSize:36, fontWeight:700, color:C.sidebarText, margin:"0 0 12px", letterSpacing:"-0.03em", lineHeight:1.15 }}>
-            Home-baked goods<br/>
-            <span style={{ color:C.accent }}>from your neighbours.</span>
-          </h1>
-          <p style={{ fontSize:15, color:C.sidebarMuted, margin:0, lineHeight:1.7 }}>
-            Order fresh baked goods from local home bakers, or build your bakery business and reach customers in your city.
-          </p>
-          <div style={{ marginTop:"2.5rem", display:"flex", flexDirection:"column", gap:12 }}>
-            {["Real bakers. Real homes. Real fresh.","Delivery, pickup, or donate to charity","Community broadcasts from local sellers"].map((t,i)=>(
-              <div key={i} style={{ display:"flex", alignItems:"center", gap:10 }}>
-                <div style={{ width:6, height:6, borderRadius:"50%", background:C.accent, flexShrink:0 }}/>
-                <span style={{ fontSize:13, color:C.sidebarMuted }}>{t}</span>
-              </div>
-            ))}
-          </div>
+    <div style={{ minHeight:"100vh", minHeight:"100dvh", background:C.bg, display:"flex", flexDirection:"column", fontFamily:"'Plus Jakarta Sans', system-ui, sans-serif", overflowY:"auto" }}>
+      {/* Hero — compact top banner */}
+      <div style={{ background:C.sidebar, padding:"2rem 1.5rem 1.75rem", flexShrink:0 }}>
+        <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:"1.25rem" }}>
+          <div style={{ width:32, height:32, background:C.accent, borderRadius:8, display:"flex", alignItems:"center", justifyContent:"center", fontSize:16 }}>🍞</div>
+          <span style={{ fontSize:18, fontWeight:800, color:"#fff", letterSpacing:"-0.02em" }}>Hearthside</span>
         </div>
+        <h1 style={{ fontSize:28, fontWeight:800, color:"#fff", margin:"0 0 8px", letterSpacing:"-0.03em", lineHeight:1.2 }}>
+          Home-baked goods<br/><span style={{ color:C.accent }}>from your neighbours.</span>
+        </h1>
+        <p style={{ fontSize:13, color:"rgba(240,244,241,0.6)", margin:0, lineHeight:1.6 }}>
+          Order from local home bakers or build your bakery business.
+        </p>
       </div>
 
-      {/* Right panel — form */}
-      <div style={{ width:460, display:"flex", flexDirection:"column", justifyContent:"center", padding:"3rem 3.5rem", background:C.surface }}>
-        <h2 style={{ fontSize:22, fontWeight:700, color:C.text, margin:"0 0 6px", letterSpacing:"-0.02em" }}>
-          {mode==="login"?"Welcome":"Create your account"}
+      {/* Form panel */}
+      <div style={{ flex:1, background:C.surface, padding:"1.75rem 1.5rem 2.5rem", display:"flex", flexDirection:"column" }}>
+        <h2 style={{ fontSize:20, fontWeight:800, color:C.text, margin:"0 0 4px", letterSpacing:"-0.02em" }}>
+          {mode==="login"?"Welcome back":"Create your account"}
         </h2>
-        <p style={{ fontSize:13, color:C.textMuted, margin:"0 0 2rem" }}>
-          {mode==="login"?"Sign in to continue":"Join thousands of home bakers and food lovers"}
+        <p style={{ fontSize:13, color:C.textMuted, margin:"0 0 1.5rem" }}>
+          {mode==="login"?"Sign in to continue":"Join local bakers and food lovers"}
         </p>
 
         {/* Role toggle */}
-        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:"1.5rem" }}>
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:"1.25rem" }}>
           {[{ v:"customer", label:"Customer", sub:"Browse & order" },{ v:"seller", label:"Seller", sub:"Manage my bakery" }].map(r=>(
             <button key={r.v} onClick={()=>setRole(r.v)} style={{
-              padding:"13px 14px", border:`1px solid ${role===r.v?C.primary:C.border}`,
+              padding:"12px", border:`1.5px solid ${role===r.v?C.primary:C.border}`,
               borderRadius:10, background:role===r.v?C.primaryBg:"transparent", cursor:"pointer", textAlign:"left",
-              transition:"all 0.15s",
             }}>
-              <p style={{ fontSize:13, fontWeight:700, color:role===r.v?C.primary:C.text, margin:"0 0 2px" }}>{r.label}</p>
+              <p style={{ fontSize:13, fontWeight:700, color:role===r.v?C.primary:C.text, margin:"0 0 1px" }}>{r.label}</p>
               <p style={{ fontSize:11, color:C.textMuted, margin:0 }}>{r.sub}</p>
             </button>
           ))}
         </div>
 
         {/* Mode tabs */}
-        <div style={{ display:"flex", background:C.surfaceHigh, borderRadius:6, padding:3, marginBottom:"1.5rem", border:`1px solid ${C.border}` }}>
+        <div style={{ display:"flex", background:C.surfaceHigh, borderRadius:9999, padding:3, marginBottom:"1.25rem" }}>
           {["login","signup"].map(m=>(
             <button key={m} onClick={()=>{ setMode(m); setErr(""); }} style={{
-              flex:1, padding:"8px", border:"none", borderRadius:4, cursor:"pointer", fontSize:13, fontWeight:500,
-              background:mode===m?C.surfaceTop:"transparent", color:mode===m?C.text:C.textMuted
+              flex:1, padding:"9px", border:"none", borderRadius:9999, cursor:"pointer", fontSize:13, fontWeight:600,
+              background:mode===m?"#fff":"transparent", color:mode===m?C.text:C.textMuted,
+              boxShadow:mode===m?"0 1px 4px rgba(23,49,36,0.08)":"none",
             }}>{m==="login"?"Sign In":"Create Account"}</button>
           ))}
         </div>
@@ -280,26 +269,25 @@ function AuthScreen({ onAuth }) {
           <div style={{ marginBottom:14 }}>
             <label style={{ fontSize:11, fontWeight:600, color:C.textMuted, display:"block", marginBottom:6, textTransform:"uppercase", letterSpacing:"0.08em" }}>Neighbourhood</label>
             <select value={form.hood} onChange={e=>setForm({...form,hood:e.target.value})}
-              style={{ width:"100%", padding:"11px 14px", border:`1px solid ${C.border}`, borderRadius:6, fontSize:14, color:C.text, background:C.surfaceHigh, outline:"none" }}>
+              style={{ width:"100%", padding:"11px 14px", border:`1px solid ${C.border}`, borderRadius:8, fontSize:16, color:C.text, background:C.surfaceHigh, outline:"none", fontFamily:"inherit" }}>
               {HOODS.filter(h=>h!=="All").map(h=><option key={h} value={h}>{h}</option>)}
             </select>
           </div>
         )}
         <AuthInput label="Email" ph="you@email.com" type="email" value={form.email} onChange={e=>setForm({...form,email:e.target.value})} onEnter={submit}/>
         <AuthInput label="Password" ph="••••••••" type="password" value={form.password} onChange={e=>setForm({...form,password:e.target.value})} onEnter={submit}/>
-        {err && <p style={{ color:C.danger, fontSize:12, margin:"0 0 12px", background:C.dangerBg, padding:"8px 12px", borderRadius:4 }}>{err}</p>}
+        {err && <p style={{ color:C.danger, fontSize:12, margin:"0 0 12px", background:C.dangerBg, padding:"8px 12px", borderRadius:8 }}>{err}</p>}
 
-        <button onClick={submit} disabled={loading} style={{ width:"100%", padding:"13px", background:loading?C.surfaceHigh:C.primary, color:loading?C.textMuted:"#ffffff", border:"none", borderRadius:8, fontSize:14, fontWeight:700, cursor:loading?"default":"pointer", letterSpacing:"0.01em", transition:"background 0.15s", fontFamily:"inherit" }}>
+        <button onClick={submit} disabled={loading} style={{ width:"100%", padding:"14px", background:loading?C.surfaceHigh:C.primary, color:loading?C.textMuted:"#fff", border:"none", borderRadius:12, fontSize:15, fontWeight:700, cursor:loading?"default":"pointer", letterSpacing:"0.01em", fontFamily:"inherit", marginTop:4 }}>
           {loading?"..." : mode==="login"?"Sign In →":"Create Account →"}
         </button>
 
-        <p style={{ textAlign:"center", fontSize:12, color:C.textMuted, margin:"1.25rem 0 0" }}>
+        <p style={{ textAlign:"center", fontSize:13, color:C.textMuted, margin:"1.25rem 0 0" }}>
           {mode==="login"?"Don't have an account? ":"Already have an account? "}
-          <span onClick={()=>{ setMode(mode==="login"?"signup":"login"); setErr(""); }} style={{ color:C.accent, cursor:"pointer", fontWeight:600 }}>
+          <span onClick={()=>{ setMode(mode==="login"?"signup":"login"); setErr(""); }} style={{ color:C.accent, cursor:"pointer", fontWeight:700 }}>
             {mode==="login"?"Sign up":"Sign in"}
           </span>
         </p>
-
       </div>
     </div>
   );
@@ -365,31 +353,23 @@ function CustomerApp({ user, onSignOut }) {
     { id:"orders",      icon:"≡",  label:"Order History"  },
   ];
 
-  const [sidebarOpen, setSidebarOpen] = useState(()=>{
-    try { return localStorage.getItem('hearthside_cust_sidebar')!=="false"; } catch(e){ return true; }
-  });
-  const [sidebarCart, setSidebarCart] = useState(false); // kitchen basket panel in sidebar
-
-  const toggleSidebarCust = () => setSidebarOpen(v=>{
-    const n=!v; try{ localStorage.setItem('hearthside_cust_sidebar',String(n)); }catch(e){} return n;
-  });
+  const [sidebarOpen, setSidebarOpen] = useState(false); // not used on mobile
+  const [sidebarCart, setSidebarCart] = useState(false);
+  const toggleSidebarCust = () => setSidebarOpen(v=>!v);
 
   const TopBar = () => (
-    <div style={{ background:"rgba(251,249,245,0.88)", backdropFilter:"blur(16px)", WebkitBackdropFilter:"blur(16px)", borderBottom:`1px solid ${C.border}`, padding:"0 1.25rem", height:54, display:"flex", justifyContent:"space-between", alignItems:"center", position:"sticky", top:0, zIndex:50 }}>
-      <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-        <button onClick={toggleSidebarCust} style={{ background:"transparent", border:"none", cursor:"pointer", color:C.textMuted, fontSize:18, padding:"4px 6px", lineHeight:1 }}>{sidebarOpen?"←":"→"}</button>
-        <div style={{ width:24, height:24, background:C.primary, borderRadius:5, display:"flex", alignItems:"center", justifyContent:"center", fontSize:12 }}>🍞</div>
-        <span style={{ fontSize:14, fontWeight:800, color:C.text, letterSpacing:"-0.02em" }}>Hearthside</span>
-        <span style={{ fontSize:11, color:C.textMuted }}>📍 {user.hood}</span>
+    <div style={{ background:"rgba(251,249,245,0.92)", backdropFilter:"blur(16px)", WebkitBackdropFilter:"blur(16px)", borderBottom:`1px solid ${C.border}`, padding:"0 1rem", height:52, display:"flex", justifyContent:"space-between", alignItems:"center", position:"sticky", top:0, zIndex:50, paddingTop:"env(safe-area-inset-top)" }}>
+      <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+        <div style={{ width:26, height:26, background:C.primary, borderRadius:6, display:"flex", alignItems:"center", justifyContent:"center", fontSize:13 }}>🍞</div>
+        <span style={{ fontSize:15, fontWeight:800, color:C.text, letterSpacing:"-0.02em" }}>Hearthside</span>
       </div>
       <div style={{ display:"flex", gap:8, alignItems:"center" }}>
         {cartCount>0 && (
-          <button onClick={()=>setShowCart(true)} style={{ display:"flex", alignItems:"center", gap:7, background:C.primary, color:"#fff", border:"none", borderRadius:9999, padding:"7px 16px", fontSize:13, fontWeight:700, cursor:"pointer", boxShadow:`0 4px 16px ${C.shadow}` }}>
+          <button onClick={()=>setShowCart(true)} style={{ display:"flex", alignItems:"center", gap:6, background:C.primary, color:"#fff", border:"none", borderRadius:9999, padding:"6px 14px", fontSize:13, fontWeight:700, cursor:"pointer" }}>
             <span>🛒 {cartCount}</span><span>·</span><span>${total.toFixed(2)}</span>
           </button>
         )}
-        <span style={{ fontSize:12, color:C.textMuted }}>{user.name.split(" ")[0]}</span>
-        <button onClick={onSignOut} style={{ background:"transparent", border:`1px solid ${C.border}`, borderRadius:9999, padding:"5px 12px", fontSize:11, color:C.textMuted, cursor:"pointer" }}>Out</button>
+        <button onClick={onSignOut} style={{ background:"transparent", border:`1px solid ${C.border}`, borderRadius:9999, padding:"5px 10px", fontSize:11, color:C.textMuted, cursor:"pointer" }}>Out</button>
       </div>
     </div>
   );
@@ -484,58 +464,46 @@ function CustomerApp({ user, onSignOut }) {
     </div>
   );
 
-  const CustSidebar = () => (
-    <div style={{ width:sidebarOpen?220:60, flexShrink:0, background:C.primary, display:"flex", flexDirection:"column", transition:"width 0.22s ease", overflow:"hidden", position:"relative", zIndex:30 }}>
-      {/* Logo */}
-      <div style={{ padding:"1.25rem 1rem", borderBottom:`1px solid rgba(255,255,255,0.08)`, display:"flex", alignItems:"center", gap:10 }}>
-        <div style={{ width:30, height:30, background:C.accent, borderRadius:7, display:"flex", alignItems:"center", justifyContent:"center", fontSize:15, flexShrink:0 }}>🍞</div>
-        {sidebarOpen && <span style={{ fontSize:15, fontWeight:800, color:"#fff", letterSpacing:"-0.02em", whiteSpace:"nowrap" }}>Hearthside</span>}
-      </div>
+  // Mobile bottom tab bar — replaces sidebar for phone layout
+  const CustSidebar = () => null; // not used on mobile
 
-      {/* Nav items */}
-      <nav style={{ flex:1, padding:"0.625rem" }}>
-        {CUST_NAV.map(n=>{
-          const active = view===n.id && !sidebarCart;
+  const BottomNav = () => {
+    const allTabs = [
+      ...CUST_NAV,
+      { id:"cart", icon:"🧺", label:"Cart" },
+    ];
+    return (
+      <div style={{
+        position:"fixed", bottom:0, left:0, right:0, zIndex:40,
+        background:"rgba(251,249,245,0.95)", backdropFilter:"blur(20px)", WebkitBackdropFilter:"blur(20px)",
+        borderTop:`1px solid ${C.border}`,
+        paddingBottom:"env(safe-area-inset-bottom)",
+        display:"flex",
+      }}>
+        {allTabs.map(n=>{
+          const active = n.id==="cart" ? sidebarCart : (view===n.id && !sidebarCart);
           return (
-            <button key={n.id} onClick={()=>{ setView(n.id); setActiveStore(null); setSidebarCart(false); }} title={n.label} style={{
-              display:"flex", alignItems:"center", gap:10, width:"100%",
-              padding:sidebarOpen?"10px 12px":"10px 0", justifyContent:sidebarOpen?"flex-start":"center",
-              background:active?"rgba(255,255,255,0.12)":"transparent",
-              border:"none", borderRadius:8, cursor:"pointer", marginBottom:2, transition:"background 0.15s"
+            <button key={n.id} onClick={()=>{
+              if (n.id==="cart") { setActiveStore(null); setSidebarCart(v=>!v); }
+              else { setView(n.id); setActiveStore(null); setSidebarCart(false); }
+            }} style={{
+              flex:1, border:"none", background:"transparent", cursor:"pointer",
+              padding:"10px 0 8px", display:"flex", flexDirection:"column", alignItems:"center", gap:3,
+              borderTop:`2px solid ${active?C.primary:"transparent"}`,
             }}>
-              <span style={{ fontSize:15, color:active?"#fff":"rgba(255,255,255,0.5)", flexShrink:0 }}>{n.icon}</span>
-              {sidebarOpen && <span style={{ fontSize:13, color:active?"#fff":"rgba(255,255,255,0.65)", fontWeight:active?700:400, whiteSpace:"nowrap" }}>{n.label}</span>}
+              <div style={{ position:"relative" }}>
+                <span style={{ fontSize:18 }}>{n.icon}</span>
+                {n.id==="cart" && cartCount>0 && (
+                  <span style={{ position:"absolute", top:-4, right:-6, background:C.accent, color:"#fff", fontSize:8, fontWeight:700, width:14, height:14, borderRadius:"50%", display:"flex", alignItems:"center", justifyContent:"center" }}>{cartCount}</span>
+                )}
+              </div>
+              <span style={{ fontSize:9, fontWeight:active?700:500, color:active?C.primary:C.textMuted, letterSpacing:"0.03em", textTransform:"uppercase" }}>{n.label}</span>
             </button>
           );
         })}
-
-        {/* Cart nav item */}
-        <button onClick={()=>{ setActiveStore(null); setSidebarCart(v=>!v); }} title="Cart" style={{
-          display:"flex", alignItems:"center", gap:10, width:"100%",
-          padding:sidebarOpen?"10px 12px":"10px 0", justifyContent:sidebarOpen?"flex-start":"center",
-          background:sidebarCart?"rgba(255,255,255,0.12)":"transparent",
-          border:"none", borderRadius:8, cursor:"pointer", marginTop:4, position:"relative", transition:"background 0.15s"
-        }}>
-          <span style={{ fontSize:15, color:sidebarCart?"#fff":"rgba(255,255,255,0.5)", flexShrink:0 }}>🧺</span>
-          {sidebarOpen && <span style={{ fontSize:13, color:sidebarCart?"#fff":"rgba(255,255,255,0.65)", fontWeight:sidebarCart?700:400, whiteSpace:"nowrap" }}>Cart</span>}
-          {cartCount>0 && (
-            <span style={{ position:"absolute", top:6, left:sidebarOpen?32:30, background:C.accent, color:"#fff", fontSize:9, fontWeight:700, width:16, height:16, borderRadius:"50%", display:"flex", alignItems:"center", justifyContent:"center" }}>{cartCount}</span>
-          )}
-        </button>
-      </nav>
-
-      {/* User + sign out */}
-      <div style={{ padding:"0.75rem", borderTop:`1px solid rgba(255,255,255,0.08)` }}>
-        {sidebarOpen && <p style={{ fontSize:11, color:"rgba(255,255,255,0.4)", margin:"0 0 6px", paddingLeft:4, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{user.name}</p>}
-        <button onClick={onSignOut} title="Sign out" style={{ display:"flex", alignItems:"center", justifyContent:sidebarOpen?"flex-start":"center", gap:8, width:"100%", padding:"8px 10px", background:"transparent", border:"1px solid rgba(255,255,255,0.12)", borderRadius:8, cursor:"pointer" }}>
-          <span style={{ fontSize:14 }}>🚪</span>
-          {sidebarOpen && <span style={{ fontSize:12, color:"rgba(255,255,255,0.55)" }}>Sign out</span>}
-        </button>
       </div>
-    </div>
-  );
-
-  // BottomNav removed — navigation is now in the left sidebar
+    );
+  };
 
   // ── STORE DETAIL ──
   const [lightbox,   setLightbox]   = useState(null);
@@ -999,9 +967,9 @@ function CustomerApp({ user, onSignOut }) {
       return matchHood && matchSearch;
     });
     return (
-      <div style={{ padding:"1.25rem 1.5rem" }}>
-        <div style={{ marginBottom:"1rem" }}>
-          <h2 style={{ fontSize:24, fontWeight:800, color:C.text, margin:"0 0 3px", letterSpacing:"-0.03em" }}>Explore Local Bakers</h2>
+      <div style={{ padding:"1rem 1rem" }}>
+        <div style={{ marginBottom:"0.875rem" }}>
+          <h2 style={{ fontSize:22, fontWeight:800, color:C.text, margin:"0 0 3px", letterSpacing:"-0.03em" }}>Explore Local Bakers</h2>
           <p style={{ fontSize:13, color:C.textMuted, margin:0 }}>Fresh home-baked goods from your neighbourhood</p>
         </div>
         {/* Search */}
@@ -1348,25 +1316,21 @@ function CustomerApp({ user, onSignOut }) {
   };
 
   return (
-    <div style={{ height:"100vh", background:C.bg, fontFamily:"'Plus Jakarta Sans', system-ui, sans-serif", display:"flex", flexDirection:"column", overflow:"hidden" }}>
+    <div style={{ height:"100dvh", background:C.bg, fontFamily:"'Plus Jakarta Sans', system-ui, sans-serif", display:"flex", flexDirection:"column", overflow:"hidden" }}>
       <TopBar/>
-      <div style={{ flex:1, display:"flex", overflow:"hidden" }}>
-        {/* Left sidebar */}
-        <CustSidebar/>
-        {/* Main content */}
-        <main style={{ flex:1, overflowY:"auto", minWidth:0 }}>
-          <CartDrawer/>
-          <Checkout/>
-          {activeStore ? <StoreDetail/> : sidebarCart ? <CartView/> : (
-            <>
-              {view==="marketplace" && <Marketplace/>}
-              {view==="chat"        && <CommunityChat/>}
-              {view==="charity"     && <CharityPage/>}
-              {view==="orders"      && <MyOrders/>}
-            </>
-          )}
-        </main>
-      </div>
+      <main style={{ flex:1, overflowY:"auto", paddingBottom:72 }}>
+        <CartDrawer/>
+        <Checkout/>
+        {activeStore ? <StoreDetail/> : sidebarCart ? <CartView/> : (
+          <>
+            {view==="marketplace" && <Marketplace/>}
+            {view==="chat"        && <CommunityChat/>}
+            {view==="charity"     && <CharityPage/>}
+            {view==="orders"      && <MyOrders/>}
+          </>
+        )}
+      </main>
+      <BottomNav/>
     </div>
   );
 }
@@ -3290,12 +3254,14 @@ export default function App() {
     link.href = "https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap";
     document.head.appendChild(link);
 
-    // Mobile font scaling fix
+    // Mobile font scaling fix + safe areas
     const mobileStyle = document.createElement("style");
     mobileStyle.textContent = [
       "* { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; box-sizing: border-box; }",
       "input, select, textarea { font-size: 16px !important; }",
-      "body { margin: 0; overflow-x: hidden; }",
+      "body { margin: 0; overflow-x: hidden; background: #fbf9f5; }",
+      "html { height: -webkit-fill-available; }",
+      "body { min-height: 100vh; min-height: -webkit-fill-available; }",
     ].join(" ");
     document.head.appendChild(mobileStyle);
 
