@@ -536,7 +536,6 @@ function CustomerApp({ user, onSignOut }) {
               <div style={{ display:"grid", gridTemplateColumns:"repeat(2,minmax(0,1fr))", gap:10 }}>
                 {products.map(p=>{
                   const imgs = (() => { try { const a=JSON.parse(p.images||"[]"); return a.length>0?a:(p.image_url?[p.image_url]:[]); } catch(e){ return p.image_url?[p.image_url]:[]; } })();
-                  const [slide, setSlide] = [lightbox?.product?.id===p.id?lightbox.slide:0, ()=>{}];
                   return (
                     <div key={p.id} style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:10, overflow:"hidden", cursor:"pointer" }}
                       onClick={()=>setLightbox({ product:p, slide:0, qty: cart[p.id]||1 })}>
