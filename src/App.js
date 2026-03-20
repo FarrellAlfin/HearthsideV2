@@ -532,44 +532,53 @@ function CustomerApp({ user, onSignOut }) {
                   </div>
                 </div>
               )}
-              {/* Product grid — 2 columns, taller cards with carousel */}
-              <div style={{ display:"grid", gridTemplateColumns:"repeat(2,minmax(0,1fr))", gap:10 }}>
+              {/* Product grid — 3 columns, compact cards with live slideshow */}
+              <div style={{ display:"grid", gridTemplateColumns:"repeat(3,minmax(0,1fr))", gap:8 }}>
                 {products.map(p=>{
                   const imgs = (() => { try { const a=JSON.parse(p.images||"[]"); return a.length>0?a:(p.image_url?[p.image_url]:[]); } catch(e){ return p.image_url?[p.image_url]:[]; } })();
+                  const [cardSlide, setCardSlide] = useState(0);
                   return (
-                    <div key={p.id} style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:10, overflow:"hidden", cursor:"pointer" }}
-                      onClick={()=>setLightbox({ product:p, slide:0, qty: cart[p.id]||1 })}>
-                      {/* Image area */}
+                    <div key={p.id} style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:8, overflow:"hidden", cursor:"pointer" }}
+                      onClick={()=>setLightbox({ product:p, slide:cardSlide, qty: cart[p.id]||1 })}>
+                      {/* Slideable image area */}
                       <div style={{ position:"relative", paddingBottom:"100%", background:C.surfaceHigh }}>
                         {imgs.length>0
-                          ? <img src={imgs[0]} alt={p.name} style={{ position:"absolute", inset:0, width:"100%", height:"100%", objectFit:"cover" }}/>
-                          : <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", fontSize:36 }}>🍞</div>
+                          ? <img src={imgs[cardSlide]||imgs[0]} alt={p.name} style={{ position:"absolute", inset:0, width:"100%", height:"100%", objectFit:"cover" }}/>
+                          : <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", fontSize:28 }}>🍞</div>
                         }
+                        {/* Prev/next arrows on card */}
+                        {imgs.length>1 && cardSlide>0 && (
+                          <button onClick={e=>{ e.stopPropagation(); setCardSlide(s=>s-1); }}
+                            style={{ position:"absolute", left:3, top:"50%", transform:"translateY(-50%)", background:"rgba(0,0,0,0.45)", color:"#FFF", border:"none", borderRadius:"50%", width:22, height:22, cursor:"pointer", fontSize:12, display:"flex", alignItems:"center", justifyContent:"center" }}>‹</button>
+                        )}
+                        {imgs.length>1 && cardSlide<imgs.length-1 && (
+                          <button onClick={e=>{ e.stopPropagation(); setCardSlide(s=>s+1); }}
+                            style={{ position:"absolute", right:3, top:"50%", transform:"translateY(-50%)", background:"rgba(0,0,0,0.45)", color:"#FFF", border:"none", borderRadius:"50%", width:22, height:22, cursor:"pointer", fontSize:12, display:"flex", alignItems:"center", justifyContent:"center" }}>›</button>
+                        )}
                         {/* Availability badge */}
                         {p.availability==="out_of_stock" && (
                           <div style={{ position:"absolute", inset:0, background:"rgba(0,0,0,0.45)", display:"flex", alignItems:"center", justifyContent:"center" }}>
-                            <span style={{ background:"rgba(181,32,32,0.9)", color:"#FFF", fontSize:11, fontWeight:700, padding:"4px 10px", borderRadius:4 }}>Out of Stock</span>
+                            <span style={{ background:"rgba(181,32,32,0.9)", color:"#FFF", fontSize:9, fontWeight:700, padding:"3px 7px", borderRadius:3 }}>Out of Stock</span>
                           </div>
                         )}
                         {p.availability==="out_till_eod" && (
-                          <span style={{ position:"absolute", top:7, left:7, background:"rgba(160,112,16,0.92)", color:"#FFF", fontSize:10, fontWeight:700, padding:"2px 7px", borderRadius:3 }}>⏱ Back Tomorrow</span>
+                          <span style={{ position:"absolute", top:5, left:5, background:"rgba(160,112,16,0.92)", color:"#FFF", fontSize:9, fontWeight:700, padding:"2px 5px", borderRadius:3 }}>⏱ EOD</span>
                         )}
                         {cart[p.id] && (
-                          <span style={{ position:"absolute", top:7, right:7, background:C.accent, color:"#FFF", fontSize:10, fontWeight:700, width:20, height:20, borderRadius:"50%", display:"flex", alignItems:"center", justifyContent:"center" }}>{cart[p.id]}</span>
+                          <span style={{ position:"absolute", top:5, right:5, background:C.accent, color:"#FFF", fontSize:9, fontWeight:700, width:17, height:17, borderRadius:"50%", display:"flex", alignItems:"center", justifyContent:"center" }}>{cart[p.id]}</span>
                         )}
-                        {/* Carousel dots */}
+                        {/* Dots */}
                         {imgs.length>1 && (
-                          <div style={{ position:"absolute", bottom:6, left:"50%", transform:"translateX(-50%)", display:"flex", gap:4 }}>
-                            {imgs.map((_,i)=><div key={i} style={{ width:5, height:5, borderRadius:"50%", background:i===0?"#FFF":"rgba(255,255,255,0.5)" }}/>)}
+                          <div style={{ position:"absolute", bottom:4, left:"50%", transform:"translateX(-50%)", display:"flex", gap:3 }}>
+                            {imgs.map((_,i)=><div key={i} style={{ width:4, height:4, borderRadius:"50%", background:i===cardSlide?"#FFF":"rgba(255,255,255,0.5)" }}/>)}
                           </div>
                         )}
                       </div>
-                      <div style={{ padding:"8px 10px 10px" }}>
-                        <p style={{ fontSize:13, fontWeight:700, color:C.text, margin:"0 0 2px", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{p.name}</p>
-                        {p.desc && <p style={{ fontSize:11, color:C.textMuted, margin:"0 0 6px", lineHeight:1.4, display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical", overflow:"hidden" }}>{p.desc}</p>}
+                      <div style={{ padding:"6px 7px 8px" }}>
+                        <p style={{ fontSize:11, fontWeight:700, color:C.text, margin:"0 0 2px", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{p.name}</p>
                         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-                          <span style={{ fontSize:14, fontWeight:700, color:C.accent }}>${parseFloat(p.price||0).toFixed(2)}</span>
-                          <button onClick={e=>{ e.stopPropagation(); setLightbox({ product:p, slide:0, qty: cart[p.id]||1 }); }} style={{ background:C.accent, color:"#000", border:"none", borderRadius:4, padding:"5px 12px", fontSize:11, fontWeight:700, cursor:"pointer" }}>Add</button>
+                          <span style={{ fontSize:12, fontWeight:700, color:C.accent }}>${parseFloat(p.price||0).toFixed(2)}</span>
+                          <button onClick={e=>{ e.stopPropagation(); setLightbox({ product:p, slide:cardSlide, qty: cart[p.id]||1 }); }} style={{ background:C.accent, color:"#000", border:"none", borderRadius:3, padding:"3px 8px", fontSize:10, fontWeight:700, cursor:"pointer" }}>+</button>
                         </div>
                       </div>
                     </div>
