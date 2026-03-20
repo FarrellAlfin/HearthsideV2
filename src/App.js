@@ -244,62 +244,116 @@ function AuthScreen({ onAuth }) {
     setLoading(false);
   };
 
-  return (
-    <div style={{ minHeight:"100dvh", background:C.bg, display:"flex", flexDirection:"column", fontFamily:"'Plus Jakarta Sans', system-ui, sans-serif", overflowY:"auto" }}>
-      {/* Hero — compact top banner, padded for status bar */}
-      <div style={{ background:C.sidebar, padding:"1.75rem 1.5rem 1.75rem", paddingTop:"max(env(safe-area-inset-top, 0px) + 16px, 52px)", flexShrink:0 }}>
-        <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:"1.25rem" }}>
-          <div style={{ width:32, height:32, background:C.accent, borderRadius:8, display:"flex", alignItems:"center", justifyContent:"center", fontSize:14, color:"#fff", fontWeight:800 }}>H</div>
-          <span style={{ fontSize:18, fontWeight:800, color:"#fff", letterSpacing:"-0.02em" }}>Hearthside</span>
+  // Auth uses isMobile from window directly since it's outside CustomerApp
+  const authIsMobile = window.innerWidth < 768;
+  if (!authIsMobile) return (
+    // ── Desktop: original two-panel layout ──
+    <div style={{ minHeight:"100vh", background:C.bg, display:"flex", fontFamily:"'Plus Jakarta Sans', system-ui, sans-serif" }}>
+      <div style={{ flex:1, display:"flex", flexDirection:"column", justifyContent:"center", padding:"4rem", background:C.sidebar, borderRight:`1px solid rgba(255,255,255,0.06)` }}>
+        <div style={{ maxWidth:400 }}>
+          <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:"3rem" }}>
+            <div style={{ width:32, height:32, background:C.accent, borderRadius:6, display:"flex", alignItems:"center", justifyContent:"center", fontSize:14, color:"#fff", fontWeight:800 }}>H</div>
+            <span style={{ fontSize:18, fontWeight:700, color:"#fff", letterSpacing:"-0.02em" }}>Hearthside</span>
+          </div>
+          <h1 style={{ fontSize:38, fontWeight:800, color:"#fff", margin:"0 0 12px", letterSpacing:"-0.03em", lineHeight:1.15 }}>
+            Home-baked goods<br/><span style={{ color:C.accent }}>from your neighbours.</span>
+          </h1>
+          <p style={{ fontSize:15, color:"rgba(240,244,241,0.55)", margin:0, lineHeight:1.7 }}>
+            Order fresh baked goods from local home bakers, or build your bakery business and reach customers in your city.
+          </p>
+          <div style={{ marginTop:"2.5rem", display:"flex", flexDirection:"column", gap:12 }}>
+            {["Real bakers. Real homes. Real fresh.", "Delivery, pickup, or donate to charity", "Community broadcasts from local sellers"].map((t,i)=>(
+              <div key={i} style={{ display:"flex", alignItems:"center", gap:10 }}>
+                <div style={{ width:6, height:6, borderRadius:"50%", background:C.accent, flexShrink:0 }}/>
+                <span style={{ fontSize:13, color:"rgba(240,244,241,0.55)" }}>{t}</span>
+              </div>
+            ))}
+          </div>
         </div>
-        <h1 style={{ fontSize:28, fontWeight:800, color:"#fff", margin:"0 0 8px", letterSpacing:"-0.03em", lineHeight:1.2 }}>
-          Home-baked goods<br/><span style={{ color:C.accent }}>from your neighbours.</span>
-        </h1>
-        <p style={{ fontSize:13, color:"rgba(240,244,241,0.6)", margin:0, lineHeight:1.6 }}>
-          Order from local home bakers or build your bakery business.
-        </p>
       </div>
-
-      {/* Form panel */}
-      <div style={{ flex:1, background:C.surface, padding:"1.75rem 1.5rem 2.5rem", display:"flex", flexDirection:"column" }}>
-        <h2 style={{ fontSize:20, fontWeight:800, color:C.text, margin:"0 0 4px", letterSpacing:"-0.02em" }}>
-          {mode==="login"?"Welcome back":"Create your account"}
+      <div style={{ width:460, display:"flex", flexDirection:"column", justifyContent:"center", padding:"3rem 3.5rem", background:C.surface }}>
+        <h2 style={{ fontSize:22, fontWeight:700, color:C.text, margin:"0 0 6px", letterSpacing:"-0.02em" }}>
+          {mode==="login"?"Welcome":"Create your account"}
         </h2>
-        <p style={{ fontSize:13, color:C.textMuted, margin:"0 0 1.5rem" }}>
-          {mode==="login"?"Sign in to continue":"Join local bakers and food lovers"}
+        <p style={{ fontSize:13, color:C.textMuted, margin:"0 0 2rem" }}>
+          {mode==="login"?"Sign in to continue":"Join thousands of home bakers and food lovers"}
         </p>
-
-        {/* Role toggle */}
-        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:"1.25rem" }}>
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:"1.5rem" }}>
           {[{ v:"customer", label:"Customer", sub:"Browse & order" },{ v:"seller", label:"Seller", sub:"Manage my bakery" }].map(r=>(
-            <button key={r.v} onClick={()=>setRole(r.v)} style={{
-              padding:"12px", border:`1.5px solid ${role===r.v?C.primary:C.border}`,
-              borderRadius:10, background:role===r.v?C.primaryBg:"transparent", cursor:"pointer", textAlign:"left",
-            }}>
-              <p style={{ fontSize:13, fontWeight:700, color:role===r.v?C.primary:C.text, margin:"0 0 1px" }}>{r.label}</p>
+            <button key={r.v} onClick={()=>setRole(r.v)} style={{ padding:"13px 14px", border:`1px solid ${role===r.v?C.primary:C.border}`, borderRadius:10, background:role===r.v?C.primaryBg:"transparent", cursor:"pointer", textAlign:"left" }}>
+              <p style={{ fontSize:13, fontWeight:700, color:role===r.v?C.primary:C.text, margin:"0 0 2px" }}>{r.label}</p>
               <p style={{ fontSize:11, color:C.textMuted, margin:0 }}>{r.sub}</p>
             </button>
           ))}
         </div>
-
-        {/* Mode tabs */}
-        <div style={{ display:"flex", background:C.surfaceHigh, borderRadius:9999, padding:3, marginBottom:"1.25rem" }}>
+        <div style={{ display:"flex", background:C.surfaceHigh, borderRadius:6, padding:3, marginBottom:"1.5rem", border:`1px solid ${C.border}` }}>
           {["login","signup"].map(m=>(
-            <button key={m} onClick={()=>{ setMode(m); setErr(""); }} style={{
-              flex:1, padding:"9px", border:"none", borderRadius:9999, cursor:"pointer", fontSize:13, fontWeight:600,
-              background:mode===m?"#fff":"transparent", color:mode===m?C.text:C.textMuted,
-              boxShadow:mode===m?"0 1px 4px rgba(23,49,36,0.08)":"none",
-            }}>{m==="login"?"Sign In":"Create Account"}</button>
+            <button key={m} onClick={()=>{ setMode(m); setErr(""); }} style={{ flex:1, padding:"8px", border:"none", borderRadius:4, cursor:"pointer", fontSize:13, fontWeight:500, background:mode===m?C.surfaceTop:"transparent", color:mode===m?C.text:C.textMuted }}>
+              {m==="login"?"Sign In":"Create Account"}
+            </button>
           ))}
         </div>
-
         {mode==="signup" && <AuthInput label="Full Name" ph="Maria Santos" value={form.name} onChange={e=>setForm({...form,name:e.target.value})} onEnter={submit}/>}
         {mode==="signup" && role==="seller" && <AuthInput label="Bakery Name" ph="Maria's Home Bakery" value={form.business} onChange={e=>setForm({...form,business:e.target.value})} onEnter={submit}/>}
         {mode==="signup" && (
           <div style={{ marginBottom:14 }}>
             <label style={{ fontSize:11, fontWeight:600, color:C.textMuted, display:"block", marginBottom:6, textTransform:"uppercase", letterSpacing:"0.08em" }}>Neighbourhood</label>
-            <select value={form.hood} onChange={e=>setForm({...form,hood:e.target.value})}
-              style={{ width:"100%", padding:"11px 14px", border:`1px solid ${C.border}`, borderRadius:8, fontSize:16, color:C.text, background:C.surfaceHigh, outline:"none", fontFamily:"inherit" }}>
+            <select value={form.hood} onChange={e=>setForm({...form,hood:e.target.value})} style={{ width:"100%", padding:"11px 14px", border:`1px solid ${C.border}`, borderRadius:6, fontSize:14, color:C.text, background:C.surfaceHigh, outline:"none" }}>
+              {HOODS.filter(h=>h!=="All").map(h=><option key={h} value={h}>{h}</option>)}
+            </select>
+          </div>
+        )}
+        <AuthInput label="Email" ph="you@email.com" type="email" value={form.email} onChange={e=>setForm({...form,email:e.target.value})} onEnter={submit}/>
+        <AuthInput label="Password" ph="••••••••" type="password" value={form.password} onChange={e=>setForm({...form,password:e.target.value})} onEnter={submit}/>
+        {err && <p style={{ color:C.danger, fontSize:12, margin:"0 0 12px", background:C.dangerBg, padding:"8px 12px", borderRadius:4 }}>{err}</p>}
+        <button onClick={submit} disabled={loading} style={{ width:"100%", padding:"13px", background:loading?C.surfaceHigh:C.primary, color:loading?C.textMuted:"#fff", border:"none", borderRadius:8, fontSize:14, fontWeight:700, cursor:loading?"default":"pointer", fontFamily:"inherit" }}>
+          {loading?"..." : mode==="login"?"Sign In →":"Create Account →"}
+        </button>
+        <p style={{ textAlign:"center", fontSize:12, color:C.textMuted, margin:"1.25rem 0 0" }}>
+          {mode==="login"?"Don't have an account? ":"Already have an account? "}
+          <span onClick={()=>{ setMode(mode==="login"?"signup":"login"); setErr(""); }} style={{ color:C.accent, cursor:"pointer", fontWeight:600 }}>{mode==="login"?"Sign up":"Sign in"}</span>
+        </p>
+      </div>
+    </div>
+  );
+
+  return (
+    // ── Mobile: single column stacked layout ──
+    <div style={{ minHeight:"100dvh", background:C.bg, display:"flex", flexDirection:"column", fontFamily:"'Plus Jakarta Sans', system-ui, sans-serif", overflowY:"auto" }}>
+      <div style={{ background:C.sidebar, padding:"1.75rem 1.5rem 1.75rem", paddingTop:"max(env(safe-area-inset-top, 0px) + 16px, 52px)", flexShrink:0 }}>
+        <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:"1.25rem" }}>
+          <div style={{ width:32, height:32, background:C.accent, borderRadius:8, display:"flex", alignItems:"center", justifyContent:"center", fontSize:14, color:"#fff", fontWeight:800 }}>H</div>
+          <span style={{ fontSize:18, fontWeight:800, color:"#fff", letterSpacing:"-0.02em" }}>Hearthside</span>
+        </div>
+        <h1 style={{ fontSize:26, fontWeight:800, color:"#fff", margin:"0 0 8px", letterSpacing:"-0.03em", lineHeight:1.2 }}>
+          Home-baked goods<br/><span style={{ color:C.accent }}>from your neighbours.</span>
+        </h1>
+        <p style={{ fontSize:13, color:"rgba(240,244,241,0.6)", margin:0, lineHeight:1.6 }}>Order from local home bakers or build your bakery business.</p>
+      </div>
+      <div style={{ flex:1, background:C.surface, padding:"1.75rem 1.5rem 2.5rem", display:"flex", flexDirection:"column" }}>
+        <h2 style={{ fontSize:20, fontWeight:800, color:C.text, margin:"0 0 4px" }}>{mode==="login"?"Welcome back":"Create your account"}</h2>
+        <p style={{ fontSize:13, color:C.textMuted, margin:"0 0 1.5rem" }}>{mode==="login"?"Sign in to continue":"Join local bakers and food lovers"}</p>
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:"1.25rem" }}>
+          {[{ v:"customer", label:"Customer", sub:"Browse & order" },{ v:"seller", label:"Seller", sub:"Manage my bakery" }].map(r=>(
+            <button key={r.v} onClick={()=>setRole(r.v)} style={{ padding:"12px", border:`1.5px solid ${role===r.v?C.primary:C.border}`, borderRadius:10, background:role===r.v?C.primaryBg:"transparent", cursor:"pointer", textAlign:"left" }}>
+              <p style={{ fontSize:13, fontWeight:700, color:role===r.v?C.primary:C.text, margin:"0 0 1px" }}>{r.label}</p>
+              <p style={{ fontSize:11, color:C.textMuted, margin:0 }}>{r.sub}</p>
+            </button>
+          ))}
+        </div>
+        <div style={{ display:"flex", background:C.surfaceHigh, borderRadius:9999, padding:3, marginBottom:"1.25rem" }}>
+          {["login","signup"].map(m=>(
+            <button key={m} onClick={()=>{ setMode(m); setErr(""); }} style={{ flex:1, padding:"9px", border:"none", borderRadius:9999, cursor:"pointer", fontSize:13, fontWeight:600, background:mode===m?"#fff":"transparent", color:mode===m?C.text:C.textMuted }}>
+              {m==="login"?"Sign In":"Create Account"}
+            </button>
+          ))}
+        </div>
+        {mode==="signup" && <AuthInput label="Full Name" ph="Maria Santos" value={form.name} onChange={e=>setForm({...form,name:e.target.value})} onEnter={submit}/>}
+        {mode==="signup" && role==="seller" && <AuthInput label="Bakery Name" ph="Maria's Home Bakery" value={form.business} onChange={e=>setForm({...form,business:e.target.value})} onEnter={submit}/>}
+        {mode==="signup" && (
+          <div style={{ marginBottom:14 }}>
+            <label style={{ fontSize:11, fontWeight:600, color:C.textMuted, display:"block", marginBottom:6, textTransform:"uppercase", letterSpacing:"0.08em" }}>Neighbourhood</label>
+            <select value={form.hood} onChange={e=>setForm({...form,hood:e.target.value})} style={{ width:"100%", padding:"11px 14px", border:`1px solid ${C.border}`, borderRadius:8, fontSize:16, color:C.text, background:C.surfaceHigh, outline:"none", fontFamily:"inherit" }}>
               {HOODS.filter(h=>h!=="All").map(h=><option key={h} value={h}>{h}</option>)}
             </select>
           </div>
@@ -307,16 +361,12 @@ function AuthScreen({ onAuth }) {
         <AuthInput label="Email" ph="you@email.com" type="email" value={form.email} onChange={e=>setForm({...form,email:e.target.value})} onEnter={submit}/>
         <AuthInput label="Password" ph="••••••••" type="password" value={form.password} onChange={e=>setForm({...form,password:e.target.value})} onEnter={submit}/>
         {err && <p style={{ color:C.danger, fontSize:12, margin:"0 0 12px", background:C.dangerBg, padding:"8px 12px", borderRadius:8 }}>{err}</p>}
-
-        <button onClick={submit} disabled={loading} style={{ width:"100%", padding:"14px", background:loading?C.surfaceHigh:C.primary, color:loading?C.textMuted:"#fff", border:"none", borderRadius:12, fontSize:15, fontWeight:700, cursor:loading?"default":"pointer", letterSpacing:"0.01em", fontFamily:"inherit", marginTop:4 }}>
+        <button onClick={submit} disabled={loading} style={{ width:"100%", padding:"14px", background:loading?C.surfaceHigh:C.primary, color:loading?C.textMuted:"#fff", border:"none", borderRadius:12, fontSize:15, fontWeight:700, cursor:loading?"default":"pointer", fontFamily:"inherit", marginTop:4 }}>
           {loading?"..." : mode==="login"?"Sign In →":"Create Account →"}
         </button>
-
         <p style={{ textAlign:"center", fontSize:13, color:C.textMuted, margin:"1.25rem 0 0" }}>
           {mode==="login"?"Don't have an account? ":"Already have an account? "}
-          <span onClick={()=>{ setMode(mode==="login"?"signup":"login"); setErr(""); }} style={{ color:C.accent, cursor:"pointer", fontWeight:700 }}>
-            {mode==="login"?"Sign up":"Sign in"}
-          </span>
+          <span onClick={()=>{ setMode(mode==="login"?"signup":"login"); setErr(""); }} style={{ color:C.accent, cursor:"pointer", fontWeight:700 }}>{mode==="login"?"Sign up":"Sign in"}</span>
         </p>
       </div>
     </div>
@@ -1529,6 +1579,7 @@ const COST_CATS_DEF = [
 ];
 
 function SellerApp({ user, onSignOut }) {
+  const isMobile = useIsMobile();
   const [view,            setView]            = useState("dashboard");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(()=>{
     try { return localStorage.getItem('hearthside_sidebar_collapsed')==="true"; } catch(e) { return false; }
@@ -2814,7 +2865,7 @@ function SellerApp({ user, onSignOut }) {
     }));
 
     return (
-      <div style={{ padding:"2rem" }}>
+      <div style={{ padding:isMobile?"1rem":"2rem" }}>
         {/* Header with month selector */}
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:"1.5rem" }}>
           <div>
@@ -3271,7 +3322,7 @@ function SellerApp({ user, onSignOut }) {
         </div>
 
         {/* Stats row */}
-        <div style={{ display:"grid", gridTemplateColumns:"repeat(4,minmax(0,1fr))", gap:10, marginBottom:"1.5rem" }}>
+        <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,minmax(0,1fr))", gap:10, marginBottom:"1.5rem" }}>
           {TAGS.map(tag=>(
             <div key={tag.v} style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:8, padding:"1rem 1.25rem" }}>
               <p style={{ fontSize:10, color:C.textMuted, margin:"0 0 6px", textTransform:"uppercase", letterSpacing:"0.1em", fontWeight:600 }}>{tag.label}</p>
@@ -3384,19 +3435,60 @@ function SellerApp({ user, onSignOut }) {
     );
   };
 
+  // Mobile bottom tab bar for seller
+  const SellerBottomNav = () => {
+    if (!isMobile) return null;
+    const tabs = SELLER_NAV.slice(0, 5); // show top 5 tabs, rest accessible via "More"
+    return (
+      <div style={{ position:"fixed", bottom:0, left:0, right:0, zIndex:40, background:"rgba(23,49,36,0.97)", backdropFilter:"blur(16px)", WebkitBackdropFilter:"blur(16px)", borderTop:"1px solid rgba(255,255,255,0.08)", paddingBottom:"env(safe-area-inset-bottom)", display:"flex" }}>
+        {tabs.map(n=>{
+          const active = view===n.id;
+          return (
+            <button key={n.id} onClick={()=>setView(n.id)} style={{ flex:1, border:"none", background:"transparent", cursor:"pointer", padding:"10px 0 8px", display:"flex", flexDirection:"column", alignItems:"center", gap:3, borderTop:`2px solid ${active?"#f0c4a8":"transparent"}` }}>
+              <Icon name={n.icon} size={20} color={active?"#f0c4a8":"rgba(255,255,255,0.4)"}/>
+              <span style={{ fontSize:9, fontWeight:active?700:500, color:active?"#f0c4a8":"rgba(255,255,255,0.4)", textTransform:"uppercase", letterSpacing:"0.03em" }}>{n.label}</span>
+            </button>
+          );
+        })}
+        {/* More button for remaining tabs */}
+        <button onClick={()=>setView(view==="finances"||view==="delivery"||view==="community"?view:"finances")} style={{ flex:1, border:"none", background:"transparent", cursor:"pointer", padding:"10px 0 8px", display:"flex", flexDirection:"column", alignItems:"center", gap:3, borderTop:`2px solid ${["finances","delivery","community"].includes(view)?"#f0c4a8":"transparent"}` }}>
+          <Icon name="orders" size={20} color={["finances","delivery","community"].includes(view)?"#f0c4a8":"rgba(255,255,255,0.4)"}/>
+          <span style={{ fontSize:9, fontWeight:500, color:"rgba(255,255,255,0.4)", textTransform:"uppercase", letterSpacing:"0.03em" }}>More</span>
+        </button>
+      </div>
+    );
+  };
+
+  // Mobile top bar for seller
+  const SellerTopBar = () => {
+    if (!isMobile) return null;
+    const current = SELLER_NAV.find(n=>n.id===view);
+    return (
+      <div style={{ paddingTop:"max(env(safe-area-inset-top,0px),44px)", paddingBottom:10, paddingLeft:16, paddingRight:16, background:"rgba(23,49,36,0.97)", backdropFilter:"blur(16px)", display:"flex", alignItems:"center", gap:10, flexShrink:0, position:"sticky", top:0, zIndex:50 }}>
+        <div style={{ width:26, height:26, background:C.accent, borderRadius:6, display:"flex", alignItems:"center", justifyContent:"center", fontSize:12, color:"#fff", fontWeight:800 }}>H</div>
+        <span style={{ fontSize:15, fontWeight:800, color:"#fff", flex:1 }}>{current?.label||"Dashboard"}</span>
+        <button onClick={onSignOut} style={{ background:"transparent", border:"1px solid rgba(255,255,255,0.2)", borderRadius:9999, padding:"4px 10px", fontSize:11, color:"rgba(255,255,255,0.6)", cursor:"pointer" }}>Out</button>
+      </div>
+    );
+  };
+
   return (
-    <div style={{ display:"flex", height:"100vh", fontFamily:"'Plus Jakarta Sans', system-ui, sans-serif", background:C.bg, overflow:"hidden" }}>
-      <ProfilePanel/>
-      <Sidebar/>
-      <main style={{ flex:1, overflowY:"auto" }}>
-        {view==="dashboard"  && <Dashboard/>}
-        {view==="storefront" && <Storefront/>}
-        {view==="orders"     && <Orders/>}
-        {view==="customers"  && <Customers/>}
-        {view==="finances"   && <Finances/>}
-        {view==="delivery"   && <Delivery/>}
-        {view==="community"  && <SellerCommunity/>}
-      </main>
+    <div style={{ display:"flex", height:"100dvh", fontFamily:"'Plus Jakarta Sans', system-ui, sans-serif", background:C.bg, overflow:"hidden", flexDirection:"column" }}>
+      {isMobile && <SellerTopBar/>}
+      <div style={{ flex:1, display:"flex", overflow:"hidden" }}>
+        {!isMobile && <ProfilePanel/>}
+        {!isMobile && <Sidebar/>}
+        <main style={{ flex:1, overflowY:"auto", paddingBottom:isMobile?80:0 }}>
+          {view==="dashboard"  && <Dashboard/>}
+          {view==="storefront" && <Storefront/>}
+          {view==="orders"     && <Orders/>}
+          {view==="customers"  && <Customers/>}
+          {view==="finances"   && <Finances/>}
+          {view==="delivery"   && <Delivery/>}
+          {view==="community"  && <SellerCommunity/>}
+        </main>
+      </div>
+      {isMobile && <SellerBottomNav/>}
     </div>
   );
 }
