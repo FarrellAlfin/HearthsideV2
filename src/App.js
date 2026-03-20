@@ -510,7 +510,7 @@ function CustomerApp({ user, onSignOut }) {
         })}
 
         {/* Cart nav item */}
-        <button onClick={()=>setSidebarCart(v=>!v)} title="Cart" style={{
+        <button onClick={()=>{ setActiveStore(null); setSidebarCart(v=>!v); }} title="Cart" style={{
           display:"flex", alignItems:"center", gap:10, width:"100%",
           padding:sidebarOpen?"10px 12px":"10px 0", justifyContent:sidebarOpen?"flex-start":"center",
           background:sidebarCart?"rgba(255,255,255,0.12)":"transparent",
@@ -1197,57 +1197,152 @@ function CustomerApp({ user, onSignOut }) {
   const MyOrders = () => {
     const [myOrders,        setMyOrders]        = useState([]);
     const [loadingMyOrders, setLoadingMyOrders] = useState(true);
+    const [selectedOrder,   setSelectedOrder]   = useState(null);
+
     useEffect(()=>{
       if (!user?.id) { setLoadingMyOrders(false); return; }
       supabase.from("orders").select("*").eq("customer_id", user.id)
         .then(({ data, error })=>{
-          if (error) { console.error("MyOrders error:", error); }
+          if (error) console.error("MyOrders error:", error);
           if (data) setMyOrders(data.map(o=>{
-            // items is JSON array [{name, quantity}] or plain string
             let itemLabel = "Order";
             let itemsFull = "";
+            let itemsParsed = [];
             try {
               const parsed = typeof o.items==="string" ? JSON.parse(o.items) : o.items;
               if (Array.isArray(parsed)) {
+                itemsParsed = parsed;
                 itemLabel = parsed[0]?.name||"Order";
                 itemsFull = parsed.map(i=>`${i.name} ×${i.quantity}`).join(", ");
               } else { itemLabel = o.items||"Order"; itemsFull = o.items||""; }
             } catch(e) { itemLabel = o.items||"Order"; itemsFull = o.items||""; }
-            return { ...o, itemLabel, itemsFull, date:o.created_at?new Date(o.created_at).toLocaleDateString("en-US",{month:"short",day:"numeric"}):"Recent" };
+            return { ...o, itemLabel, itemsFull, itemsParsed, date:o.created_at?new Date(o.created_at).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"}):"Recent" };
           }));
           setLoadingMyOrders(false);
         });
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
+
     if (loadingMyOrders) return <div style={{ padding:"2rem", textAlign:"center", color:C.textMuted, fontSize:13 }}>Loading...</div>;
     return (
-      <div style={{ padding:"1.25rem 1.5rem" }}>
-        <h2 style={{ fontSize:22, fontWeight:800, color:C.text, margin:"0 0 3px", letterSpacing:"-0.03em" }}>Order History</h2>
-        <p style={{ fontSize:13, color:C.textMuted, margin:"0 0 1.25rem" }}>Your past orders</p>
+      <div style={{ padding:"1.5rem 2rem", maxWidth:760 }}>
+        <h2 style={{ fontSize:26, fontWeight:800, color:C.text, margin:"0 0 4px", letterSpacing:"-0.03em" }}>Order History</h2>
+        <p style={{ fontSize:13, color:C.textMuted, margin:"0 0 1.5rem", lineHeight:1.6 }}>Your past orders — click any order to see details.</p>
+
         {myOrders.length===0 && (
-          <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:8, padding:"2.5rem", textAlign:"center" }}>
-            <p style={{ fontSize:28, margin:"0 0 8px" }}>🛒</p>
-            <p style={{ fontSize:14, color:C.textMuted, margin:0 }}>No orders yet — browse a store to get started!</p>
+          <div style={{ background:C.surface, borderRadius:12, padding:"3rem", textAlign:"center", boxShadow:`0 2px 16px ${C.shadow}` }}>
+            <p style={{ fontSize:36, margin:"0 0 10px" }}>🛒</p>
+            <p style={{ fontSize:16, fontWeight:700, color:C.text, margin:"0 0 4px" }}>No orders yet</p>
+            <p style={{ fontSize:13, color:C.textMuted, margin:0 }}>Browse a store to get started!</p>
           </div>
         )}
-        {myOrders.map(o=>(
-          <div key={o.id} style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:8, padding:"1rem", marginBottom:8 }}>
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:8 }}>
-              <div>
-                <p style={{ fontSize:13, fontWeight:600, color:C.text, margin:"0 0 2px" }}>{o.itemLabel||"Order"}</p>
-                <p style={{ fontSize:11, color:C.textMuted, margin:0 }}>{o.itemsFull}</p>
+
+        <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+          {myOrders.map(o=>(
+            <div key={o.id} onClick={()=>setSelectedOrder(o)}
+              style={{ background:C.surface, borderRadius:12, padding:"1.125rem 1.25rem", cursor:"pointer", boxShadow:`0 2px 12px ${C.shadow}`, transition:"transform 0.15s, box-shadow 0.15s" }}
+              onMouseEnter={e=>{ e.currentTarget.style.transform="translateY(-2px)"; e.currentTarget.style.boxShadow=`0 6px 24px ${C.shadow}`; }}
+              onMouseLeave={e=>{ e.currentTarget.style.transform="translateY(0)"; e.currentTarget.style.boxShadow=`0 2px 12px ${C.shadow}`; }}>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:10 }}>
+                <div style={{ flex:1, minWidth:0 }}>
+                  <p style={{ fontSize:15, fontWeight:800, color:C.text, margin:"0 0 3px", letterSpacing:"-0.01em" }}>{o.itemLabel||"Order"}</p>
+                  <p style={{ fontSize:12, color:C.textMuted, margin:0, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", maxWidth:340 }}>{o.itemsFull}</p>
+                </div>
+                <div style={{ textAlign:"right", flexShrink:0, marginLeft:12 }}>
+                  <p style={{ fontSize:16, fontWeight:800, color:C.text, margin:"0 0 3px", letterSpacing:"-0.01em" }}>${o.total?.toFixed(2)||"0.00"}</p>
+                  {o.is_charity && <span style={{ fontSize:10, background:C.charityBg, color:C.charity, padding:"2px 8px", borderRadius:9999, fontWeight:700 }}>💜 Donated</span>}
+                </div>
               </div>
-              <div style={{ textAlign:"right" }}>
-                <p style={{ fontSize:13, fontWeight:700, color:C.accent, margin:"0 0 4px" }}>${o.total?.toFixed(2)||"0.00"}</p>
-                {o.is_charity && <span style={{ fontSize:10, background:C.charityBg, color:C.charity, padding:"2px 7px", borderRadius:3, fontWeight:600 }}>💜 Donated</span>}
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                  <Badge status={o.status||"preparing"}/>
+                  {o.delivery_type && <span style={{ fontSize:11, color:C.textMuted, background:C.surfaceHigh, padding:"2px 8px", borderRadius:9999 }}>{o.delivery_type==="pickup"?"🛍 Pickup":"🚗 Delivery"}</span>}
+                </div>
+                <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                  <span style={{ fontSize:11, color:C.textMuted }}>{o.date}</span>
+                  <span style={{ fontSize:11, color:C.accent, fontWeight:600 }}>View →</span>
+                </div>
               </div>
             </div>
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-              <Badge status={o.status||"preparing"}/>
-              <span style={{ fontSize:11, color:C.textMuted }}>{o.date}</span>
+          ))}
+        </div>
+
+        {/* Order detail modal */}
+        {selectedOrder && (
+          <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.6)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:300, padding:"1rem" }}>
+            <div style={{ background:C.surface, borderRadius:16, width:540, maxWidth:"96vw", maxHeight:"90vh", overflowY:"auto", boxShadow:"0 32px 80px rgba(23,49,36,0.18)", fontFamily:"'Plus Jakarta Sans', system-ui, sans-serif" }}>
+
+              {/* Modal header */}
+              <div style={{ padding:"1.375rem 1.5rem", borderBottom:`1px solid ${C.border}`, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                <div>
+                  <p style={{ fontSize:17, fontWeight:800, color:C.text, margin:"0 0 2px", letterSpacing:"-0.02em" }}>Order Details</p>
+                  <p style={{ fontSize:11, color:C.textMuted, margin:0 }}>{selectedOrder.date}</p>
+                </div>
+                <button onClick={()=>setSelectedOrder(null)} style={{ width:30, height:30, borderRadius:"50%", background:C.surfaceHigh, border:"none", cursor:"pointer", fontSize:15, color:C.textMuted, display:"flex", alignItems:"center", justifyContent:"center" }}>✕</button>
+              </div>
+
+              <div style={{ padding:"1.375rem 1.5rem" }}>
+                {/* Status + charity */}
+                <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:18 }}>
+                  <Badge status={selectedOrder.status||"preparing"}/>
+                  {selectedOrder.delivery_type && <span style={{ fontSize:12, color:C.textMuted, background:C.surfaceHigh, padding:"3px 10px", borderRadius:9999 }}>{selectedOrder.delivery_type==="pickup"?"🛍 Pickup":"🚗 Delivery"}</span>}
+                  {selectedOrder.is_charity && <span style={{ fontSize:12, background:C.charityBg, color:C.charity, padding:"3px 10px", borderRadius:9999, fontWeight:700 }}>💜 Donated</span>}
+                </div>
+
+                {/* Items */}
+                <p style={{ fontSize:10, fontWeight:700, color:C.textMuted, margin:"0 0 8px", textTransform:"uppercase", letterSpacing:"0.1em" }}>Items Ordered</p>
+                <div style={{ background:C.surfaceHigh, borderRadius:10, padding:"0 1rem", marginBottom:16 }}>
+                  {selectedOrder.itemsParsed?.length>0 ? selectedOrder.itemsParsed.map((item,i)=>(
+                    <div key={i} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"11px 0", borderBottom:i<selectedOrder.itemsParsed.length-1?`1px solid ${C.border}`:"none" }}>
+                      <div>
+                        <p style={{ fontSize:14, fontWeight:700, color:C.text, margin:"0 0 2px" }}>{item.name}</p>
+                        <p style={{ fontSize:12, color:C.textMuted, margin:0 }}>× {item.quantity}</p>
+                      </div>
+                      <span style={{ fontSize:14, fontWeight:700, color:C.text }}>${((item.price||0)*item.quantity).toFixed(2)}</span>
+                    </div>
+                  )) : (
+                    <p style={{ fontSize:13, color:C.textMuted, padding:"12px 0", margin:0 }}>{selectedOrder.itemsFull||"No item details"}</p>
+                  )}
+                </div>
+
+                {/* Delivery details */}
+                <p style={{ fontSize:10, fontWeight:700, color:C.textMuted, margin:"0 0 8px", textTransform:"uppercase", letterSpacing:"0.1em" }}>Delivery Details</p>
+                <div style={{ background:C.surfaceHigh, borderRadius:10, padding:"12px 16px", marginBottom:16 }}>
+                  {[
+                    ["Name",    selectedOrder.delivery_name    || "—"],
+                    ["Phone",   selectedOrder.delivery_phone   || "—"],
+                    ["Type",    selectedOrder.delivery_type==="pickup"?"Pickup":"Delivery"],
+                    ["Address", selectedOrder.delivery_address || (selectedOrder.delivery_type==="pickup"?"Pickup — no address needed":"—")],
+                    ["Time",    selectedOrder.delivery_time    || "—"],
+                  ].map(([k,v])=>(
+                    <div key={k} style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", padding:"7px 0", borderBottom:`1px solid ${C.border}` }}>
+                      <span style={{ fontSize:12, color:C.textMuted, flexShrink:0, minWidth:72 }}>{k}</span>
+                      <span style={{ fontSize:13, fontWeight:600, color:C.text, textAlign:"right", maxWidth:300 }}>{v}</span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Payment */}
+                <p style={{ fontSize:10, fontWeight:700, color:C.textMuted, margin:"0 0 8px", textTransform:"uppercase", letterSpacing:"0.1em" }}>Payment</p>
+                <div style={{ background:C.surfaceHigh, borderRadius:10, padding:"12px 16px" }}>
+                  {[
+                    ["Subtotal",     `$${(selectedOrder.total - (selectedOrder.delivery_type==="delivery"?delivFee:0)).toFixed(2)}`],
+                    ["Delivery Fee", selectedOrder.delivery_type==="pickup"?"Free":`$${delivFee.toFixed(2)}`],
+                  ].map(([k,v])=>(
+                    <div key={k} style={{ display:"flex", justifyContent:"space-between", marginBottom:8 }}>
+                      <span style={{ fontSize:13, color:C.textMuted }}>{k}</span>
+                      <span style={{ fontSize:13, color:C.text }}>{v}</span>
+                    </div>
+                  ))}
+                  <div style={{ display:"flex", justifyContent:"space-between", paddingTop:10, borderTop:`1px solid ${C.border}`, marginTop:4 }}>
+                    <span style={{ fontSize:14, fontWeight:800, color:C.text }}>Total Paid</span>
+                    <span style={{ fontSize:18, fontWeight:800, color:C.primary }}>${selectedOrder.total?.toFixed(2)||"0.00"}</span>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
-        ))}
+        )}
       </div>
     );
   };
