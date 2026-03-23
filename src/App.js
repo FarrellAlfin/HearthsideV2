@@ -972,9 +972,10 @@ function CustomerApp({ user, onSignOut }) {
                   rows={2} style={{ width:"100%", padding:"10px 14px", border:`1px solid ${C.border}`, borderRadius:8, fontSize:14, color:C.text, background:C.surfaceHigh, outline:"none", resize:"none", boxSizing:"border-box", fontFamily:"inherit" }}/>
               </div>
 
-              <div style={{ background:C.surfaceHigh, borderRadius:10, padding:"10px 14px", marginBottom:16 }}>
-                <p style={{ fontSize:12, color:C.textMuted, margin:0, lineHeight:1.6 }}>
-                  Payment is collected on pickup/delivery. Reserving a slot is a commitment to pick up your order on <strong>{new Date(reserving.bake_date).toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"})}</strong>.
+              <div style={{ background:C.dangerBg, border:`1px solid rgba(181,32,32,0.2)`, borderRadius:10, padding:"12px 14px", marginBottom:16 }}>
+                <p style={{ fontSize:12, fontWeight:700, color:C.danger, margin:"0 0 4px" }}>No cancellations once reserved</p>
+                <p style={{ fontSize:12, color:C.textMuted, margin:0, lineHeight:1.65 }}>
+                  Pre-orders are final. The baker starts sourcing ingredients based on reservations, so slots cannot be cancelled or refunded after booking. By reserving, you commit to picking up your order on <strong style={{color:C.text}}>{new Date(reserving.bake_date).toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"})}</strong>.
                 </p>
               </div>
 
@@ -4024,15 +4025,18 @@ function SellerApp({ user, onSignOut }) {
 
   // ── SELLER PREORDERS ──
   const SellerPreorders = () => {
-    const [preorders, setPreorders] = useState([]);
-    const [loading,   setLoading]   = useState(true);
-    const [showForm,  setShowForm]  = useState(false);
-    const [slots,     setSlots]     = useState({});  // { preorder_id: [slot] }
+    const [preorders,  setPreorders]  = useState([]);
+    const [loading,    setLoading]    = useState(true);
+    const [showForm,   setShowForm]   = useState(false);
+    const [slots,      setSlots]      = useState({});
+    const [editTarget, setEditTarget] = useState(null); // preorder being edited
+    const [delTarget,  setDelTarget]  = useState(null); // preorder pending delete confirm
     const [form, setForm] = useState({
       product_id:"", title:"", description:"",
       bake_date:"", order_deadline:"", max_slots:"20", price:""
     });
-    const [saving, setSaving] = useState(false);
+    const [saving,  setSaving]  = useState(false);
+    const [deleting,setDeleting]= useState(false);
 
     const load = async () => {
       const { data } = await supabase.from("preorders").select("*")
@@ -4074,6 +4078,52 @@ function SellerApp({ user, onSignOut }) {
       setPreorders(p=>p.map(pr=>pr.id===id?{...pr,status:"closed"}:pr));
     };
 
+    const openEdit = (pr) => {
+      // Pre-fill form with existing values
+      const deadline = new Date(pr.order_deadline);
+      const pad = n=>String(n).padStart(2,"0");
+      const localDL = `${deadline.getFullYear()}-${pad(deadline.getMonth()+1)}-${pad(deadline.getDate())}T${pad(deadline.getHours())}:${pad(deadline.getMinutes())}`;
+      setForm({
+        product_id:     pr.product_id||"",
+        title:          pr.title||"",
+        description:    pr.description||"",
+        bake_date:      pr.bake_date||"",
+        order_deadline: localDL,
+        max_slots:      String(pr.max_slots||20),
+        price:          String(pr.price||""),
+      });
+      setEditTarget(pr);
+      setShowForm(true);
+      window.scrollTo({ top:0, behavior:"smooth" });
+    };
+
+    const saveEdit = async () => {
+      if (!form.title||!form.bake_date||!form.order_deadline||!form.price) { alert("Fill in all required fields."); return; }
+      setSaving(true);
+      const { error } = await supabase.from("preorders").update({
+        product_id:     form.product_id||null,
+        title:          form.title,
+        description:    form.description||null,
+        bake_date:      form.bake_date,
+        order_deadline: new Date(form.order_deadline).toISOString(),
+        max_slots:      parseInt(form.max_slots)||20,
+        price:          parseFloat(form.price)||0,
+      }).eq("id", editTarget.id);
+      if (error) { alert("Error: "+error.message); setSaving(false); return; }
+      setSaving(false); setShowForm(false); setEditTarget(null);
+      setForm({ product_id:"", title:"", description:"", bake_date:"", order_deadline:"", max_slots:"20", price:"" });
+      load();
+    };
+
+    const deletePreorder = async () => {
+      if (!delTarget) return;
+      setDeleting(true);
+      await supabase.from("preorder_slots").delete().eq("preorder_id", delTarget.id);
+      await supabase.from("preorders").delete().eq("id", delTarget.id);
+      setPreorders(p=>p.filter(pr=>pr.id!==delTarget.id));
+      setDeleting(false); setDelTarget(null);
+    };
+
     const statusColor = (s) => s==="open"?C.success:s==="closed"?C.textMuted:C.warning;
 
     const inputStyle = { width:"100%", padding:"10px 12px", border:`1px solid ${C.border}`, borderRadius:8, fontSize:14, color:C.text, background:C.surfaceHigh, outline:"none", boxSizing:"border-box", fontFamily:"inherit", marginBottom:0 };
@@ -4087,7 +4137,7 @@ function SellerApp({ user, onSignOut }) {
             <h1 style={{ fontSize:isMobile?20:26, fontWeight:800, color:C.text, margin:"0 0 4px", letterSpacing:"-0.03em" }}>Pre-order Table</h1>
             <p style={{ fontSize:13, color:C.textMuted, margin:0 }}>Schedule baking windows and let customers reserve slots before you bake</p>
           </div>
-          <button onClick={()=>setShowForm(v=>!v)} className="btn-press" style={{ background:showForm?"transparent":C.primary, color:showForm?C.textMuted:"#fff", border:`1px solid ${showForm?C.border:C.primary}`, borderRadius:8, padding:isMobile?"8px 12px":"10px 18px", fontSize:13, fontWeight:700, cursor:"pointer", flexShrink:0 }}>
+          <button onClick={()=>{ setShowForm(v=>!v); setEditTarget(null); setForm({ product_id:"", title:"", description:"", bake_date:"", order_deadline:"", max_slots:"20", price:"" }); }} className="btn-press" style={{ background:showForm?"transparent":C.primary, color:showForm?C.textMuted:"#fff", border:`1px solid ${showForm?C.border:C.primary}`, borderRadius:8, padding:isMobile?"8px 12px":"10px 18px", fontSize:13, fontWeight:700, cursor:"pointer", flexShrink:0 }}>
             {showForm?"Cancel":"+ New Window"}
           </button>
         </div>
@@ -4095,7 +4145,7 @@ function SellerApp({ user, onSignOut }) {
         {/* New window form */}
         {showForm && (
           <div className="anim-slide-up" style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:12, padding:"1.5rem", marginBottom:"1.5rem", boxShadow:`0 4px 24px ${C.shadow}` }}>
-            <p style={{ fontSize:15, fontWeight:800, color:C.text, margin:"0 0 1.25rem" }}>New Baking Window</p>
+            <p style={{ fontSize:15, fontWeight:800, color:C.text, margin:"0 0 1.25rem" }}>{editTarget?"Edit Baking Window":"New Baking Window"}</p>
             <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"1fr 1fr", gap:12, marginBottom:12 }}>
               <div>
                 <Label t="Title *"/><input value={form.title} onChange={e=>setForm(f=>({...f,title:e.target.value}))} placeholder="e.g. Sourdough Friday Batch" style={inputStyle}/>
@@ -4125,9 +4175,13 @@ function SellerApp({ user, onSignOut }) {
               <textarea value={form.description} onChange={e=>setForm(f=>({...f,description:e.target.value}))} rows={2} placeholder="What are you baking? Any special details customers should know..."
                 style={{...inputStyle, resize:"none"}}/>
             </div>
-            <button onClick={save} disabled={saving} className="btn-press" style={{ background:saving?C.surfaceHigh:C.primary, color:saving?C.textMuted:"#fff", border:"none", borderRadius:8, padding:"12px 24px", fontSize:14, fontWeight:700, cursor:"pointer" }}>
-              {saving?"Creating...":"Create Baking Window"}
-            </button>
+            <div style={{ display:"flex", gap:8 }}>
+              <button onClick={()=>{ setShowForm(false); setEditTarget(null); setForm({ product_id:"", title:"", description:"", bake_date:"", order_deadline:"", max_slots:"20", price:"" }); }}
+                style={{ padding:"12px 16px", border:`1px solid ${C.border}`, borderRadius:8, background:"transparent", color:C.textMuted, cursor:"pointer", fontSize:13 }}>Cancel</button>
+              <button onClick={editTarget?saveEdit:save} disabled={saving} className="btn-press" style={{ background:saving?C.surfaceHigh:C.primary, color:saving?C.textMuted:"#fff", border:"none", borderRadius:8, padding:"12px 24px", fontSize:14, fontWeight:700, cursor:"pointer" }}>
+                {saving?(editTarget?"Saving...":"Creating..."):(editTarget?"Save Changes":"Create Baking Window")}
+              </button>
+            </div>
           </div>
         )}
 
@@ -4138,6 +4192,31 @@ function SellerApp({ user, onSignOut }) {
             <p style={{ fontSize:16, fontWeight:700, color:C.text, margin:"0 0 6px" }}>No baking windows yet</p>
             <p style={{ fontSize:13, color:C.textMuted, margin:"0 0 1.5rem" }}>Create your first pre-order window so customers can reserve slots before you start baking.</p>
             <button onClick={()=>setShowForm(true)} className="btn-press" style={{ background:C.primary, color:"#fff", border:"none", borderRadius:8, padding:"11px 22px", fontSize:13, fontWeight:700, cursor:"pointer" }}>Create First Window</button>
+          </div>
+        )}
+
+        {/* Delete confirmation modal */}
+        {delTarget && (
+          <div className="modal-bg" style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.6)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:400, padding:"1rem" }}>
+            <div className="modal-box" style={{ background:C.surface, borderRadius:14, width:400, maxWidth:"96vw", padding:"1.5rem", fontFamily:"'Plus Jakarta Sans', system-ui, sans-serif" }}>
+              <h3 style={{ fontSize:18, fontWeight:800, color:C.text, margin:"0 0 8px" }}>Delete Baking Window?</h3>
+              <p style={{ fontSize:13, color:C.textMuted, margin:"0 0 6px", lineHeight:1.6 }}>
+                You're about to delete <strong style={{color:C.text}}>{delTarget.title}</strong>.
+              </p>
+              {(slots[delTarget.id]||delTarget.slots_taken||0)>0 && (
+                <div style={{ background:C.dangerBg, border:`1px solid ${C.danger}`, borderRadius:8, padding:"10px 14px", margin:"10px 0" }}>
+                  <p style={{ fontSize:13, fontWeight:700, color:C.danger, margin:"0 0 3px" }}>Warning: {slots[delTarget.id]||delTarget.slots_taken} slot{(slots[delTarget.id]||delTarget.slots_taken)!==1?"s":""} already reserved</p>
+                  <p style={{ fontSize:12, color:C.textMuted, margin:0 }}>Customers who reserved slots will lose their reservation. Consider closing the window instead.</p>
+                </div>
+              )}
+              <p style={{ fontSize:12, color:C.textMuted, margin:"0 0 1.25rem", lineHeight:1.6 }}>This action cannot be undone. All reservations for this window will also be deleted.</p>
+              <div style={{ display:"flex", gap:8 }}>
+                <button onClick={()=>setDelTarget(null)} style={{ flex:1, padding:"11px", border:`1px solid ${C.border}`, borderRadius:8, background:"transparent", color:C.textMuted, cursor:"pointer", fontSize:13, fontWeight:600 }}>Keep It</button>
+                <button onClick={deletePreorder} disabled={deleting} className="btn-press" style={{ flex:1, padding:"11px", background:deleting?C.surfaceHigh:C.danger, color:deleting?C.textMuted:"#fff", border:"none", borderRadius:8, fontSize:13, fontWeight:700, cursor:"pointer" }}>
+                  {deleting?"Deleting...":"Delete Window"}
+                </button>
+              </div>
+            </div>
           </div>
         )}
 
@@ -4164,9 +4243,13 @@ function SellerApp({ user, onSignOut }) {
                       {linkedProduct && <span style={{ fontSize:12, color:C.textMuted }}>Linked: {linkedProduct.name}</span>}
                     </div>
                   </div>
-                  {pr.status==="open" && !deadlinePassed && (
-                    <button onClick={()=>closePreorder(pr.id)} className="btn-press" style={{ background:"transparent", border:`1px solid ${C.border}`, borderRadius:7, padding:"6px 12px", fontSize:11, fontWeight:600, color:C.textMuted, cursor:"pointer", flexShrink:0, marginLeft:12 }}>Close</button>
-                  )}
+                  <div style={{ display:"flex", gap:6, flexShrink:0, marginLeft:12 }}>
+                    <button onClick={()=>openEdit(pr)} className="btn-press" title="Edit" style={{ background:"transparent", border:`1px solid ${C.border}`, borderRadius:7, padding:"6px 10px", fontSize:11, fontWeight:600, color:C.textMuted, cursor:"pointer" }}>Edit</button>
+                    {pr.status==="open" && !deadlinePassed && (
+                      <button onClick={()=>closePreorder(pr.id)} className="btn-press" title="Close window" style={{ background:"transparent", border:`1px solid ${C.border}`, borderRadius:7, padding:"6px 10px", fontSize:11, fontWeight:600, color:C.textMuted, cursor:"pointer" }}>Close</button>
+                    )}
+                    <button onClick={()=>setDelTarget(pr)} className="btn-press" title="Delete" style={{ background:C.dangerBg, border:`1px solid rgba(181,32,32,0.2)`, borderRadius:7, padding:"6px 10px", fontSize:11, fontWeight:600, color:C.danger, cursor:"pointer" }}>Delete</button>
+                  </div>
                 </div>
                 {/* Slot progress bar */}
                 <div style={{ marginTop:10 }}>
