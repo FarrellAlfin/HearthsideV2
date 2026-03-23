@@ -2,6 +2,51 @@ import { useState, useEffect, useRef } from "react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { createClient } from '@supabase/supabase-js';
 
+// ─── GLOBAL ANIMATION STYLES ─────────────────────────────────────────────────
+const ANIM_CSS = `
+  @keyframes fadeUp   { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
+  @keyframes fadeIn   { from { opacity:0; } to { opacity:1; } }
+  @keyframes slideInRight { from { opacity:0; transform:translateX(24px); } to { opacity:1; transform:translateX(0); } }
+  @keyframes slideInLeft  { from { opacity:0; transform:translateX(-24px); } to { opacity:1; transform:translateX(0); } }
+  @keyframes slideUp  { from { opacity:0; transform:translateY(40px); } to { opacity:1; transform:translateY(0); } }
+  @keyframes scaleIn  { from { opacity:0; transform:scale(0.94); } to { opacity:1; transform:scale(1); } }
+  @keyframes shimmer  { 0%,100%{opacity:1} 50%{opacity:0.4} }
+  @keyframes pulse    { 0%,100%{transform:scale(1)} 50%{transform:scale(1.04)} }
+  @keyframes bounceIn { 0%{transform:scale(0.7);opacity:0} 60%{transform:scale(1.08)} 100%{transform:scale(1);opacity:1} }
+
+  .anim-fade-up    { animation: fadeUp   0.35s cubic-bezier(0.22,1,0.36,1) both; }
+  .anim-fade-in    { animation: fadeIn   0.25s ease both; }
+  .anim-slide-right{ animation: slideInRight 0.3s cubic-bezier(0.22,1,0.36,1) both; }
+  .anim-slide-left { animation: slideInLeft  0.3s cubic-bezier(0.22,1,0.36,1) both; }
+  .anim-slide-up   { animation: slideUp  0.4s cubic-bezier(0.22,1,0.36,1) both; }
+  .anim-scale-in   { animation: scaleIn  0.28s cubic-bezier(0.22,1,0.36,1) both; }
+  .anim-bounce-in  { animation: bounceIn 0.5s cubic-bezier(0.22,1,0.36,1) both; }
+
+  /* Stagger helper — set --delay on element */
+  .anim-stagger { animation-delay: var(--delay, 0ms); }
+
+  /* Hover lift — add class to any card */
+  .hover-lift { transition: transform 0.18s ease, box-shadow 0.18s ease; }
+  .hover-lift:hover { transform: translateY(-3px); box-shadow: 0 10px 32px rgba(23,49,36,0.13) !important; }
+
+  /* Button press */
+  .btn-press { transition: transform 0.1s ease, opacity 0.1s ease; }
+  .btn-press:active { transform: scale(0.96); opacity: 0.85; }
+
+  /* Page transitions */
+  .page-enter { animation: fadeUp 0.32s cubic-bezier(0.22,1,0.36,1) both; }
+
+  /* Modal overlay */
+  .modal-bg  { animation: fadeIn 0.2s ease both; }
+  .modal-box { animation: scaleIn 0.28s cubic-bezier(0.22,1,0.36,1) both; }
+
+  /* Bottom sheet */
+  .sheet-enter { animation: slideUp 0.35s cubic-bezier(0.22,1,0.36,1) both; }
+
+  /* Sidebar transition */
+  .sidebar-transition { transition: width 0.22s cubic-bezier(0.22,1,0.36,1); }
+`;
+
 const supabase = createClient(
   'https://kxajjlrjgrabtmyksqrq.supabase.co',
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt4YWpqbHJqZ3JhYnRteWtzcXJxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3NjIyMzMsImV4cCI6MjA4OTMzODIzM30.UCUOnwpyP4oBJyHhaCEM4kym_UlDY32a2SWP3x8atQU'
@@ -108,13 +153,14 @@ const STATUS_MAP = {
   cancelled:{ bg:"rgba(239,68,68,0.12)",   color:"#EF4444", label:"Cancelled"  },
 };
 const SELLER_NAV = [
-  { id:"dashboard",  icon:"dash",      label:"Dashboard"  },
-  { id:"storefront", icon:"store",     label:"Storefront" },
-  { id:"orders",     icon:"orders",    label:"Orders"     },
-  { id:"customers",  icon:"customers", label:"Customers"  },
-  { id:"finances",   icon:"finances",  label:"Finances"   },
-  { id:"delivery",   icon:"delivery",  label:"Delivery"   },
-  { id:"community",  icon:"comm",      label:"Community"  },
+  { id:"dashboard",  icon:"dash",      label:"Dashboard"   },
+  { id:"storefront", icon:"store",     label:"Storefront"  },
+  { id:"orders",     icon:"orders",    label:"Orders"      },
+  { id:"preorders",  icon:"preorder",  label:"Pre-orders"  },
+  { id:"customers",  icon:"customers", label:"Customers"   },
+  { id:"finances",   icon:"finances",  label:"Finances"    },
+  { id:"delivery",   icon:"delivery",  label:"Delivery"    },
+  { id:"community",  icon:"comm",      label:"Community"   },
 ];
 const TIME_SLOTS = [
   { value:"next-day-am", label:"Tomorrow, 9am–12pm"  },
@@ -208,6 +254,7 @@ function Icon({ name, size=20, color="currentColor" }) {
     finances:  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>,
     delivery:  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>,
     comm:      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/></svg>,
+    preorder:  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"/></svg>,
   };
   return icons[name] || <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2"><circle cx="12" cy="12" r="10"/></svg>;
 }
@@ -460,6 +507,7 @@ function CustomerApp({ user, onSignOut }) {
 
   const CUST_NAV = [
     { id:"marketplace", icon:"explore",   label:"Explore"        },
+    { id:"preorders",   icon:"preorder",  label:"Pre-orders"     },
     { id:"chat",        icon:"community", label:"Community"      },
     { id:"charity",     icon:"donate",    label:"Donate"         },
     { id:"orders",      icon:"history",   label:"Order History"  },
@@ -717,7 +765,7 @@ function CustomerApp({ user, onSignOut }) {
               {lightbox && (
                 <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.85)", zIndex:300, display:"flex", alignItems:"center", justifyContent:"center", padding:"1rem" }}
                   onClick={()=>setLightbox(null)}>
-                  <div style={{ background:C.surface, borderRadius:16, width:480, maxWidth:"96vw", maxHeight:"92vh", overflowY:"auto", boxShadow:"0 32px 80px rgba(23,49,36,0.18)" }} onClick={e=>e.stopPropagation()}>
+                  <div className="modal-box" style={{ background:C.surface, borderRadius:16, width:480, maxWidth:"96vw", maxHeight:"92vh", overflowY:"auto", boxShadow:"0 32px 80px rgba(23,49,36,0.18)" }} onClick={e=>e.stopPropagation()}>
                     {(() => {
                       const imgs = (() => { try { const a=JSON.parse(lightbox.product.images||"[]"); return a.length>0?a:(lightbox.product.image_url?[lightbox.product.image_url]:[]); } catch(e){ return lightbox.product.image_url?[lightbox.product.image_url]:[]; } })();
                       const slide = Math.min(lightbox.slide||0, Math.max(0,imgs.length-1));
@@ -792,10 +840,8 @@ function CustomerApp({ user, onSignOut }) {
                   const cardSlide = cardSlides[p.id]||0;
                   const setCardSlide = (fn) => setCardSlides(s=>({...s,[p.id]:typeof fn==="function"?fn(s[p.id]||0):fn}));
                   return (
-                    <div key={p.id} style={{ background:C.surface, borderRadius:12, overflow:"hidden", cursor:"pointer", boxShadow:`0 2px 12px ${C.shadow}`, transition:"transform 0.15s" }}
-                      onClick={()=>setLightbox({ product:p, slide:cardSlide, qty: cart[p.id]||1 })}
-                      onMouseEnter={e=>e.currentTarget.style.transform="translateY(-2px)"}
-                      onMouseLeave={e=>e.currentTarget.style.transform="translateY(0)"}>
+                    <div key={p.id} className="hover-lift anim-fade-up anim-stagger" style={{ background:C.surface, borderRadius:12, overflow:"hidden", cursor:"pointer", boxShadow:`0 2px 12px ${C.shadow}`, "--delay":`${displayProducts.indexOf(p)*40}ms` }}
+                      onClick={()=>setLightbox({ product:p, slide:cardSlide, qty: cart[p.id]||1 })}>
                       {/* Slideable image area */}
                       <div style={{ position:"relative", paddingBottom:"100%", background:C.surfaceHigh }}>
                         {imgs.length>0
@@ -851,6 +897,194 @@ function CustomerApp({ user, onSignOut }) {
     );
   };
 
+  // ── CUSTOMER PRE-ORDERS ──
+  const CustomerPreorders = () => {
+    const [preorders,  setPreorders]  = useState([]);
+    const [loading,    setLoading]    = useState(true);
+    const [reserving,  setReserving]  = useState(null); // preorder being reserved
+    const [resForm,    setResForm]    = useState({ name:delName||"", phone:delPhone||"", quantity:"1", notes:"" });
+    const [resSaving,  setResSaving]  = useState(false);
+    const [reserved,   setReserved]   = useState({}); // { preorder_id: true }
+
+    useEffect(()=>{
+      supabase.from("preorders").select("*, profiles(business,name,hood,logo_url)")
+        .eq("status","open")
+        .order("bake_date",{ascending:true})
+        .then(({ data })=>{ setPreorders(data||[]); setLoading(false); });
+    },[]);
+
+    const reserve = async () => {
+      if (!reserving) return;
+      if (!resForm.name.trim()||!resForm.phone.trim()) { alert("Please enter your name and phone number."); return; }
+      const qty = parseInt(resForm.quantity)||1;
+      const available = reserving.max_slots - (reserving.slots_taken||0);
+      if (qty>available) { alert(`Only ${available} slot${available!==1?"s":""} left.`); return; }
+      setResSaving(true);
+      const { error } = await supabase.from("preorder_slots").insert({
+        preorder_id:   reserving.id,
+        customer_id:   user.id,
+        customer_name: resForm.name.trim(),
+        customer_phone:resForm.phone.trim(),
+        quantity:      qty,
+        notes:         resForm.notes.trim()||null,
+      });
+      if (error) { alert("Failed: "+error.message); setResSaving(false); return; }
+      // update local slots_taken
+      await supabase.from("preorders").update({ slots_taken: (reserving.slots_taken||0)+qty }).eq("id",reserving.id);
+      setPreorders(p=>p.map(pr=>pr.id===reserving.id?{...pr,slots_taken:(pr.slots_taken||0)+qty}:pr));
+      setReserved(r=>({...r,[reserving.id]:true}));
+      setResSaving(false); setReserving(null);
+    };
+
+    return (
+      <div className="page-enter" style={{ padding:isMobile?"1rem":"1.5rem 2rem", maxWidth:760 }}>
+        {/* Reserve modal */}
+        {reserving && (
+          <div className="modal-bg" style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.6)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:400, padding:"1rem" }}>
+            <div className="modal-box" style={{ background:C.surface, borderRadius:16, width:440, maxWidth:"96vw", padding:"1.5rem", fontFamily:"'Plus Jakarta Sans', system-ui, sans-serif" }}>
+              <h3 style={{ fontSize:18, fontWeight:800, color:C.text, margin:"0 0 4px" }}>Reserve a Slot</h3>
+              <p style={{ fontSize:13, color:C.textMuted, margin:"0 0 1.25rem" }}>{reserving.title} · Bake date: {new Date(reserving.bake_date).toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"})}</p>
+
+              {[["Your Name","name","Maria Santos"],["Phone Number","phone","+1 (416) 555-0100"]].map(([lbl,key,ph])=>(
+                <div key={key} style={{ marginBottom:12 }}>
+                  <label style={{ fontSize:11, fontWeight:700, color:C.textMuted, display:"block", marginBottom:5, textTransform:"uppercase", letterSpacing:"0.08em" }}>{lbl}</label>
+                  <input value={resForm[key]} onChange={e=>setResForm(f=>({...f,[key]:e.target.value}))} placeholder={ph}
+                    style={{ width:"100%", padding:"11px 14px", border:`1px solid ${C.border}`, borderRadius:8, fontSize:15, color:C.text, background:C.surfaceHigh, outline:"none", boxSizing:"border-box", fontFamily:"inherit" }}/>
+                </div>
+              ))}
+
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:12 }}>
+                <div>
+                  <label style={{ fontSize:11, fontWeight:700, color:C.textMuted, display:"block", marginBottom:5, textTransform:"uppercase", letterSpacing:"0.08em" }}>Quantity</label>
+                  <input type="number" min="1" max={reserving.max_slots-(reserving.slots_taken||0)} value={resForm.quantity}
+                    onChange={e=>setResForm(f=>({...f,quantity:e.target.value}))}
+                    style={{ width:"100%", padding:"11px 14px", border:`1px solid ${C.border}`, borderRadius:8, fontSize:15, color:C.text, background:C.surfaceHigh, outline:"none", boxSizing:"border-box", fontFamily:"inherit" }}/>
+                </div>
+                <div style={{ display:"flex", flexDirection:"column", justifyContent:"flex-end" }}>
+                  <p style={{ fontSize:13, fontWeight:700, color:C.text, margin:"0 0 4px" }}>Total</p>
+                  <p style={{ fontSize:22, fontWeight:800, color:C.primary, margin:0 }}>${((parseInt(resForm.quantity)||1)*parseFloat(reserving.price)).toFixed(2)}</p>
+                </div>
+              </div>
+
+              <div style={{ marginBottom:16 }}>
+                <label style={{ fontSize:11, fontWeight:700, color:C.textMuted, display:"block", marginBottom:5, textTransform:"uppercase", letterSpacing:"0.08em" }}>Notes (optional)</label>
+                <textarea value={resForm.notes} onChange={e=>setResForm(f=>({...f,notes:e.target.value}))} placeholder="Any special requests or dietary notes..."
+                  rows={2} style={{ width:"100%", padding:"10px 14px", border:`1px solid ${C.border}`, borderRadius:8, fontSize:14, color:C.text, background:C.surfaceHigh, outline:"none", resize:"none", boxSizing:"border-box", fontFamily:"inherit" }}/>
+              </div>
+
+              <div style={{ background:C.surfaceHigh, borderRadius:10, padding:"10px 14px", marginBottom:16 }}>
+                <p style={{ fontSize:12, color:C.textMuted, margin:0, lineHeight:1.6 }}>
+                  Payment is collected on pickup/delivery. Reserving a slot is a commitment to pick up your order on <strong>{new Date(reserving.bake_date).toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"})}</strong>.
+                </p>
+              </div>
+
+              <div style={{ display:"flex", gap:8 }}>
+                <button onClick={()=>setReserving(null)} style={{ flex:1, padding:"11px", border:`1px solid ${C.border}`, borderRadius:8, background:"transparent", color:C.textMuted, cursor:"pointer", fontSize:13 }}>Cancel</button>
+                <button onClick={reserve} disabled={resSaving} className="btn-press" style={{ flex:2, padding:"11px", background:resSaving?C.surfaceHigh:C.primary, color:resSaving?C.textMuted:"#fff", border:"none", borderRadius:8, fontSize:14, fontWeight:700, cursor:"pointer" }}>
+                  {resSaving?"Reserving...":"Reserve Slot →"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="anim-fade-up" style={{ marginBottom:"1.25rem" }}>
+          <h2 style={{ fontSize:24, fontWeight:800, color:C.text, margin:"0 0 4px", letterSpacing:"-0.03em" }}>Pre-order Table</h2>
+          <p style={{ fontSize:13, color:C.textMuted, margin:0, lineHeight:1.6 }}>Reserve fresh bakes before the baker even starts — directly from the kitchen.</p>
+        </div>
+
+        {loading && <div style={{ padding:"3rem", textAlign:"center", color:C.textMuted, fontSize:13 }}>Loading baking windows...</div>}
+
+        {!loading && preorders.length===0 && (
+          <div className="anim-fade-in" style={{ background:C.surface, borderRadius:12, padding:"3rem", textAlign:"center", boxShadow:`0 2px 16px ${C.shadow}` }}>
+            <div style={{ fontSize:40, marginBottom:12 }}>🍞</div>
+            <p style={{ fontSize:16, fontWeight:700, color:C.text, margin:"0 0 6px" }}>No open baking windows</p>
+            <p style={{ fontSize:13, color:C.textMuted, margin:0 }}>Check back soon — your local bakers will announce upcoming batches here.</p>
+          </div>
+        )}
+
+        <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+          {preorders.map((pr,i)=>{
+            const taken    = pr.slots_taken||0;
+            const left     = pr.max_slots - taken;
+            const pct      = Math.min(100, Math.round((taken/pr.max_slots)*100));
+            const deadline = new Date(pr.order_deadline);
+            const hoursLeft= Math.max(0, Math.round((deadline-Date.now())/3600000));
+            const baker    = pr.profiles;
+            const isReserved = reserved[pr.id];
+            return (
+              <div key={pr.id} className="anim-fade-up anim-stagger" style={{ background:C.surface, borderRadius:14, overflow:"hidden", boxShadow:`0 4px 20px ${C.shadow}`, "--delay":`${i*70}ms` }}>
+                {/* Baker strip */}
+                <div style={{ background:C.primary, padding:"10px 16px", display:"flex", alignItems:"center", gap:10 }}>
+                  {baker?.logo_url
+                    ? <img src={baker.logo_url} alt="" style={{ width:28, height:28, borderRadius:6, objectFit:"cover", flexShrink:0 }}/>
+                    : <div style={{ width:28, height:28, borderRadius:6, background:C.accent, display:"flex", alignItems:"center", justifyContent:"center", fontSize:13, color:"#fff", fontWeight:800, flexShrink:0 }}>H</div>}
+                  <div style={{ minWidth:0 }}>
+                    <p style={{ fontSize:13, fontWeight:700, color:"#fff", margin:0, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{baker?.business||baker?.name||"Local Baker"}</p>
+                    <p style={{ fontSize:11, color:"rgba(255,255,255,0.55)", margin:0 }}>{baker?.hood||""}</p>
+                  </div>
+                  {hoursLeft<=24 && hoursLeft>0 && (
+                    <span style={{ marginLeft:"auto", background:"rgba(245,158,11,0.2)", color:"#F59E0B", fontSize:10, fontWeight:700, padding:"2px 9px", borderRadius:9999, flexShrink:0 }}>
+                      {hoursLeft}h left to order
+                    </span>
+                  )}
+                </div>
+
+                {/* Content */}
+                <div style={{ padding:"1.25rem 1.25rem 1rem" }}>
+                  <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:8 }}>
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <p style={{ fontSize:17, fontWeight:800, color:C.text, margin:"0 0 4px", letterSpacing:"-0.01em" }}>{pr.title}</p>
+                      {pr.description && <p style={{ fontSize:13, color:C.textMuted, margin:"0 0 6px", lineHeight:1.55 }}>{pr.description}</p>}
+                    </div>
+                    <p style={{ fontSize:20, fontWeight:800, color:C.accent, margin:"0 0 0 12px", flexShrink:0, letterSpacing:"-0.01em" }}>${parseFloat(pr.price).toFixed(2)}</p>
+                  </div>
+
+                  <div style={{ display:"flex", gap:16, flexWrap:"wrap", marginBottom:12 }}>
+                    <div>
+                      <p style={{ fontSize:9, fontWeight:700, color:C.textMuted, margin:"0 0 2px", textTransform:"uppercase", letterSpacing:"0.1em" }}>Bake Date</p>
+                      <p style={{ fontSize:13, fontWeight:700, color:C.text, margin:0 }}>{new Date(pr.bake_date).toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"})}</p>
+                    </div>
+                    <div>
+                      <p style={{ fontSize:9, fontWeight:700, color:C.textMuted, margin:"0 0 2px", textTransform:"uppercase", letterSpacing:"0.1em" }}>Order By</p>
+                      <p style={{ fontSize:13, fontWeight:700, color:deadline<new Date()?C.danger:C.text, margin:0 }}>{deadline.toLocaleDateString("en-US",{month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"})}</p>
+                    </div>
+                    <div>
+                      <p style={{ fontSize:9, fontWeight:700, color:C.textMuted, margin:"0 0 2px", textTransform:"uppercase", letterSpacing:"0.1em" }}>Slots Left</p>
+                      <p style={{ fontSize:13, fontWeight:700, color:left<=3?C.danger:C.text, margin:0 }}>{left} of {pr.max_slots}</p>
+                    </div>
+                  </div>
+
+                  {/* Slot bar */}
+                  <div style={{ marginBottom:14 }}>
+                    <div style={{ height:6, background:C.surfaceHigh, borderRadius:3, overflow:"hidden" }}>
+                      <div style={{ height:"100%", width:`${pct}%`, background:pct>=90?C.danger:pct>=60?C.warning:C.success, borderRadius:3, transition:"width 0.6s cubic-bezier(0.22,1,0.36,1)" }}/>
+                    </div>
+                    <p style={{ fontSize:10, color:C.textMuted, margin:"3px 0 0" }}>{pct}% reserved</p>
+                  </div>
+
+                  {isReserved ? (
+                    <div style={{ background:C.successBg, border:`1px solid ${C.success}`, borderRadius:8, padding:"10px 14px", textAlign:"center" }}>
+                      <p style={{ fontSize:13, fontWeight:700, color:C.success, margin:0 }}>✓ You have a slot reserved for this batch!</p>
+                    </div>
+                  ) : left<=0 || deadline<new Date() ? (
+                    <div style={{ background:C.surfaceHigh, borderRadius:8, padding:"10px 14px", textAlign:"center" }}>
+                      <p style={{ fontSize:13, color:C.textMuted, fontWeight:600, margin:0 }}>{left<=0?"Fully booked":"Orders closed"}</p>
+                    </div>
+                  ) : (
+                    <button onClick={()=>{ setReserving(pr); setResForm(f=>({...f,name:delName||"",phone:delPhone||""})); }} className="btn-press" style={{ width:"100%", padding:"13px", background:C.primary, color:"#fff", border:"none", borderRadius:10, fontSize:14, fontWeight:700, cursor:"pointer" }}>
+                      Reserve a Slot — ${parseFloat(pr.price).toFixed(2)}
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
   // ── STORE REVIEWS (customer-facing) ──
   const StoreReviews = ({ storeId }) => {
     const [reviews, setReviews] = useState([]);
@@ -893,7 +1127,7 @@ function CustomerApp({ user, onSignOut }) {
     return (
       <div style={{ position:"fixed", inset:0, zIndex:200, display:"flex", flexDirection:isMobile?"column":"row", justifyContent:isMobile?"flex-end":"flex-end" }}>
         <div onClick={()=>setShowCart(false)} style={{ flex:1, background:"rgba(0,0,0,0.5)" }}/>
-        <div style={{ width:isMobile?"100%":400, maxHeight:isMobile?"80vh":"100%", background:C.surface, borderRadius:isMobile?"16px 16px 0 0":"0", boxShadow:isMobile?"0 -8px 40px rgba(23,49,36,0.15)":"-8px 0 40px rgba(23,49,36,0.12)", display:"flex", flexDirection:"column", fontFamily:"'Plus Jakarta Sans', system-ui, sans-serif", overflowY:"auto" }}>
+        <div className={isMobile?"sheet-enter":"anim-slide-right"} style={{ width:isMobile?"100%":400, maxHeight:isMobile?"80vh":"100%", background:C.surface, borderRadius:isMobile?"16px 16px 0 0":"0", boxShadow:isMobile?"0 -8px 40px rgba(23,49,36,0.15)":"-8px 0 40px rgba(23,49,36,0.12)", display:"flex", flexDirection:"column", fontFamily:"'Plus Jakarta Sans', system-ui, sans-serif", overflowY:"auto" }}>
           {/* Handle bar — mobile only */}
           {isMobile && <div style={{ width:36, height:4, background:C.border, borderRadius:2, margin:"10px auto 0" }}/>}
           {/* Header */}
@@ -1311,7 +1545,7 @@ function CustomerApp({ user, onSignOut }) {
     });
     return (
       <div style={{ padding:"1rem 1rem" }}>
-        <div style={{ marginBottom:"0.875rem" }}>
+        <div className="anim-fade-up" style={{ marginBottom:"0.875rem" }}>
           <h2 style={{ fontSize:22, fontWeight:800, color:C.text, margin:"0 0 3px", letterSpacing:"-0.03em" }}>Explore Local Bakers</h2>
           <p style={{ fontSize:13, color:C.textMuted, margin:0 }}>Fresh home-baked goods from your neighbourhood</p>
         </div>
@@ -1340,9 +1574,7 @@ function CustomerApp({ user, onSignOut }) {
             {filtered.map(store=>{
               const rating = sellerRatings[store.id];
               return (
-                <div key={store.id} onClick={()=>{ setActiveStore(store.id); loadSellerProducts(store.id); }} style={{ background:C.surface, borderRadius:12, padding:"1rem", cursor:"pointer", boxShadow:`0 2px 16px ${C.shadow}`, transition:"transform 0.15s, box-shadow 0.15s", position:"relative" }}
-                  onMouseEnter={e=>{ e.currentTarget.style.transform="translateY(-2px)"; e.currentTarget.style.boxShadow=`0 8px 28px ${C.shadow}`; }}
-                  onMouseLeave={e=>{ e.currentTarget.style.transform="translateY(0)"; e.currentTarget.style.boxShadow=`0 2px 16px ${C.shadow}`; }}>
+                <div key={store.id} onClick={()=>{ setActiveStore(store.id); loadSellerProducts(store.id); }} className="hover-lift anim-fade-up anim-stagger" style={{ background:C.surface, borderRadius:12, padding:"1rem", cursor:"pointer", boxShadow:`0 2px 16px ${C.shadow}`, position:"relative", "--delay":`${filtered.indexOf(store)*60}ms` }}>
                   {/* Fav heart */}
                   <button onClick={e=>{ e.stopPropagation(); toggleFav(store.id); }}
                     style={{ position:"absolute", top:10, right:10, background:"rgba(255,255,255,0.8)", border:"none", cursor:"pointer", fontSize:15, width:28, height:28, borderRadius:"50%", display:"flex", alignItems:"center", justifyContent:"center", color:favourites.includes(store.id)?"#e74c3c":"rgba(0,0,0,0.25)", boxShadow:"0 1px 4px rgba(0,0,0,0.1)" }}>
@@ -1606,7 +1838,7 @@ function CustomerApp({ user, onSignOut }) {
         {/* Review modal */}
         {reviewOrder && (
           <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.6)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:400, padding:"1rem" }}>
-            <div style={{ background:C.surface, borderRadius:16, width:420, maxWidth:"96vw", padding:"1.5rem", fontFamily:"'Plus Jakarta Sans', system-ui, sans-serif" }}>
+            <div className="modal-box" style={{ background:C.surface, borderRadius:16, width:420, maxWidth:"96vw", padding:"1.5rem", fontFamily:"'Plus Jakarta Sans', system-ui, sans-serif" }}>
               <h3 style={{ fontSize:18, fontWeight:800, color:C.text, margin:"0 0 4px" }}>Leave a Review</h3>
               <p style={{ fontSize:12, color:C.textMuted, margin:"0 0 1.25rem" }}>Rate your order from {sellers.find(s=>s.id===reviewOrder.seller_id)?.business||"this baker"}</p>
               {/* Star selector */}
@@ -1637,10 +1869,7 @@ function CustomerApp({ user, onSignOut }) {
 
         <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
           {myOrders.map(o=>(
-            <div key={o.id} onClick={()=>setSelectedOrder(o)}
-              style={{ background:C.surface, borderRadius:12, padding:"1.125rem 1.25rem", cursor:"pointer", boxShadow:`0 2px 12px ${C.shadow}`, transition:"transform 0.15s, box-shadow 0.15s" }}
-              onMouseEnter={e=>{ e.currentTarget.style.transform="translateY(-2px)"; e.currentTarget.style.boxShadow=`0 6px 24px ${C.shadow}`; }}
-              onMouseLeave={e=>{ e.currentTarget.style.transform="translateY(0)"; e.currentTarget.style.boxShadow=`0 2px 12px ${C.shadow}`; }}>
+            <div key={o.id} onClick={()=>setSelectedOrder(o)} className="hover-lift anim-fade-up anim-stagger" style={{ background:C.surface, borderRadius:12, padding:"1.125rem 1.25rem", cursor:"pointer", boxShadow:`0 2px 12px ${C.shadow}`, "--delay":`${myOrders.indexOf(o)*50}ms` }}>
               <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:10 }}>
                 <div style={{ flex:1, minWidth:0 }}>
                   <p style={{ fontSize:15, fontWeight:800, color:C.text, margin:"0 0 3px", letterSpacing:"-0.01em" }}>{o.itemLabel||"Order"}</p>
@@ -1682,7 +1911,7 @@ function CustomerApp({ user, onSignOut }) {
         {/* Order detail modal */}
         {selectedOrder && (
           <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.6)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:300, padding:"1rem" }}>
-            <div style={{ background:C.surface, borderRadius:16, width:540, maxWidth:"96vw", maxHeight:"90vh", overflowY:"auto", boxShadow:"0 32px 80px rgba(23,49,36,0.18)", fontFamily:"'Plus Jakarta Sans', system-ui, sans-serif" }}>
+            <div className="modal-box" style={{ background:C.surface, borderRadius:16, width:540, maxWidth:"96vw", maxHeight:"90vh", overflowY:"auto", boxShadow:"0 32px 80px rgba(23,49,36,0.18)", fontFamily:"'Plus Jakarta Sans', system-ui, sans-serif" }}>
 
               {/* Modal header */}
               <div style={{ padding:"1.375rem 1.5rem", borderBottom:`1px solid ${C.border}`, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
@@ -1770,6 +1999,7 @@ function CustomerApp({ user, onSignOut }) {
           {activeStore ? <StoreDetail/> : sidebarCart ? <CartView/> : (
             <>
               {view==="marketplace" && <Marketplace/>}
+              {view==="preorders"   && <CustomerPreorders/>}
               {view==="chat"        && <CommunityChat/>}
               {view==="charity"     && <CharityPage/>}
               {view==="orders"      && <MyOrders/>}
@@ -3792,6 +4022,170 @@ function SellerApp({ user, onSignOut }) {
     );
   };
 
+  // ── SELLER PREORDERS ──
+  const SellerPreorders = () => {
+    const [preorders, setPreorders] = useState([]);
+    const [loading,   setLoading]   = useState(true);
+    const [showForm,  setShowForm]  = useState(false);
+    const [slots,     setSlots]     = useState({});  // { preorder_id: [slot] }
+    const [form, setForm] = useState({
+      product_id:"", title:"", description:"",
+      bake_date:"", order_deadline:"", max_slots:"20", price:""
+    });
+    const [saving, setSaving] = useState(false);
+
+    const load = async () => {
+      const { data } = await supabase.from("preorders").select("*")
+        .eq("seller_id", user.id).order("bake_date",{ascending:true});
+      setPreorders(data||[]); setLoading(false);
+      // load slot counts
+      if (data?.length) {
+        const ids = data.map(p=>p.id);
+        const { data:slotData } = await supabase.from("preorder_slots").select("preorder_id,quantity").in("preorder_id",ids);
+        const counts = {};
+        (slotData||[]).forEach(s=>{ counts[s.preorder_id]=(counts[s.preorder_id]||0)+s.quantity; });
+        setSlots(counts);
+      }
+    };
+
+    useEffect(()=>{ load(); },[]);
+
+    const save = async () => {
+      if (!form.title||!form.bake_date||!form.order_deadline||!form.price) { alert("Fill in all required fields."); return; }
+      setSaving(true);
+      const { error } = await supabase.from("preorders").insert({
+        seller_id: user.id,
+        product_id: form.product_id||null,
+        title: form.title,
+        description: form.description||null,
+        bake_date: form.bake_date,
+        order_deadline: new Date(form.order_deadline).toISOString(),
+        max_slots: parseInt(form.max_slots)||20,
+        price: parseFloat(form.price)||0,
+        status: "open",
+      });
+      if (error) { alert("Error: "+error.message); setSaving(false); return; }
+      setForm({ product_id:"", title:"", description:"", bake_date:"", order_deadline:"", max_slots:"20", price:"" });
+      setShowForm(false); setSaving(false); load();
+    };
+
+    const closePreorder = async (id) => {
+      await supabase.from("preorders").update({ status:"closed" }).eq("id",id);
+      setPreorders(p=>p.map(pr=>pr.id===id?{...pr,status:"closed"}:pr));
+    };
+
+    const statusColor = (s) => s==="open"?C.success:s==="closed"?C.textMuted:C.warning;
+
+    const inputStyle = { width:"100%", padding:"10px 12px", border:`1px solid ${C.border}`, borderRadius:8, fontSize:14, color:C.text, background:C.surfaceHigh, outline:"none", boxSizing:"border-box", fontFamily:"inherit", marginBottom:0 };
+    const Label = ({t}) => <label style={{ fontSize:10, fontWeight:700, color:C.textMuted, display:"block", marginBottom:5, textTransform:"uppercase", letterSpacing:"0.08em" }}>{t}</label>;
+
+    return (
+      <div className="page-enter" style={{ padding:isMobile?"1rem":"2rem" }}>
+        {/* Header */}
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:"1.5rem" }}>
+          <div>
+            <h1 style={{ fontSize:isMobile?20:26, fontWeight:800, color:C.text, margin:"0 0 4px", letterSpacing:"-0.03em" }}>Pre-order Table</h1>
+            <p style={{ fontSize:13, color:C.textMuted, margin:0 }}>Schedule baking windows and let customers reserve slots before you bake</p>
+          </div>
+          <button onClick={()=>setShowForm(v=>!v)} className="btn-press" style={{ background:showForm?"transparent":C.primary, color:showForm?C.textMuted:"#fff", border:`1px solid ${showForm?C.border:C.primary}`, borderRadius:8, padding:isMobile?"8px 12px":"10px 18px", fontSize:13, fontWeight:700, cursor:"pointer", flexShrink:0 }}>
+            {showForm?"Cancel":"+ New Window"}
+          </button>
+        </div>
+
+        {/* New window form */}
+        {showForm && (
+          <div className="anim-slide-up" style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:12, padding:"1.5rem", marginBottom:"1.5rem", boxShadow:`0 4px 24px ${C.shadow}` }}>
+            <p style={{ fontSize:15, fontWeight:800, color:C.text, margin:"0 0 1.25rem" }}>New Baking Window</p>
+            <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"1fr 1fr", gap:12, marginBottom:12 }}>
+              <div>
+                <Label t="Title *"/><input value={form.title} onChange={e=>setForm(f=>({...f,title:e.target.value}))} placeholder="e.g. Sourdough Friday Batch" style={inputStyle}/>
+              </div>
+              <div>
+                <Label t="Price per slot ($) *"/><input type="number" value={form.price} onChange={e=>setForm(f=>({...f,price:e.target.value}))} placeholder="0.00" style={inputStyle}/>
+              </div>
+              <div>
+                <Label t="Bake Date *"/><input type="date" value={form.bake_date} onChange={e=>setForm(f=>({...f,bake_date:e.target.value}))} style={inputStyle}/>
+              </div>
+              <div>
+                <Label t="Order Deadline *"/><input type="datetime-local" value={form.order_deadline} onChange={e=>setForm(f=>({...f,order_deadline:e.target.value}))} style={inputStyle}/>
+              </div>
+              <div>
+                <Label t="Max Slots"/><input type="number" value={form.max_slots} onChange={e=>setForm(f=>({...f,max_slots:e.target.value}))} placeholder="20" style={inputStyle}/>
+              </div>
+              <div>
+                <Label t="Linked Product (optional)"/>
+                <select value={form.product_id} onChange={e=>setForm(f=>({...f,product_id:e.target.value}))} style={{...inputStyle}}>
+                  <option value="">— No linked product —</option>
+                  {products.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}
+                </select>
+              </div>
+            </div>
+            <div style={{ marginBottom:14 }}>
+              <Label t="Description (shown to customers)"/>
+              <textarea value={form.description} onChange={e=>setForm(f=>({...f,description:e.target.value}))} rows={2} placeholder="What are you baking? Any special details customers should know..."
+                style={{...inputStyle, resize:"none"}}/>
+            </div>
+            <button onClick={save} disabled={saving} className="btn-press" style={{ background:saving?C.surfaceHigh:C.primary, color:saving?C.textMuted:"#fff", border:"none", borderRadius:8, padding:"12px 24px", fontSize:14, fontWeight:700, cursor:"pointer" }}>
+              {saving?"Creating...":"Create Baking Window"}
+            </button>
+          </div>
+        )}
+
+        {/* Empty state */}
+        {!loading && preorders.length===0 && (
+          <div className="anim-fade-in" style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:12, padding:"3rem", textAlign:"center" }}>
+            <div style={{ fontSize:40, marginBottom:12 }}>📅</div>
+            <p style={{ fontSize:16, fontWeight:700, color:C.text, margin:"0 0 6px" }}>No baking windows yet</p>
+            <p style={{ fontSize:13, color:C.textMuted, margin:"0 0 1.5rem" }}>Create your first pre-order window so customers can reserve slots before you start baking.</p>
+            <button onClick={()=>setShowForm(true)} className="btn-press" style={{ background:C.primary, color:"#fff", border:"none", borderRadius:8, padding:"11px 22px", fontSize:13, fontWeight:700, cursor:"pointer" }}>Create First Window</button>
+          </div>
+        )}
+
+        {/* Preorder list */}
+        <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+          {preorders.map((pr,i)=>{
+            const taken = slots[pr.id]||pr.slots_taken||0;
+            const pct   = Math.min(100, Math.round((taken/pr.max_slots)*100));
+            const deadlinePassed = new Date(pr.order_deadline) < new Date();
+            const linkedProduct  = products.find(p=>p.id===pr.product_id);
+            return (
+              <div key={pr.id} className="anim-fade-up anim-stagger hover-lift" style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:12, padding:"1.25rem", boxShadow:`0 2px 12px ${C.shadow}`, "--delay":`${i*60}ms` }}>
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:10 }}>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:3 }}>
+                      <p style={{ fontSize:16, fontWeight:800, color:C.text, margin:0, letterSpacing:"-0.01em" }}>{pr.title}</p>
+                      <span style={{ fontSize:11, fontWeight:700, color:statusColor(pr.status), background:`rgba(${pr.status==="open"?"30,122,72":"120,120,120"},0.1)`, padding:"2px 9px", borderRadius:9999 }}>{pr.status==="open"?"Open":"Closed"}</span>
+                    </div>
+                    {pr.description && <p style={{ fontSize:13, color:C.textMuted, margin:"0 0 6px", lineHeight:1.5 }}>{pr.description}</p>}
+                    <div style={{ display:"flex", gap:14, flexWrap:"wrap" }}>
+                      <span style={{ fontSize:12, color:C.text, fontWeight:600 }}>Bake: {new Date(pr.bake_date).toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"})}</span>
+                      <span style={{ fontSize:12, color:deadlinePassed?C.danger:C.textMuted }}>Deadline: {new Date(pr.order_deadline).toLocaleDateString("en-US",{month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"})}{deadlinePassed?" (passed)":""}</span>
+                      <span style={{ fontSize:12, color:C.accent, fontWeight:700 }}>${parseFloat(pr.price).toFixed(2)} / slot</span>
+                      {linkedProduct && <span style={{ fontSize:12, color:C.textMuted }}>Linked: {linkedProduct.name}</span>}
+                    </div>
+                  </div>
+                  {pr.status==="open" && !deadlinePassed && (
+                    <button onClick={()=>closePreorder(pr.id)} className="btn-press" style={{ background:"transparent", border:`1px solid ${C.border}`, borderRadius:7, padding:"6px 12px", fontSize:11, fontWeight:600, color:C.textMuted, cursor:"pointer", flexShrink:0, marginLeft:12 }}>Close</button>
+                  )}
+                </div>
+                {/* Slot progress bar */}
+                <div style={{ marginTop:10 }}>
+                  <div style={{ display:"flex", justifyContent:"space-between", marginBottom:5 }}>
+                    <span style={{ fontSize:12, color:C.textMuted }}>{taken} / {pr.max_slots} slots reserved</span>
+                    <span style={{ fontSize:12, fontWeight:700, color:pct>=90?C.danger:pct>=60?C.warning:C.success }}>{pct}% full</span>
+                  </div>
+                  <div style={{ height:7, background:C.surfaceHigh, borderRadius:4, overflow:"hidden" }}>
+                    <div style={{ height:"100%", width:`${pct}%`, background:pct>=90?C.danger:pct>=60?C.warning:C.success, borderRadius:4, transition:"width 0.6s cubic-bezier(0.22,1,0.36,1)" }}/>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
   // Mobile bottom tab bar for seller
   const SellerBottomNav = () => {
     if (!isMobile) return null;
@@ -3886,6 +4280,11 @@ export default function App() {
     link.rel = "stylesheet";
     link.href = "https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap";
     document.head.appendChild(link);
+
+    // Inject animation styles
+    const animStyle = document.createElement("style");
+    animStyle.textContent = ANIM_CSS;
+    document.head.appendChild(animStyle);
 
     // Mobile font scaling fix + safe areas
     const mobileStyle = document.createElement("style");
