@@ -398,13 +398,29 @@ function CustomerApp({ user, onSignOut }) {
   const [sellers,      setSellers]      = useState([]);
   const [sellerProds,  setSellerProds]  = useState({}); // { seller_id: [products] }
   const [loadingSellers, setLoadingSellers] = useState(true);
+  // Feature state
+  const [favourites,   setFavourites]   = useState(()=>{ try { return JSON.parse(localStorage.getItem(`hside_favs_${user.id}`)||"[]"); } catch(e){ return []; } });
+  const [storeSearch,  setStoreSearch]  = useState(""); // search within store
+  const [sellerRatings,setSellerRatings]= useState({}); // { seller_id: {avg, count} }
+  const [savedAddresses,setSavedAddresses] = useState([]); // loaded from profiles
 
   useEffect(()=>{
-    // Load all seller profiles
     supabase.from("profiles").select("*").eq("role","seller")
+      .then(({ data })=>{ setSellers(data||[]); setLoadingSellers(false); });
+    // Load saved addresses
+    if (user?.id) {
+      supabase.from("profiles").select("saved_addresses").eq("id",user.id).single()
+        .then(({ data })=>{ if (data?.saved_addresses) setSavedAddresses(data.saved_addresses); });
+    }
+    // Load seller ratings
+    supabase.from("reviews").select("seller_id,rating")
       .then(({ data })=>{
-        setSellers(data||[]);
-        setLoadingSellers(false);
+        if (!data) return;
+        const map = {};
+        data.forEach(r=>{ if (!map[r.seller_id]) map[r.seller_id]={sum:0,count:0}; map[r.seller_id].sum+=r.rating; map[r.seller_id].count++; });
+        const ratings = {};
+        Object.entries(map).forEach(([id,v])=>{ ratings[id]={ avg:(v.sum/v.count).toFixed(1), count:v.count }; });
+        setSellerRatings(ratings);
       });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   },[]);
@@ -433,6 +449,14 @@ function CustomerApp({ user, onSignOut }) {
     setCartStore(storeId);
   };
   const decCart = id => setCart(p=>{ const n={...p}; n[id]>1?n[id]--:delete n[id]; return n; });
+
+  const toggleFav = (sellerId) => {
+    const next = favourites.includes(sellerId) ? favourites.filter(id=>id!==sellerId) : [...favourites, sellerId];
+    setFavourites(next);
+    try { localStorage.setItem(`hside_favs_${user.id}`, JSON.stringify(next)); } catch(e){}
+    // persist to profile
+    supabase.from("profiles").update({ favourites: next }).eq("id", user.id);
+  };
 
   const CUST_NAV = [
     { id:"marketplace", icon:"explore",   label:"Explore"        },
@@ -640,8 +664,20 @@ function CustomerApp({ user, onSignOut }) {
               {store.logo_url ? <img src={store.logo_url} alt={store.business} style={{ width:"100%", height:"100%", objectFit:"cover" }}/> : <span style={{fontSize:22, opacity:0.3}}>■</span>}
             </div>
             <div style={{ flex:1 }}>
-              <h1 style={{ fontSize:20, fontWeight:700, color:C.text, margin:"0 0 4px", letterSpacing:"-0.02em" }}>{store.business||store.name}</h1>
-              <p style={{ fontSize:12, color:C.textMuted, margin:"0 0 4px" }}><span style={{fontSize:10}}>📍</span> {store.hood}</p>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
+                <h1 style={{ fontSize:20, fontWeight:700, color:C.text, margin:"0 0 4px", letterSpacing:"-0.02em", flex:1, minWidth:0 }}>{store.business||store.name}</h1>
+                <button onClick={()=>toggleFav(store.id)} style={{ background:"transparent", border:"none", cursor:"pointer", fontSize:20, color:favourites.includes(store.id)?"#e74c3c":"rgba(0,0,0,0.2)", flexShrink:0, padding:"0 0 0 8px" }}>
+                  {favourites.includes(store.id)?"♥":"♡"}
+                </button>
+              </div>
+              <p style={{ fontSize:12, color:C.textMuted, margin:"0 0 4px" }}>{store.hood}</p>
+              {sellerRatings[store.id] && (
+                <div style={{ display:"flex", alignItems:"center", gap:4, marginBottom:3 }}>
+                  <span style={{ color:"#f4b942", fontSize:12 }}>{"★".repeat(Math.round(parseFloat(sellerRatings[store.id].avg)))}</span>
+                  <span style={{ fontSize:12, fontWeight:600, color:C.text }}>{sellerRatings[store.id].avg}</span>
+                  <span style={{ fontSize:11, color:C.textMuted }}>({sellerRatings[store.id].count} review{sellerRatings[store.id].count!==1?"s":""})</span>
+                </div>
+              )}
               <p style={{ fontSize:13, color:C.textSub, margin:0 }}>{store.desc||"Home baker"}</p>
             </div>
           </div>
@@ -661,12 +697,18 @@ function CustomerApp({ user, onSignOut }) {
             )}
           </div>
         </div>
+        {/* Product search bar */}
+        <div style={{ padding:"0.75rem 1.5rem", borderBottom:`1px solid ${C.border}` }}>
+          <input value={storeSearch} onChange={e=>setStoreSearch(e.target.value)} placeholder={`Search ${store.business||"store"} products...`}
+            style={{ width:"100%", padding:"9px 16px", border:`1px solid ${C.border}`, borderRadius:9999, fontSize:13, color:C.text, background:C.surfaceHigh, outline:"none", boxSizing:"border-box", fontFamily:"inherit" }}
+            onFocus={e=>e.target.style.borderColor=C.primary} onBlur={e=>e.target.style.borderColor=C.border}/>
+        </div>
         <div style={{ padding:"1rem 1.5rem" }}>
           {(() => {
-          if (products.length===0) return (
+          const displayProducts = storeSearch ? products.filter(p=>(p.name||"").toLowerCase().includes(storeSearch.toLowerCase())||(p.desc||"").toLowerCase().includes(storeSearch.toLowerCase())||(p.category||"").toLowerCase().includes(storeSearch.toLowerCase())) : products;
+          if (displayProducts.length===0) return (
             <div style={{ textAlign:"center", padding:"2rem", color:C.textMuted }}>
-              <p style={{ fontSize:24, margin:"0 0 8px" }}>🍞</p>
-              <p style={{ fontSize:13 }}>No products available right now.</p>
+              <p style={{ fontSize:13 }}>{storeSearch?`No products matching "${storeSearch}"`:"No products available right now."}</p>
             </div>
           );
           return (
@@ -738,9 +780,9 @@ function CustomerApp({ user, onSignOut }) {
                   </div>
                 </div>
               )}
-              {/* Product grid — 3 columns, compact cards with live slideshow */}
+              {/* Product grid */}
               <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
-                {products.map(p=>{
+                {displayProducts.map(p=>{
                   const imgs = (() => { try { const a=JSON.parse(p.images||"[]"); return a.length>0?a:(p.image_url?[p.image_url]:[]); } catch(e){ return p.image_url?[p.image_url]:[]; } })();
                   const cardSlide = cardSlides[p.id]||0;
                   const setCardSlide = (fn) => setCardSlides(s=>({...s,[p.id]:typeof fn==="function"?fn(s[p.id]||0):fn}));
@@ -900,6 +942,17 @@ function CustomerApp({ user, onSignOut }) {
         setProc(false); return;
       }
       console.log("Order placed successfully");
+      // Offer to save address if delivery and not already saved
+      if (delType==="delivery" && delAddress && delName) {
+        const exists = savedAddresses.some(a=>a.address===delAddress);
+        if (!exists && window.confirm("Save this address for future orders?")) {
+          const label = prompt("Name this address (e.g. Home, Work):", "Home")||"Home";
+          const newAddr = { label, name:delName, phone:delPhone, address:delAddress };
+          const updated = [...savedAddresses, newAddr];
+          setSavedAddresses(updated);
+          supabase.from("profiles").update({ saved_addresses: updated }).eq("id", user.id);
+        }
+      }
       await new Promise(r=>setTimeout(r,800));
       setProc(false); setDone(true);
       setCart({}); setCartStore(null);
@@ -1048,6 +1101,20 @@ function CustomerApp({ user, onSignOut }) {
             ))}
           </div>
 
+          {/* Saved addresses quick-fill */}
+          {savedAddresses.length>0 && delType==="delivery" && (
+            <div style={{ marginBottom:14 }}>
+              <label style={{ fontSize:11, fontWeight:700, color:C.textMuted, display:"block", marginBottom:6, textTransform:"uppercase", letterSpacing:"0.08em" }}>Saved Addresses</label>
+              <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+                {savedAddresses.map((addr,i)=>(
+                  <button key={i} onClick={()=>{ setDelName(addr.name||delName); setDelPhone(addr.phone||delPhone); setDelAddress(addr.address||""); if(nameRef.current) nameRef.current.value=addr.name||delName; if(phoneRef.current) phoneRef.current.value=addr.phone||delPhone; if(addressRef.current) addressRef.current.value=addr.address||""; }}
+                    style={{ textAlign:"left", padding:"8px 12px", background:C.surfaceHigh, border:`1px solid ${C.border}`, borderRadius:8, cursor:"pointer", fontSize:12, color:C.text }}>
+                    <span style={{ fontWeight:600 }}>{addr.label||`Address ${i+1}`}</span> — {addr.address}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           <div style={{ marginBottom:16 }}>
             <label style={{ fontSize:11, fontWeight:700, color:C.textMuted, display:"block", marginBottom:6, textTransform:"uppercase", letterSpacing:"0.08em" }}>Full Name</label>
             <input ref={nameRef} defaultValue={delName} placeholder="Maria Santos"
@@ -1188,14 +1255,16 @@ function CustomerApp({ user, onSignOut }) {
 
   // ── MARKETPLACE ──
   const Marketplace = () => {
-    const [search, setSearch] = useState("");
+    const [search,        setSearch]       = useState("");
+    const [showFavsOnly,  setShowFavsOnly] = useState(false);
     const filtered = sellers.filter(s=>{
-      const matchHood = hoodFilter==="All" || s.hood===hoodFilter;
+      const matchHood   = hoodFilter==="All" || s.hood===hoodFilter;
       const matchSearch = !search ||
         (s.business||s.name||"").toLowerCase().includes(search.toLowerCase()) ||
         (s.desc||"").toLowerCase().includes(search.toLowerCase()) ||
         (s.hood||"").toLowerCase().includes(search.toLowerCase());
-      return matchHood && matchSearch;
+      const matchFav    = !showFavsOnly || favourites.includes(s.id);
+      return matchHood && matchSearch && matchFav;
     });
     return (
       <div style={{ padding:"1rem 1rem" }}>
@@ -1203,11 +1272,14 @@ function CustomerApp({ user, onSignOut }) {
           <h2 style={{ fontSize:22, fontWeight:800, color:C.text, margin:"0 0 3px", letterSpacing:"-0.03em" }}>Explore Local Bakers</h2>
           <p style={{ fontSize:13, color:C.textMuted, margin:0 }}>Fresh home-baked goods from your neighbourhood</p>
         </div>
-        {/* Search */}
-        <div style={{ marginBottom:12 }}>
-          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search bakers by name or neighbourhood..."
-            style={{ width:"100%", padding:"11px 18px", border:`1px solid ${C.border}`, borderRadius:9999, fontSize:13, color:C.text, background:C.surfaceHigh, outline:"none", boxSizing:"border-box", fontFamily:"inherit" }}
+        {/* Search + Favourites toggle */}
+        <div style={{ marginBottom:10, display:"flex", gap:8 }}>
+          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search bakers..."
+            style={{ flex:1, padding:"10px 16px", border:`1px solid ${C.border}`, borderRadius:9999, fontSize:13, color:C.text, background:C.surfaceHigh, outline:"none", boxSizing:"border-box", fontFamily:"inherit" }}
             onFocus={e=>e.target.style.borderColor=C.primary} onBlur={e=>e.target.style.borderColor=C.border}/>
+          <button onClick={()=>setShowFavsOnly(v=>!v)} title="Favourites" style={{ padding:"0 14px", border:`1px solid ${showFavsOnly?"#e74c3c":C.border}`, borderRadius:9999, background:showFavsOnly?"rgba(231,76,60,0.1)":"transparent", fontSize:15, cursor:"pointer", color:showFavsOnly?"#e74c3c":C.textMuted }}>
+            {showFavsOnly?"♥":"♡"}
+          </button>
         </div>
         {/* Hood filter */}
         <div style={{ display:"flex", gap:7, marginBottom:"1rem", overflowX:"auto", paddingBottom:4 }}>
@@ -1217,27 +1289,43 @@ function CustomerApp({ user, onSignOut }) {
           <div style={{ textAlign:"center", padding:"2rem", color:C.textMuted, fontSize:13 }}>Finding bakers near you...</div>
         ) : filtered.length===0 ? (
           <div style={{ textAlign:"center", padding:"2rem", color:C.textMuted }}>
-            <p style={{ fontSize:24, margin:"0 0 8px" }}>🔍</p>
             <p style={{ fontSize:14, fontWeight:600, color:C.text, margin:"0 0 4px" }}>No bakers found</p>
-            <p style={{ fontSize:13, margin:0 }}>{search ? `No results for "${search}"` : "No bakers in this neighbourhood yet."}</p>
+            <p style={{ fontSize:13, margin:0 }}>{showFavsOnly?"You haven't favourited any bakers yet.":search?`No results for "${search}"`:"No bakers in this neighbourhood yet."}</p>
           </div>
         ) : (
           <div style={{ display:"grid", gridTemplateColumns:"repeat(2,minmax(0,1fr))", gap:10 }}>
-            {filtered.map(store=>(
-              <div key={store.id} onClick={()=>{ setActiveStore(store.id); loadSellerProducts(store.id); }} style={{ background:C.surface, borderRadius:12, padding:"1.125rem", cursor:"pointer", boxShadow:`0 2px 16px ${C.shadow}`, transition:"transform 0.15s, box-shadow 0.15s" }}
-                onMouseEnter={e=>{ e.currentTarget.style.transform="translateY(-2px)"; e.currentTarget.style.boxShadow=`0 8px 28px ${C.shadow}`; }}
-                onMouseLeave={e=>{ e.currentTarget.style.transform="translateY(0)"; e.currentTarget.style.boxShadow=`0 2px 16px ${C.shadow}`; }}>
-                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:10 }}>
-                  <div style={{ width:36, height:36, background:C.surfaceHigh, borderRadius:7, overflow:"hidden", display:"flex", alignItems:"center", justifyContent:"center", fontSize:18 }}>
-                    {store.logo_url ? <img src={store.logo_url} alt={store.business} style={{ width:"100%", height:"100%", objectFit:"cover" }}/> : <span style={{fontSize:22, opacity:0.3}}>■</span>}
+            {filtered.map(store=>{
+              const rating = sellerRatings[store.id];
+              return (
+                <div key={store.id} onClick={()=>{ setActiveStore(store.id); loadSellerProducts(store.id); }} style={{ background:C.surface, borderRadius:12, padding:"1rem", cursor:"pointer", boxShadow:`0 2px 16px ${C.shadow}`, transition:"transform 0.15s, box-shadow 0.15s", position:"relative" }}
+                  onMouseEnter={e=>{ e.currentTarget.style.transform="translateY(-2px)"; e.currentTarget.style.boxShadow=`0 8px 28px ${C.shadow}`; }}
+                  onMouseLeave={e=>{ e.currentTarget.style.transform="translateY(0)"; e.currentTarget.style.boxShadow=`0 2px 16px ${C.shadow}`; }}>
+                  {/* Fav heart */}
+                  <button onClick={e=>{ e.stopPropagation(); toggleFav(store.id); }}
+                    style={{ position:"absolute", top:10, right:10, background:"rgba(255,255,255,0.8)", border:"none", cursor:"pointer", fontSize:15, width:28, height:28, borderRadius:"50%", display:"flex", alignItems:"center", justifyContent:"center", color:favourites.includes(store.id)?"#e74c3c":"rgba(0,0,0,0.25)", boxShadow:"0 1px 4px rgba(0,0,0,0.1)" }}>
+                    {favourites.includes(store.id)?"♥":"♡"}
+                  </button>
+                  <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:8 }}>
+                    <div style={{ width:38, height:38, background:C.surfaceHigh, borderRadius:8, overflow:"hidden", display:"flex", alignItems:"center", justifyContent:"center", fontSize:18, flexShrink:0 }}>
+                      {store.logo_url ? <img src={store.logo_url} alt={store.business} style={{ width:"100%", height:"100%", objectFit:"cover" }}/> : <span style={{fontSize:22, opacity:0.3}}>■</span>}
+                    </div>
+                    <div style={{ minWidth:0 }}>
+                      <p style={{ fontSize:13, fontWeight:700, color:C.text, margin:"0 0 1px", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{store.business||store.name}</p>
+                      <p style={{ fontSize:10, color:C.textMuted, margin:0 }}>{store.hood||"Toronto"}</p>
+                    </div>
                   </div>
+                  {rating && (
+                    <div style={{ display:"flex", alignItems:"center", gap:4, marginBottom:6 }}>
+                      <span style={{ color:"#f4b942", fontSize:11 }}>{"★".repeat(Math.round(parseFloat(rating.avg)))}</span>
+                      <span style={{ fontSize:11, fontWeight:600, color:C.text }}>{rating.avg}</span>
+                      <span style={{ fontSize:10, color:C.textMuted }}>({rating.count})</span>
+                    </div>
+                  )}
+                  <p style={{ fontSize:11, color:C.textSub, margin:"0 0 8px", lineHeight:1.4, overflow:"hidden", textOverflow:"ellipsis", display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical" }}>{store.desc||"Home baker"}</p>
+                  <span style={{ fontSize:11, color:C.accent, fontWeight:700 }}>Browse →</span>
                 </div>
-                <p style={{ fontSize:14, fontWeight:600, color:C.text, margin:"0 0 3px", letterSpacing:"-0.01em" }}>{store.business||store.name}</p>
-                <p style={{ fontSize:11, color:C.textMuted, margin:"0 0 5px" }}><span style={{fontSize:10}}>📍</span> {store.hood||"Toronto"}</p>
-                <p style={{ fontSize:11, color:C.textSub, margin:"0 0 10px", lineHeight:1.5 }}>{store.desc||"Home baker"}</p>
-                <span style={{ fontSize:11, color:C.accent, fontWeight:700, letterSpacing:"0.02em" }}>Browse →</span>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
@@ -1397,6 +1485,50 @@ function CustomerApp({ user, onSignOut }) {
     const [myOrders,        setMyOrders]        = useState([]);
     const [loadingMyOrders, setLoadingMyOrders] = useState(true);
     const [selectedOrder,   setSelectedOrder]   = useState(null);
+    const [reviewOrder,     setReviewOrder]     = useState(null); // order being reviewed
+    const [reviewRating,    setReviewRating]    = useState(5);
+    const [reviewComment,   setReviewComment]   = useState("");
+    const [reviewSubmitting,setReviewSubmitting]= useState(false);
+    const [reviewedOrders,  setReviewedOrders]  = useState({});
+
+    const submitReview = async () => {
+      if (!reviewOrder) return;
+      setReviewSubmitting(true);
+      await supabase.from("reviews").insert({
+        order_id:    reviewOrder.id,
+        customer_id: user.id,
+        seller_id:   reviewOrder.seller_id,
+        rating:      reviewRating,
+        comment:     reviewComment.trim()||null,
+      });
+      setReviewedOrders(p=>({...p,[reviewOrder.id]:true}));
+      setReviewOrder(null); setReviewComment(""); setReviewRating(5);
+      setReviewSubmitting(false);
+      // refresh ratings
+      supabase.from("reviews").select("seller_id,rating").then(({ data })=>{
+        if (!data) return;
+        const map = {};
+        data.forEach(r=>{ if (!map[r.seller_id]) map[r.seller_id]={sum:0,count:0}; map[r.seller_id].sum+=r.rating; map[r.seller_id].count++; });
+        const ratings = {}; Object.entries(map).forEach(([id,v])=>{ ratings[id]={ avg:(v.sum/v.count).toFixed(1), count:v.count }; });
+        setSellerRatings(ratings);
+      });
+    };
+
+    const reorder = (o) => {
+      if (!o.seller_id) return;
+      const items = o.itemsParsed||[];
+      if (items.length===0) return;
+      if (cartStore && cartStore!==o.seller_id) {
+        if (!window.confirm("This will replace your current cart. Continue?")) return;
+        setCart({}); setCartStore(null);
+      }
+      const newCart = {};
+      items.forEach(item=>{ if (item.product_id) newCart[item.product_id]=(item.quantity||1); });
+      setCart(newCart); setCartStore(o.seller_id);
+      loadSellerProducts(o.seller_id);
+      setActiveStore(o.seller_id);
+      setView("marketplace");
+    };
 
     useEffect(()=>{
       if (!user?.id) { setLoadingMyOrders(false); return; }
@@ -1426,7 +1558,31 @@ function CustomerApp({ user, onSignOut }) {
     return (
       <div style={{ padding:"1.5rem 2rem", maxWidth:760 }}>
         <h2 style={{ fontSize:26, fontWeight:800, color:C.text, margin:"0 0 4px", letterSpacing:"-0.03em" }}>Order History</h2>
-        <p style={{ fontSize:13, color:C.textMuted, margin:"0 0 1.5rem", lineHeight:1.6 }}>Your past orders — click any order to see details.</p>
+        <p style={{ fontSize:13, color:C.textMuted, margin:"0 0 1.5rem", lineHeight:1.6 }}>Your past orders — click to see details.</p>
+
+        {/* Review modal */}
+        {reviewOrder && (
+          <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.6)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:400, padding:"1rem" }}>
+            <div style={{ background:C.surface, borderRadius:16, width:420, maxWidth:"96vw", padding:"1.5rem", fontFamily:"'Plus Jakarta Sans', system-ui, sans-serif" }}>
+              <h3 style={{ fontSize:18, fontWeight:800, color:C.text, margin:"0 0 4px" }}>Leave a Review</h3>
+              <p style={{ fontSize:12, color:C.textMuted, margin:"0 0 1.25rem" }}>Rate your order from {sellers.find(s=>s.id===reviewOrder.seller_id)?.business||"this baker"}</p>
+              {/* Star selector */}
+              <div style={{ display:"flex", gap:6, marginBottom:14 }}>
+                {[1,2,3,4,5].map(star=>(
+                  <button key={star} onClick={()=>setReviewRating(star)} style={{ background:"transparent", border:"none", cursor:"pointer", fontSize:28, color:star<=reviewRating?"#f4b942":"#ddd" }}>★</button>
+                ))}
+              </div>
+              <textarea value={reviewComment} onChange={e=>setReviewComment(e.target.value)} placeholder="Share what you loved (optional)..." rows={3}
+                style={{ width:"100%", padding:"10px 12px", border:`1px solid ${C.border}`, borderRadius:8, fontSize:13, color:C.text, background:C.surfaceHigh, outline:"none", resize:"none", boxSizing:"border-box", fontFamily:"inherit" }}/>
+              <div style={{ display:"flex", gap:8, marginTop:12 }}>
+                <button onClick={()=>setReviewOrder(null)} style={{ flex:1, padding:"11px", border:`1px solid ${C.border}`, borderRadius:8, background:"transparent", color:C.textMuted, cursor:"pointer", fontSize:13 }}>Cancel</button>
+                <button onClick={submitReview} disabled={reviewSubmitting} style={{ flex:2, padding:"11px", background:C.primary, color:"#fff", border:"none", borderRadius:8, fontSize:13, fontWeight:700, cursor:"pointer" }}>
+                  {reviewSubmitting?"Submitting...":"Submit Review"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {myOrders.length===0 && (
           <div style={{ background:C.surface, borderRadius:12, padding:"3rem", textAlign:"center", boxShadow:`0 2px 16px ${C.shadow}` }}>
@@ -1452,15 +1608,29 @@ function CustomerApp({ user, onSignOut }) {
                   {o.is_charity && <span style={{ fontSize:10, background:C.charityBg, color:C.charity, padding:"2px 8px", borderRadius:9999, fontWeight:700 }}>💜 Donated</span>}
                 </div>
               </div>
-              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
                 <div style={{ display:"flex", alignItems:"center", gap:8 }}>
                   <Badge status={o.status||"preparing"}/>
-                  {o.delivery_type && <span style={{ fontSize:11, color:C.textMuted, background:C.surfaceHigh, padding:"2px 8px", borderRadius:9999 }}>{o.delivery_type==="pickup"?"🛍 Pickup":"🚗 Delivery"}</span>}
+                  {o.delivery_type && <span style={{ fontSize:11, color:C.textMuted, background:C.surfaceHigh, padding:"2px 8px", borderRadius:9999 }}>{o.delivery_type==="pickup"?"Pickup":"Delivery"}</span>}
                 </div>
                 <div style={{ display:"flex", alignItems:"center", gap:8 }}>
                   <span style={{ fontSize:11, color:C.textMuted }}>{o.date}</span>
                   <span style={{ fontSize:11, color:C.accent, fontWeight:600 }}>View →</span>
                 </div>
+              </div>
+              {/* Action buttons */}
+              <div style={{ display:"flex", gap:8 }}>
+                <button onClick={e=>{ e.stopPropagation(); reorder(o); }} style={{ flex:1, padding:"7px 0", background:C.surfaceHigh, border:`1px solid ${C.border}`, borderRadius:7, fontSize:12, fontWeight:600, color:C.text, cursor:"pointer" }}>
+                  Reorder
+                </button>
+                {(o.status==="delivered"||o.status==="Delivered") && !reviewedOrders[o.id] && (
+                  <button onClick={e=>{ e.stopPropagation(); setReviewOrder(o); }} style={{ flex:1, padding:"7px 0", background:C.primaryBg, border:`1px solid ${C.primary}`, borderRadius:7, fontSize:12, fontWeight:600, color:C.primary, cursor:"pointer" }}>
+                    Leave Review
+                  </button>
+                )}
+                {reviewedOrders[o.id] && (
+                  <span style={{ flex:1, padding:"7px 0", background:C.surfaceHigh, borderRadius:7, fontSize:12, color:C.textMuted, textAlign:"center" }}>Reviewed ✓</span>
+                )}
               </div>
             </div>
           ))}
@@ -1979,10 +2149,22 @@ function SellerApp({ user, onSignOut }) {
 
     return (
       <div style={{ padding:"2rem" }}>
-        <div style={{ marginBottom:"1.5rem" }}>
-          <h1 style={{ fontSize:24, fontWeight:700, color:C.text, margin:"0 0 4px", letterSpacing:"-0.02em" }}>Good morning, {user.name.split(" ")[0]} 👋</h1>
+        <div style={{ marginBottom:"1.25rem" }}>
+          <h1 style={{ fontSize:24, fontWeight:700, color:C.text, margin:"0 0 4px", letterSpacing:"-0.02em" }}>Good morning, {user.name.split(" ")[0]}</h1>
           <p style={{ color:C.textMuted, fontSize:13, margin:0 }}>Here's how your bakery is performing.</p>
         </div>
+
+        {/* Low stock alert */}
+        {products.filter(p=>(p.stock||0)<=3 && p.availability!=="out_of_stock").map(p=>(
+          <div key={p.id} style={{ background:"rgba(160,112,16,0.08)", border:"1px solid rgba(160,112,16,0.3)", borderRadius:8, padding:"10px 14px", marginBottom:8, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+            <div>
+              <span style={{ fontSize:12, fontWeight:700, color:"#A07010" }}>Low Stock: </span>
+              <span style={{ fontSize:12, color:C.text }}>{p.name}</span>
+              <span style={{ fontSize:12, color:C.textMuted }}> — only {p.stock} left</span>
+            </div>
+            <button onClick={()=>setView("storefront")} style={{ background:"transparent", border:"1px solid rgba(160,112,16,0.4)", borderRadius:5, padding:"4px 10px", fontSize:11, fontWeight:600, color:"#A07010", cursor:"pointer" }}>Update</button>
+          </div>
+        ))}
 
         <div style={{ display:"grid", gridTemplateColumns:"repeat(4,minmax(0,1fr))", gap:10, marginBottom:"1.5rem" }}>
           <KPI label={finMonth||"This Month"} value={rev>0?`$${rev.toLocaleString()}`:"—"} sub={rev>0?"From Finances":"Add in Finances"} color={C.accent}/>
@@ -2051,17 +2233,41 @@ function SellerApp({ user, onSignOut }) {
           </div>
         )}
 
+        {/* Monthly revenue trend from history */}
+        {finHistory.length>1 && (
+          <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:8, padding:"1.25rem", marginBottom:"1.25rem" }}>
+            <p style={{ fontWeight:600, fontSize:13, color:C.text, margin:"0 0 1rem" }}>Monthly Revenue Trend</p>
+            <ResponsiveContainer width="100%" height={180}>
+              <BarChart data={[...finHistory].slice(-6).map(m=>({ name:m.month.split(" ")[0].slice(0,3), revenue:m.revenue, profit:m.revenue-m.costs.reduce((s,c)=>s+c.amount,0) }))}>
+                <CartesianGrid strokeDasharray="3 3" stroke={C.border}/>
+                <XAxis dataKey="name" tick={{ fontSize:11, fill:C.textMuted }} axisLine={false} tickLine={false}/>
+                <YAxis tick={{ fontSize:11, fill:C.textMuted }} axisLine={false} tickLine={false}/>
+                <Tooltip contentStyle={{ background:C.surfaceTop, border:`1px solid ${C.border}`, borderRadius:5, fontSize:12 }} formatter={(v,n)=>[`$${v.toFixed(2)}`,n==="revenue"?"Revenue":"Profit"]}/>
+                <Bar dataKey="revenue" fill={C.primary} radius={[3,3,0,0]} name="revenue"/>
+                <Bar dataKey="profit"  fill={C.success} radius={[3,3,0,0]} name="profit"/>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+
+        {/* Bestsellers by stock movement */}
         {products.length>0 && (
           <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:8, padding:"1.25rem" }}>
-            <p style={{ fontWeight:600, fontSize:13, color:C.text, margin:"0 0 1rem" }}>Your Products</p>
-            <div style={{ display:"grid", gridTemplateColumns:"repeat(5,minmax(0,1fr))", gap:8 }}>
-              {products.slice(0,5).map(p=>(
-                <div key={p.id} style={{ textAlign:"center" }}>
-                  <div style={{ width:"100%", aspectRatio:"1", background:C.surfaceHigh, borderRadius:7, overflow:"hidden", marginBottom:5, display:"flex", alignItems:"center", justifyContent:"center", fontSize:24 }}>
-                    {p.image_url?<img src={p.image_url} alt={p.name} style={{ width:"100%", height:"100%", objectFit:"cover" }}/>:p.emoji}
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"1rem" }}>
+              <p style={{ fontWeight:600, fontSize:13, color:C.text, margin:0 }}>Products Overview</p>
+              <button onClick={()=>setView("storefront")} style={{ background:"transparent", border:"none", fontSize:12, color:C.accent, fontWeight:600, cursor:"pointer" }}>Manage →</button>
+            </div>
+            <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+              {[...products].sort((a,b)=>(b.stock||0)-(a.stock||0)).slice(0,5).map(p=>(
+                <div key={p.id} style={{ display:"flex", alignItems:"center", gap:12 }}>
+                  <div style={{ width:36, height:36, borderRadius:7, overflow:"hidden", background:C.surfaceHigh, flexShrink:0 }}>
+                    {p.image_url?<img src={p.image_url} alt={p.name} style={{ width:"100%", height:"100%", objectFit:"cover" }}/>:<div style={{ width:"100%", height:"100%", background:C.surfaceHigh }}/>}
                   </div>
-                  <p style={{ fontSize:11, color:C.text, fontWeight:600, margin:"0 0 1px", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{p.name}</p>
-                  <p style={{ fontSize:11, color:C.accent, fontWeight:700, margin:0 }}>${p.price?.toFixed(2)||"0.00"}</p>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <p style={{ fontSize:13, fontWeight:600, color:C.text, margin:"0 0 2px", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{p.name}</p>
+                    <p style={{ fontSize:11, color:C.textMuted, margin:0 }}>${p.price?.toFixed(2)||"0.00"} · {p.stock||0} in stock</p>
+                  </div>
+                  {(p.stock||0)<=3 && <span style={{ fontSize:10, color:"#A07010", fontWeight:700, background:"rgba(160,112,16,0.1)", padding:"2px 8px", borderRadius:9999 }}>Low</span>}
                 </div>
               ))}
             </div>
@@ -2075,6 +2281,9 @@ function SellerApp({ user, onSignOut }) {
   const Storefront = () => {
     const PRODUCT_CATS = sellerCats; // uses SellerApp-level custom categories
     const [showModal,    setShowModal]    = useState(false);
+    const [showBulk,     setShowBulk]     = useState(false);
+    const [bulkStocks,   setBulkStocks]   = useState({});
+    const [bulkSaving,   setBulkSaving]   = useState(false);
     const [catFilter,    setCatFilter]    = useState("All");
     const [form,         setForm]         = useState({ name:"", price:"", category:sellerCats[0]||"Other", desc:"", stock:"10" });
     const [imageFile,    setImageFile]    = useState(null);
@@ -2144,6 +2353,14 @@ function SellerApp({ user, onSignOut }) {
       setImagePreview(URL.createObjectURL(file));
     };
 
+    const saveBulkStocks = async () => {
+      setBulkSaving(true);
+      await Promise.all(Object.entries(bulkStocks).map(([id,stock])=>
+        supabase.from("products").update({ stock:parseInt(stock)||0 }).eq("id",id)
+      ));
+      await reloadProducts(); setBulkSaving(false); setShowBulk(false); setBulkStocks({});
+    };
+
     const add = async () => {
       if (!form.name||!form.price) return;
       setUploading(true);
@@ -2177,15 +2394,49 @@ function SellerApp({ user, onSignOut }) {
     };
     if (loadingProducts) return <div style={{ padding:"2rem", textAlign:"center", color:C.textMuted, fontSize:13 }}>Loading products...</div>;
     return (
-      <div style={{ padding:"2rem" }}>
-        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"1.5rem" }}>
-          <div>
-            <h1 style={{ fontSize:26, fontWeight:800, color:C.text, margin:"0 0 4px", letterSpacing:"-0.03em" }}>Storefront</h1>
-            <p style={{ color:C.textMuted, fontSize:13, margin:0 }}>Manage your listings</p>
+      <div style={{ padding:isMobile?"0.875rem":"2rem" }}>
+        {/* Bulk stock update modal */}
+        {showBulk && (
+          <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.6)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:300, padding:"1rem" }}>
+            <div style={{ background:C.surface, borderRadius:14, width:480, maxWidth:"96vw", maxHeight:"85vh", display:"flex", flexDirection:"column", fontFamily:"'Plus Jakarta Sans', system-ui, sans-serif" }}>
+              <div style={{ padding:"1.25rem 1.5rem", borderBottom:`1px solid ${C.border}`, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                <div>
+                  <p style={{ fontSize:17, fontWeight:800, color:C.text, margin:"0 0 2px" }}>Bulk Stock Update</p>
+                  <p style={{ fontSize:12, color:C.textMuted, margin:0 }}>Edit stock levels for all products at once</p>
+                </div>
+                <button onClick={()=>setShowBulk(false)} style={{ background:C.surfaceHigh, border:"none", width:30, height:30, borderRadius:"50%", cursor:"pointer", fontSize:14, color:C.textMuted }}>✕</button>
+              </div>
+              <div style={{ flex:1, overflowY:"auto", padding:"0.75rem 1.5rem" }}>
+                {products.map(p=>(
+                  <div key={p.id} style={{ display:"flex", alignItems:"center", gap:12, padding:"10px 0", borderBottom:`1px solid ${C.border}` }}>
+                    <div style={{ width:40, height:40, borderRadius:7, overflow:"hidden", background:C.surfaceHigh, flexShrink:0 }}>
+                      {p.image_url ? <img src={p.image_url} alt={p.name} style={{ width:"100%", height:"100%", objectFit:"cover" }}/> : <div style={{ width:"100%", height:"100%", background:C.surfaceHigh }}/>}
+                    </div>
+                    <p style={{ flex:1, fontSize:13, fontWeight:600, color:C.text, margin:0, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{p.name}</p>
+                    {(parseInt(bulkStocks[p.id]||0))<=3 && <span style={{ fontSize:10, color:"#A07010", fontWeight:700 }}>Low</span>}
+                    <input type="number" min="0" value={bulkStocks[p.id]??p.stock??0}
+                      onChange={e=>setBulkStocks(s=>({...s,[p.id]:e.target.value}))}
+                      style={{ width:72, padding:"7px 10px", border:`1px solid ${C.border}`, borderRadius:7, fontSize:14, fontWeight:700, color:C.text, background:C.surfaceHigh, outline:"none", textAlign:"center" }}/>
+                  </div>
+                ))}
+              </div>
+              <div style={{ padding:"1rem 1.5rem", borderTop:`1px solid ${C.border}` }}>
+                <button onClick={saveBulkStocks} disabled={bulkSaving} style={{ width:"100%", padding:"12px", background:bulkSaving?C.surfaceHigh:C.primary, color:bulkSaving?C.textMuted:"#fff", border:"none", borderRadius:9, fontSize:14, fontWeight:700, cursor:"pointer" }}>
+                  {bulkSaving?"Saving...":"Save All Stock Levels"}
+                </button>
+              </div>
+            </div>
           </div>
-          <div style={{ display:"flex", gap:8 }}>
-            <button onClick={()=>setShowCatMgr(true)} style={{ background:"transparent", border:`1px solid ${C.border}`, borderRadius:5, padding:"9px 14px", fontSize:13, fontWeight:600, color:C.textMuted, cursor:"pointer" }}>⚙ Categories</button>
-            <button onClick={()=>setShowModal(true)} style={{ background:C.primary, color:"#ffffff", border:"none", borderRadius:8, padding:"9px 16px", fontSize:13, fontWeight:700, cursor:"pointer" }}>+ Add Product</button>
+        )}
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:isMobile?"0.875rem":"1.5rem" }}>
+          <div>
+            <h1 style={{ fontSize:isMobile?18:26, fontWeight:800, color:C.text, margin:"0 0 2px", letterSpacing:"-0.03em" }}>Storefront</h1>
+            {!isMobile && <p style={{ color:C.textMuted, fontSize:13, margin:0 }}>Manage your listings</p>}
+          </div>
+          <div style={{ display:"flex", gap:6 }}>
+            <button onClick={()=>setShowCatMgr(true)} style={{ background:"transparent", border:`1px solid ${C.border}`, borderRadius:5, padding:isMobile?"6px 10px":"9px 14px", fontSize:isMobile?11:13, fontWeight:600, color:C.textMuted, cursor:"pointer" }}>{isMobile?"⚙":"⚙ Categories"}</button>
+            <button onClick={()=>{ setBulkStocks(Object.fromEntries(products.map(p=>[p.id,String(p.stock||0)]))); setShowBulk(true); }} style={{ background:"transparent", border:`1px solid ${C.border}`, borderRadius:5, padding:isMobile?"6px 10px":"9px 14px", fontSize:isMobile?11:13, fontWeight:600, color:C.textMuted, cursor:"pointer" }}>{isMobile?"#":"Bulk Stock"}</button>
+            <button onClick={()=>setShowModal(true)} style={{ background:C.primary, color:"#ffffff", border:"none", borderRadius:8, padding:isMobile?"6px 12px":"9px 16px", fontSize:isMobile?11:13, fontWeight:700, cursor:"pointer" }}>+ {isMobile?"Add":"Add Product"}</button>
           </div>
         </div>
         {products.length===0 && (
@@ -2195,17 +2446,17 @@ function SellerApp({ user, onSignOut }) {
           </div>
         )}
         {products.length>0 && (
-          <div style={{ display:"flex", gap:7, marginBottom:"1rem", overflowX:"auto", paddingBottom:4 }}>
+          <div style={{ display:"flex", gap:5, marginBottom:isMobile?"0.625rem":"1rem", overflowX:"auto", paddingBottom:4, WebkitOverflowScrolling:"touch" }}>
             {["All",...PRODUCT_CATS].map(cat=>(
               <button key={cat} onClick={()=>setCatFilter(cat)} style={{
-                padding:"5px 13px", borderRadius:4, border:`1px solid ${catFilter===cat?C.accent:C.border}`,
+                padding:isMobile?"3px 9px":"5px 13px", borderRadius:9999, border:`1px solid ${catFilter===cat?C.accent:C.border}`,
                 background:catFilter===cat?C.accentBg:"transparent", color:catFilter===cat?C.accent:C.textMuted,
-                fontSize:11, fontWeight:catFilter===cat?700:400, cursor:"pointer", whiteSpace:"nowrap", flexShrink:0
+                fontSize:isMobile?10:11, fontWeight:catFilter===cat?700:400, cursor:"pointer", whiteSpace:"nowrap", flexShrink:0
               }}>{cat}</button>
             ))}
           </div>
         )}
-        <div style={{ display:"grid", gridTemplateColumns:"repeat(4,minmax(0,1fr))", gap:10 }}>
+        <div style={{ display:"grid", gridTemplateColumns:isMobile?"repeat(2,minmax(0,1fr))":"repeat(4,minmax(0,1fr))", gap:isMobile?8:10 }}>
           {products.filter(p=>catFilter==="All"||(p.category||p.emoji||"Other")===catFilter).map(p=>(
             <div key={p.id} onClick={()=>{ setEditProduct({...p}); setEditForm(null); setEditSlide(0); }} style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:10, overflow:"hidden", cursor:"pointer", transition:"border-color 0.15s" }}
               onMouseEnter={e=>e.currentTarget.style.borderColor=C.borderMid}
@@ -2866,18 +3117,18 @@ function SellerApp({ user, onSignOut }) {
 
     return (
       <div style={{ padding:isMobile?"1rem":"2rem" }}>
-        {/* Header with month selector */}
-        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:"1.5rem" }}>
+        {/* Header */}
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"1rem" }}>
           <div>
-            <h1 style={{ fontSize:24, fontWeight:700, color:C.text, margin:"0 0 3px", letterSpacing:"-0.02em" }}>Finances</h1>
-            <p style={{ fontSize:13, color:C.textMuted, margin:0 }}>Tracking: <strong style={{ color:C.accent }}>{finMonth}</strong></p>
+            <h1 style={{ fontSize:isMobile?18:24, fontWeight:800, color:C.text, margin:"0 0 2px", letterSpacing:"-0.02em" }}>Finances</h1>
+            <p style={{ fontSize:12, color:C.textMuted, margin:0 }}>Tracking: <strong style={{ color:C.accent }}>{finMonth}</strong></p>
           </div>
-          <div style={{ display:"flex", gap:8, alignItems:"center" }}>
-            <button onClick={()=>setShowStmt(s=>!s)} style={{ background:showStmt?C.accentBg:"transparent", border:`1px solid ${showStmt?C.accent:C.border}`, color:showStmt?C.accent:C.textMuted, borderRadius:5, padding:"8px 14px", fontSize:12, fontWeight:600, cursor:"pointer" }}>
-              {showStmt?"Hide Statements":"Monthly Statements"}
+          <div style={{ display:"flex", gap:6, alignItems:"center" }}>
+            <button onClick={()=>setShowStmt(s=>!s)} style={{ background:showStmt?C.accentBg:"transparent", border:`1px solid ${showStmt?C.accent:C.border}`, color:showStmt?C.accent:C.textMuted, borderRadius:9999, padding:isMobile?"6px 10px":"8px 14px", fontSize:isMobile?11:12, fontWeight:600, cursor:"pointer" }}>
+              {isMobile?(showStmt?"Hide":"Statements"):(showStmt?"Hide Statements":"Monthly Statements")}
             </button>
-            <button onClick={()=>{ saveMonthToHistory(); startNewMonth(); }} style={{ background:C.accent, color:"#FFF", border:"none", borderRadius:5, padding:"8px 14px", fontSize:12, fontWeight:700, cursor:"pointer" }}>
-              + New Month
+            <button onClick={()=>{ saveMonthToHistory(); startNewMonth(); }} style={{ background:C.accent, color:"#FFF", border:"none", borderRadius:9999, padding:isMobile?"6px 10px":"8px 14px", fontSize:isMobile?11:12, fontWeight:700, cursor:"pointer" }}>
+              + {isMobile?"New":"New Month"}
             </button>
           </div>
         </div>
@@ -3028,15 +3279,22 @@ function SellerApp({ user, onSignOut }) {
         )}
 
         {/* KPIs */}
-        <div style={{ display:"grid", gridTemplateColumns:"repeat(4,minmax(0,1fr))", gap:10, marginBottom:"1.75rem" }}>
-          <KPI label="Revenue This Month" value={rev>0?`$${rev.toLocaleString()}`:"—"} sub="Enter below" color={C.accent}/>
-          <KPI label="Total Costs"        value={totalCosts>0?`$${totalCosts.toFixed(2)}`:"—"} sub={`${costs.length} entries`} color={C.warning}/>
-          <KPI label="Net Profit"         value={rev>0&&totalCosts>0?`$${profit.toFixed(2)}`:"—"} sub="Revenue minus costs" color={profit>=0?C.success:C.danger}/>
-          <KPI label="Profit Margin"      value={rev>0&&totalCosts>0?`${margin}%`:"—"} sub="Industry avg: 62%" color={parseFloat(margin)>=62?C.success:C.warning}/>
+        <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,minmax(0,1fr))", gap:isMobile?8:10, marginBottom:"1rem" }}>
+          {[
+            { label:"Revenue", value:rev>0?`$${rev.toLocaleString()}`:"—", color:C.accent },
+            { label:"Costs",   value:totalCosts>0?`$${totalCosts.toFixed(2)}`:"—", color:C.warning },
+            { label:"Profit",  value:rev>0&&totalCosts>0?`$${profit.toFixed(2)}`:"—", color:profit>=0?C.success:C.danger },
+            { label:"Margin",  value:rev>0&&totalCosts>0?`${margin}%`:"—", color:parseFloat(margin)>=62?C.success:C.warning },
+          ].map(k=>(
+            <div key={k.label} style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:10, padding:isMobile?"12px 14px":"1rem 1.25rem" }}>
+              <p style={{ fontSize:isMobile?10:11, fontWeight:600, color:C.textMuted, margin:"0 0 4px", textTransform:"uppercase", letterSpacing:"0.08em" }}>{k.label}</p>
+              <p style={{ fontSize:isMobile?22:26, fontWeight:800, color:k.color, margin:0, letterSpacing:"-0.02em", lineHeight:1 }}>{k.value}</p>
+            </div>
+          ))}
         </div>
 
         {/* Row 1: Revenue input + Add cost form */}
-        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14, marginBottom:"1.25rem" }}>
+        <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"1fr 1fr", gap:isMobile?10:14, marginBottom:"1rem" }}>
           <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:8, padding:"1.25rem" }}>
             <p style={{ fontWeight:600, fontSize:13, color:C.text, margin:"0 0 12px" }}>Monthly Revenue</p>
             <div style={{ position:"relative" }}>
@@ -3059,7 +3317,7 @@ function SellerApp({ user, onSignOut }) {
                 placeholder="0.00"
                 type="text"
                 inputMode="decimal"
-                style={{ width:"100%", padding:"12px 12px 12px 26px", border:`1px solid ${C.border}`, borderRadius:6, fontSize:16, fontWeight:700, color:C.text, background:C.surfaceHigh, outline:"none", boxSizing:"border-box" }}/>
+                style={{ width:"100%", padding:"12px 12px 12px 26px", border:`1px solid ${C.border}`, borderRadius:6, fontSize:isMobile?20:16, fontWeight:800, color:C.text, background:C.surfaceHigh, outline:"none", boxSizing:"border-box" }}/>
             </div>
             <p style={{ fontSize:11, color:C.textMuted, margin:"8px 0 0" }}>Total sales collected this month</p>
           </div>
@@ -3091,7 +3349,7 @@ function SellerApp({ user, onSignOut }) {
         </div>
 
         {/* Row 2: Bar chart + Cost breakdown */}
-        <div style={{ display:"grid", gridTemplateColumns:"2fr 1fr", gap:14, marginBottom:"1.25rem" }}>
+        <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"2fr 1fr", gap:isMobile?10:14, marginBottom:"1rem" }}>
           <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:8, padding:"1.25rem" }}>
             <p style={{ fontWeight:600, fontSize:13, color:C.text, margin:"0 0 1rem" }}>Costs by Category</p>
             {totalCosts>0 ? (
@@ -3146,7 +3404,7 @@ function SellerApp({ user, onSignOut }) {
             </div>
           ) : (
             <>
-              <div style={{ display:"grid", gridTemplateColumns:"repeat(3,minmax(0,1fr))", gap:8 }}>
+              <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"repeat(3,minmax(0,1fr))", gap:8 }}>
                 {costs.map(c=>(
                   <div key={c.id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", background:C.surfaceHigh, borderRadius:6, padding:"10px 12px" }}>
                     <div style={{ display:"flex", alignItems:"center", gap:9 }}>
