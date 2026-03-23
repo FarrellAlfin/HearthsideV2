@@ -697,9 +697,9 @@ function CustomerApp({ user, onSignOut }) {
             )}
           </div>
         </div>
-        {/* Product search bar */}
+        {/* Product search bar — local state to prevent remount focus loss */}
         <div style={{ padding:"0.75rem 1.5rem", borderBottom:`1px solid ${C.border}` }}>
-          <input value={storeSearch} onChange={e=>setStoreSearch(e.target.value)} placeholder={`Search ${store.business||"store"} products...`}
+          <input defaultValue="" onChange={e=>setStoreSearch(e.target.value)} placeholder={`Search ${store.business||"store"} products...`}
             style={{ width:"100%", padding:"9px 16px", border:`1px solid ${C.border}`, borderRadius:9999, fontSize:13, color:C.text, background:C.surfaceHigh, outline:"none", boxSizing:"border-box", fontFamily:"inherit" }}
             onFocus={e=>e.target.style.borderColor=C.primary} onBlur={e=>e.target.style.borderColor=C.border}/>
         </div>
@@ -725,7 +725,7 @@ function CustomerApp({ user, onSignOut }) {
                         <>
                           {imgs.length>0 ? (
                             <div style={{ position:"relative" }}>
-                              <img src={imgs[slide]} alt={lightbox.product.name} style={{ width:"100%", height:320, objectFit:"cover", borderRadius:"16px 16px 0 0", display:"block" }}/>
+                              <img src={imgs[slide]} alt={lightbox.product.name} style={{ width:"100%", height:320, objectFit:"contain", borderRadius:"16px 16px 0 0", display:"block", background:C.surfaceHigh }}/>
                               {imgs.length>1 && (
                                 <>
                                   <button onClick={()=>setLightbox(l=>({...l,slide:Math.max(0,(l.slide||0)-1)}))} disabled={slide===0}
@@ -758,8 +758,9 @@ function CustomerApp({ user, onSignOut }) {
                                 <button onClick={()=>setLightbox(l=>({...l,qty:Math.max(1,(l.qty||1)-1)}))}
                                   style={{ width:38, height:42, border:"none", background:C.surfaceHigh, cursor:"pointer", fontSize:18, color:C.text, display:"flex", alignItems:"center", justifyContent:"center" }}>−</button>
                                 <span style={{ width:42, textAlign:"center", fontSize:16, fontWeight:700, color:C.text, lineHeight:"42px" }}>{lightbox.qty||1}</span>
-                                <button onClick={()=>setLightbox(l=>({...l,qty:(l.qty||1)+1}))}
-                                  style={{ width:38, height:42, border:"none", background:C.surfaceHigh, cursor:"pointer", fontSize:18, color:C.text, display:"flex", alignItems:"center", justifyContent:"center" }}>+</button>
+                                <button onClick={()=>setLightbox(l=>{ const maxQty=l.product.stock||99; return {...l,qty:Math.min(maxQty,(l.qty||1)+1)}; })}
+                                  disabled={(lightbox.qty||1)>=(lightbox.product.stock||99)}
+                                  style={{ width:38, height:42, border:"none", background:C.surfaceHigh, cursor:(lightbox.qty||1)>=(lightbox.product.stock||99)?"default":"pointer", fontSize:18, color:(lightbox.qty||1)>=(lightbox.product.stock||99)?C.border:C.text, display:"flex", alignItems:"center", justifyContent:"center" }}>+</button>
                               </div>
                               <button onClick={()=>{
                                 const qty = lightbox.qty||1;
@@ -769,8 +770,12 @@ function CustomerApp({ user, onSignOut }) {
                                 Add {lightbox.qty||1} to Cart · ${((lightbox.qty||1)*parseFloat(lightbox.product.price||0)).toFixed(2)}
                               </button>
                             </div>
-                            {cart[lightbox.product.id] && (
-                              <p style={{ fontSize:11, color:C.textMuted, margin:"8px 0 0", textAlign:"center" }}>Already {cart[lightbox.product.id]} in cart</p>
+                            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginTop:8 }}>
+                              {cart[lightbox.product.id] ? <p style={{ fontSize:11, color:C.textMuted, margin:0 }}>{cart[lightbox.product.id]} already in cart</p> : <span/>}
+                              {lightbox.product.stock && <p style={{ fontSize:11, color:(lightbox.product.stock<=3)?"#A07010":C.textMuted, margin:0, fontWeight:(lightbox.product.stock<=3)?700:400 }}>{lightbox.product.stock} in stock</p>}
+                            </div>
+                            {(lightbox.qty||1)>=(lightbox.product.stock||99) && (
+                              <p style={{ fontSize:11, color:"#A07010", margin:"4px 0 0", fontWeight:600 }}>Max available quantity reached</p>
                             )}
                           </div>
                         </>
@@ -780,8 +785,8 @@ function CustomerApp({ user, onSignOut }) {
                   </div>
                 </div>
               )}
-              {/* Product grid */}
-              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
+              {/* Product grid — 2 col mobile, 3 col desktop */}
+              <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr 1fr":"repeat(3,minmax(0,1fr))", gap:isMobile?10:12 }}>
                 {displayProducts.map(p=>{
                   const imgs = (() => { try { const a=JSON.parse(p.images||"[]"); return a.length>0?a:(p.image_url?[p.image_url]:[]); } catch(e){ return p.image_url?[p.image_url]:[]; } })();
                   const cardSlide = cardSlides[p.id]||0;
@@ -825,12 +830,13 @@ function CustomerApp({ user, onSignOut }) {
                           </div>
                         )}
                       </div>
-                      <div style={{ padding:"6px 7px 8px" }}>
-                        <p style={{ fontSize:11, fontWeight:700, color:C.text, margin:"0 0 2px", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{p.name}</p>
+                      <div style={{ padding:"6px 8px 8px" }}>
+                        <p style={{ fontSize:isMobile?11:12, fontWeight:700, color:C.text, margin:"0 0 2px", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{p.name}</p>
                         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-                          <span style={{ fontSize:12, fontWeight:700, color:C.accent }}>${parseFloat(p.price||0).toFixed(2)}</span>
+                          <span style={{ fontSize:isMobile?12:13, fontWeight:700, color:C.accent }}>${parseFloat(p.price||0).toFixed(2)}</span>
                           <button onClick={e=>{ e.stopPropagation(); setLightbox({ product:p, slide:cardSlide, qty: cart[p.id]||1 }); }} style={{ background:C.accent, color:"#000", border:"none", borderRadius:3, padding:"3px 8px", fontSize:10, fontWeight:700, cursor:"pointer" }}>+</button>
                         </div>
+                        {p.stock && p.stock<=3 && <p style={{ fontSize:9, color:"#A07010", fontWeight:700, margin:"2px 0 0" }}>Only {p.stock} left</p>}
                       </div>
                     </div>
                   );
@@ -839,6 +845,43 @@ function CustomerApp({ user, onSignOut }) {
             </>
           );
         })()}
+        </div>
+        <StoreReviews storeId={activeStore}/>
+      </div>
+    );
+  };
+
+  // ── STORE REVIEWS (customer-facing) ──
+  const StoreReviews = ({ storeId }) => {
+    const [reviews, setReviews] = useState([]);
+    const [loading, setLoading] = useState(true);
+    useEffect(()=>{
+      if (!storeId) return;
+      supabase.from("reviews").select("*").eq("seller_id", storeId).order("created_at",{ascending:false})
+        .then(({ data })=>{ setReviews(data||[]); setLoading(false); });
+    },[storeId]);
+    if (loading||reviews.length===0) return null;
+    const avg = (reviews.reduce((s,r)=>s+r.rating,0)/reviews.length).toFixed(1);
+    return (
+      <div style={{ padding:"0 1.5rem 2rem" }}>
+        <div style={{ borderTop:`1px solid ${C.border}`, paddingTop:"1.25rem" }}>
+          <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:"1rem" }}>
+            <h3 style={{ fontSize:17, fontWeight:800, color:C.text, margin:0 }}>Reviews</h3>
+            <span style={{ color:"#f4b942", fontSize:14 }}>{"★".repeat(Math.round(parseFloat(avg)))}</span>
+            <span style={{ fontSize:14, fontWeight:700, color:C.text }}>{avg}</span>
+            <span style={{ fontSize:12, color:C.textMuted }}>({reviews.length})</span>
+          </div>
+          <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+            {reviews.map(r=>(
+              <div key={r.id} style={{ background:C.surface, borderRadius:10, padding:"12px 14px", boxShadow:`0 1px 6px ${C.shadow}` }}>
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:r.comment?6:0 }}>
+                  <span style={{ color:"#f4b942", fontSize:14 }}>{"★".repeat(r.rating)}{"☆".repeat(5-r.rating)}</span>
+                  <span style={{ fontSize:11, color:C.textMuted }}>{r.created_at?new Date(r.created_at).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"}):"Recent"}</span>
+                </div>
+                {r.comment && <p style={{ fontSize:13, color:C.text, margin:0, lineHeight:1.6 }}>{r.comment}</p>}
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     );
@@ -2129,6 +2172,59 @@ function SellerApp({ user, onSignOut }) {
     );
   };
 
+  // ── SELLER REVIEWS ──
+  const SellerReviews = ({ userId }) => {
+    const [reviews, setReviews] = useState([]);
+    const [loading, setLoading] = useState(true);
+    useEffect(()=>{
+      if (!userId) return;
+      supabase.from("reviews").select("*").eq("seller_id", userId).order("created_at",{ascending:false})
+        .then(({ data })=>{ setReviews(data||[]); setLoading(false); });
+    },[userId]);
+    if (loading||reviews.length===0) return null;
+    const avg = (reviews.reduce((s,r)=>s+r.rating,0)/reviews.length).toFixed(1);
+    return (
+      <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:8, padding:"1.25rem", marginBottom:"1.25rem" }}>
+        <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:12 }}>
+          <p style={{ fontWeight:700, fontSize:14, color:C.text, margin:0 }}>Customer Reviews</p>
+          <span style={{ color:"#f4b942" }}>{"★".repeat(Math.round(parseFloat(avg)))}</span>
+          <span style={{ fontSize:13, fontWeight:700, color:C.text }}>{avg}</span>
+          <span style={{ fontSize:12, color:C.textMuted }}>({reviews.length} review{reviews.length!==1?"s":""})</span>
+        </div>
+        {/* Rating distribution */}
+        <div style={{ marginBottom:14 }}>
+          {[5,4,3,2,1].map(star=>{
+            const count = reviews.filter(r=>r.rating===star).length;
+            const pct = reviews.length>0 ? (count/reviews.length)*100 : 0;
+            return (
+              <div key={star} style={{ display:"flex", alignItems:"center", gap:8, marginBottom:4 }}>
+                <span style={{ fontSize:11, color:C.textMuted, width:10 }}>{star}</span>
+                <span style={{ color:"#f4b942", fontSize:11 }}>★</span>
+                <div style={{ flex:1, height:5, background:C.surfaceHigh, borderRadius:2 }}>
+                  <div style={{ height:5, width:`${pct}%`, background:"#f4b942", borderRadius:2 }}/>
+                </div>
+                <span style={{ fontSize:11, color:C.textMuted, width:20, textAlign:"right" }}>{count}</span>
+              </div>
+            );
+          })}
+        </div>
+        {/* Latest 3 reviews */}
+        <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+          {reviews.slice(0,3).map(r=>(
+            <div key={r.id} style={{ background:C.surfaceHigh, borderRadius:8, padding:"10px 12px" }}>
+              <div style={{ display:"flex", justifyContent:"space-between", marginBottom:r.comment?4:0 }}>
+                <span style={{ color:"#f4b942", fontSize:12 }}>{"★".repeat(r.rating)}{"☆".repeat(5-r.rating)}</span>
+                <span style={{ fontSize:11, color:C.textMuted }}>{r.created_at?new Date(r.created_at).toLocaleDateString("en-US",{month:"short",day:"numeric"}):"Recent"}</span>
+              </div>
+              {r.comment && <p style={{ fontSize:12, color:C.text, margin:0, lineHeight:1.6 }}>{r.comment}</p>}
+            </div>
+          ))}
+          {reviews.length>3 && <p style={{ fontSize:12, color:C.textMuted, margin:"4px 0 0", textAlign:"center" }}>+{reviews.length-3} more review{reviews.length-3!==1?"s":""}</p>}
+        </div>
+      </div>
+    );
+  };
+
   // ── SELLER DASHBOARD ──
   const Dashboard = () => {
     // eslint-disable-next-line no-unused-vars
@@ -2249,6 +2345,9 @@ function SellerApp({ user, onSignOut }) {
             </ResponsiveContainer>
           </div>
         )}
+
+        {/* Seller reviews */}
+        <SellerReviews userId={user.id}/>
 
         {/* Bestsellers by stock movement */}
         {products.length>0 && (
