@@ -4233,6 +4233,7 @@ function SellerApp({ user, onSignOut }) {
           {view==="dashboard"  && <Dashboard/>}
           {view==="storefront" && <Storefront/>}
           {view==="orders"     && <Orders/>}
+          {view==="preorders"  && <SellerPreorders/>}
           {view==="customers"  && <Customers/>}
           {view==="finances"   && <Finances/>}
           {view==="delivery"   && <Delivery/>}
